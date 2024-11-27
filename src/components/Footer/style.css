@@ -1,0 +1,79 @@
+footer {
+  background-color:#e5533f;
+  padding: 80px 0;
+  color: #fff;
+}
+
+footer .box {
+  padding: 0 20px;
+}
+
+footer h1 {
+  margin: 0;
+  font-size: 25px;
+  font-weight: 800;
+  width: max-content;
+}
+
+footer .logo {
+  color: white;
+  display:flex;
+  align-items:center;
+  gap:5px;
+  margin-bottom: 20px;
+}
+footer h2 {
+  font-size: 20px;
+}
+
+footer .row {
+  justify-content: center;
+}
+
+footer p {
+  font-size: 16px;
+  margin-bottom: 20px;
+  opacity: 0.5;
+}
+
+footer h2 {
+  margin-bottom: 20px;
+}
+
+footer ul {
+  padding: 0;
+}
+
+footer li {
+  margin-bottom: 10px;
+  opacity: 0.5;
+}
+
+.social-icons {
+  margin-top: 10px;
+}
+
+.social-icons a {
+  margin-right: 10px;
+  font-size: 24px;
+  color: #333;
+  background-color: #fff; /* Add a white background */
+  padding: 8px; /* Add some padding for circular effect */
+  border-radius: 50%; /* Make the icons round */
+  transition: transform 0.3s ease, background-color 0.3s ease;
+}
+
+.social-icons a:hover {
+  transform: scale(1.1); /* Add a slight zoom effect on hover */
+}
+
+.social-icons a:nth-child(1):hover {
+  background-color: #0077b5; /* LinkedIn blue on hover */
+  color: #fff; /* White icon on hover */
+}
+
+.social-icons a:nth-child(2):hover {
+  background-color: #e4405f; /* Instagram pink on hover */
+  color: #fff; /* White icon on hover */
+}
+

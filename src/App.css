@@ -1,0 +1,71 @@
+/* Global Reset for Layout */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* App Container */
+body {
+  font-family: 'Arial', sans-serif;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh; /* Ensures that content takes full height */
+}
+
+/* Navbar (Taskbar) */
+nav {
+  background-color: #2c3e50;
+  padding: 15px 20px;
+  color: white;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+/* Main Content Area */
+.main-content {
+  flex: 1; /* Ensures that the content section takes the remaining height */
+  padding: 20px;
+  background-color: #f7f7f7;
+}
+
+/* Footer */
+footer {
+  background-color: #2c3e50;
+  color: white;
+  text-align: center;
+  padding: 10px 0;
+  margin-top: auto; /* Ensures footer sticks to the bottom */
+}
+
+/* Loading Spinner Styles */
+.loader {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* Page-specific styling (if needed) */
+.page {
+  margin-bottom: 50px;
+}
+
+/* Make sure forms and buttons are styled consistently */
+input, button {
+  padding: 10px;
+  border-radius: 5px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+}
+
+button {
+  cursor: pointer;
+  background-color: #2c3e50;
+  color: white;
+}
+
+button:hover {
+  background-color: #34495e;
+}
