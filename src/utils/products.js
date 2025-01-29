@@ -52,7 +52,7 @@ export const SliderData = [
   {
     id: 4,
     title: "Luxurious Timepieces with Offers",
-    desc: "Adorn your wrist with elegance. Enjoy special discounts on our premium collection of boxof9es.",
+    desc: "Enjoy special discounts on our collections.",
     cover: boxof9Slide,
   },
 ];
