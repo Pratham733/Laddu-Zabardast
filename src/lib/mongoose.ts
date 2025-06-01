@@ -7,13 +7,17 @@ export const connectToDatabase = async () => {
     throw new Error("MONGODB_URI environment variable is not defined.");
   }
 
-  if (mongoose.connection.readyState >= 1) return;
-  try {    await mongoose.connect(mongoUri, {
-      tls: true, // Use TLS instead of ssl
-      connectTimeoutMS: 30000, // 30 second connection timeout
-      socketTimeoutMS: 30000, // 30 second socket timeout
-      serverSelectionTimeoutMS: 30000, // 30 second server selection timeout
-      heartbeatFrequencyMS: 5000, // Less frequent heartbeats to reduce overhead
+  if (mongoose.connection.readyState >= 1) return;  try {    await mongoose.connect(mongoUri, {
+      tls: true,
+      connectTimeoutMS: 60000, // 60 second connection timeout
+      socketTimeoutMS: 60000, // 60 second socket timeout
+      serverSelectionTimeoutMS: 60000, // 60 second server selection timeout
+      heartbeatFrequencyMS: 10000, // Reduced heartbeat frequency
+      maxPoolSize: 50, // Increased from default
+      minPoolSize: 10, // Increased from default
+      retryWrites: true,
+      retryReads: true,
+      w: 'majority', // Ensure write consistency
       maxPoolSize: 10,
       minPoolSize: 2,
       retryWrites: true,

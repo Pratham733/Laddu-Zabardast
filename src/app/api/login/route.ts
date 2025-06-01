@@ -19,21 +19,43 @@ if (!JWT_SECRET) {
   console.error('CRITICAL: JWT_SECRET environment variable is not defined at startup.');
 }
 
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Max-Age': '86400'
+    }
+  });
+}
+
 export async function POST(request: NextRequest) {
+  // Set CORS headers for the actual request
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Content-Type': 'application/json'
+  };
+
   console.log("[Login API] Request received");
 
   // Apply rate limiting
   try {
     const rateLimit = await rateLimitAuth(request);
     if (!rateLimit.success) {
-      console.warn(`[Login API] Rate limit exceeded for IP ${rateLimit.ip}`);
-      return new NextResponse(
+      console.warn(`[Login API] Rate limit exceeded for IP ${rateLimit.ip}`);      return new NextResponse(
         JSON.stringify({ error: 'Too many login attempts. Please try again later.' }),
         { 
           status: 429, 
           headers: { 
             'Retry-After': rateLimit.retryAfter?.toString() || '60',
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization'
           } 
         }
       );
