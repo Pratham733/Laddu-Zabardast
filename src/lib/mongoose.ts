@@ -8,13 +8,12 @@ export const connectToDatabase = async () => {
   }
 
   if (mongoose.connection.readyState >= 1) return;
-
   try {    await mongoose.connect(mongoUri, {
       tls: true, // Use TLS instead of ssl
-      connectTimeoutMS: 5000, // 5 second connection timeout
-      socketTimeoutMS: 5000, // 5 second socket timeout
-      serverSelectionTimeoutMS: 5000, // 5 second server selection timeout
-      heartbeatFrequencyMS: 2000, // More frequent heartbeats
+      connectTimeoutMS: 30000, // 30 second connection timeout
+      socketTimeoutMS: 30000, // 30 second socket timeout
+      serverSelectionTimeoutMS: 30000, // 30 second server selection timeout
+      heartbeatFrequencyMS: 5000, // Less frequent heartbeats to reduce overhead
       maxPoolSize: 10,
       minPoolSize: 2,
       retryWrites: true,

@@ -277,7 +277,7 @@ export default function SignupPage() {
                     <FormItem>
                       <FormLabel className="flex items-center gap-1"><Lock className="h-4 w-4"/>Password</FormLabel>
                       <FormControl>
-                        <Input type="password" placeholder="Choose a password (min 6 chars)" {...field} disabled={isLoading || isGoogleLoading}/>
+                        <Input type="password" autoComplete="new-password" placeholder="Choose a password (min 6 chars)" {...field} disabled={isLoading || isGoogleLoading}/>
                       </FormControl>
                       <FormMessage />
                     </FormItem>

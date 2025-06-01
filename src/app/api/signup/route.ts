@@ -14,6 +14,18 @@ const signupSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  // Handle preflight requests
+  if (request.method === 'OPTIONS') {
+    return new NextResponse(null, {
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      },
+    });
+  }
+
   // Apply rate limiting
   try {
     const rateLimit = await rateLimitAuth(request);
@@ -42,10 +54,17 @@ export async function POST(request: NextRequest) {
 
     // Validate input
     const validation = signupSchema.safeParse(body);
-    if (!validation.success) {
-      console.error('[Signup API Error] Validation failed:', validation.error.errors);
+    if (!validation.success) {    console.error('[Signup API Error] Validation failed:', validation.error.errors);
       const errorMessages = validation.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
-      return NextResponse.json({ error: `Invalid input: ${errorMessages}` }, { status: 400 });
+      return new NextResponse(
+        JSON.stringify({ error: `Invalid input: ${errorMessages}` }), 
+        { 
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          }
+        });
     }
 
     const { firstName, lastName, email, password } = validation.data;
@@ -114,4 +133,16 @@ export async function POST(request: NextRequest) {
     console.error('[Signup API Error] Unhandled error during signup:', error.message, error.stack);
     return NextResponse.json({ error: 'Internal Server Error. Please check server logs.' }, { status: 500 });
   }
+}
+
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Max-Age': '86400',
+    },
+  });
 }
