@@ -25,10 +25,11 @@
   },
   "include": [
     "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
     ".next/types/**/*.ts",
-    "src/next-auth.d.ts"
+    "src/next-auth.d.ts",
+    "next.config.js"
   ],
   "exclude": ["node_modules"]
 }

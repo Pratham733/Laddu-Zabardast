@@ -2,6 +2,14 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import * as jose from 'jose'; // Import jose for JWT verification
 
+const corsHeaders: Record<string, string> = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Max-Age': '86400',
+  'Content-Type': 'application/json'
+};
+
 // Define the routes that require authentication
 const protectedRoutes = ['/profile', '/orders', '/checkout'];
 
@@ -70,9 +78,8 @@ export async function middleware(request: NextRequest) {
   // Check if the request is to the API
   if (request.nextUrl.pathname.startsWith('/api')) {
     const response = NextResponse.next();
-    
-    // Add CORS headers to API responses
-    Object.entries(corsHeaders).forEach(([key, value]) => {
+      // Add CORS headers to API responses
+    Object.entries(corsHeaders).forEach(([key, value]: [string, string]) => {
       response.headers.set(key, value);
     });
     

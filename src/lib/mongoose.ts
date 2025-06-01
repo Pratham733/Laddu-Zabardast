@@ -5,11 +5,19 @@ export const connectToDatabase = async () => {
   const mongoUri = process.env.MONGODB_URI;  if (!mongoUri) {
     throw new Error("MONGODB_URI environment variable is not defined.");
   }
-
   // Clean and validate MongoDB URI
-  const cleanUri = mongoUri.trim().replace(/^["']|["']$/g, '');
-  if (!cleanUri.startsWith('mongodb://') && !cleanUri.startsWith('mongodb+srv://')) {
-    throw new Error('Invalid MongoDB URI format. Must start with mongodb:// or mongodb+srv://');
+  let cleanUri = mongoUri.trim();
+  // Remove any surrounding quotes and comments
+  cleanUri = cleanUri.replace(/^["']|["']$/g, '').split('#')[0].trim();
+  
+  try {
+    const url = new URL(cleanUri);
+    if (!url.protocol.match(/^mongodb(\+srv)?:$/)) {
+      throw new Error('Invalid protocol');
+    }
+  } catch (error) {
+    console.error('MongoDB URI Parse Error:', error);
+    throw new Error('Invalid MongoDB URI format. Please check your connection string.');
   }
 
   if (mongoose.connection.readyState >= 1) return;
@@ -30,8 +38,6 @@ export const connectToDatabase = async () => {
     // Keep this log for connection status
     console.log("✅ Connected to MongoDB");
   } catch (error) {
-    // Keep this log for connection errors    console.error("❌ Error connecting to MongoDB:", error);
-    throw error; // Re-throw the error to be handled by the API route
+    // Keep this log for connection errors    console.error("❌ Error connecting to MongoDB:", error);    throw error; // Re-throw the error to be handled by the API route
   }
-}
 };
