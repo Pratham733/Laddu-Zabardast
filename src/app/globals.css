@@ -1,26 +1,316 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+body {
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    /* Light Mode - Creamy White, Dark Brown/Black Text, Saffron/Orange Accent */
+    --background: 40 33% 95%; /* Creamy White */
+    --foreground: 25 35% 18%; /* Dark Brown for text */
+    --card: 40 33% 97%; /* Slightly off-white */
+    --card-foreground: 25 35% 18%;
+    --popover: 40 33% 97%;
+    --popover-foreground: 25 35% 18%;
+    --primary: 35 85% 55%; /* Saffron/Orange - Brighter for primary actions/links */
+    --primary-foreground: 0 0% 100%; /* White text on primary */
+    --secondary: 40 20% 90%; /* Lighter Cream/Gray */
+    --secondary-foreground: 25 35% 30%; /* Darker brown/gray for secondary text */
+    --muted: 40 20% 85%; /* Slightly darker muted tone */
+    --muted-foreground: 38 10% 45%; /* Muted Gray/Brown */
+    --accent: 30 100% 60%; /* Saffron/Orange - Keeping this distinct for highlights if needed */
+    --accent-foreground: 25 35% 10%; /* Dark text on accent */
+    --destructive: 0 84.2% 60.2%; /* Default Red */
+    --destructive-foreground: 0 0% 98%; /* Light */
+    --border: 38 20% 75%; /* Earthy border color */
+    --input: 38 20% 80%; /* Lighter input background */
+    --ring: 35 85% 55%; /* Primary Saffron/Orange for focus rings */
+    --chart-1: 35 85% 55%; /* Saffron/Orange */
+    --chart-2: 30 100% 60%; /* Slightly different Orange */
+    --chart-3: 38 29% 65%; /* Lighter Earthy Brown */
+    --chart-4: 40 50% 70%; /* Tan */
+    --chart-5: 25 80% 55%; /* Orangey-Saffron */
+    --radius: 0.2rem; /* Reduced border radius */
+    --sidebar-background: 40 33% 92%;
+    --sidebar-foreground: 25 35% 18%;
+    --sidebar-primary: 35 85% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 30 100% 60%;
+    --sidebar-accent-foreground: 25 35% 10%;
+    --sidebar-border: 38 20% 75%;
+    --sidebar-ring: 35 85% 55%;
+  }
+
+  .dark {
+    /* Dark Mode - Dark Gray/Black, White Text, Saffron/Orange Accent */
+    --background: 0 0% 3.9%; /* Near Black */
+    --foreground: 0 0% 98%; /* White/Light Gray text */
+    --card: 0 0% 5%; /* Slightly lighter black for cards */
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 35 85% 60%; /* Saffron/Orange - Slightly brighter in dark mode */
+    --primary-foreground: 25 35% 10%; /* Dark text on primary */
+    --secondary: 0 0% 14.9%; /* Dark Gray */
+    --secondary-foreground: 0 0% 80%; /* Lighter gray for secondary text */
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%; /* Mid Gray */
+    --accent: 30 100% 65%; /* Saffron/Orange - Brighter accent */
+    --accent-foreground: 25 35% 10%; /* Dark text on accent */
+    --destructive: 0 62.8% 50.6%; /* Darker Red */
+    --destructive-foreground: 0 0% 98%; /* Light */
+    --border: 0 0% 14.9%; /* Dark Gray border */
+    --input: 0 0% 14.9%;
+    --ring: 35 85% 60%; /* Primary Saffron/Orange for focus rings */
+    --chart-1: 35 85% 60%; /* Saffron/Orange */
+    --chart-2: 30 100% 65%; /* Slightly different Orange */
+    --chart-3: 38 29% 55%; /* Muted Earthy Brown */
+    --chart-4: 40 50% 60%; /* Muted Tan */
+    --chart-5: 25 80% 50%; /* Muted Orangey-Saffron */
+    --radius: 0.2rem; /* Ensure dark mode radius matches */
+    --sidebar-background: 0 0% 5%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 35 85% 60%;
+    --sidebar-primary-foreground: 25 35% 10%;
+    --sidebar-accent: 30 100% 65%;
+    --sidebar-accent-foreground: 25 35% 10%;
+    --sidebar-border: 0 0% 14.9%;
+    --sidebar-ring: 35 85% 60%;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Keyframes for pulsing glow with color change */
+@keyframes pulse-glow {
+  0% {
+    filter: drop-shadow(0 0 8px hsl(var(--primary) / 0.8)); /* Orange start */
+  }
+  25% {
+    filter: drop-shadow(0 0 14px hsl(0 0% 100% / 0.9)); /* White glow */
+  }
+  50% {
+    filter: drop-shadow(0 0 8px hsl(0 0% 0% / 0.8)); /* Black glow */
+  }
+  75% {
+    filter: drop-shadow(0 0 14px hsl(270 80% 60% / 0.9)); /* Purple glow */
+  }
+  100% {
+    filter: drop-shadow(0 0 8px hsl(var(--primary) / 0.8)); /* Orange end */
+  }
+}
+
+
+/* Utility class for applying the glow animation */
+.animate-pulse-glow {
+  /* Increased duration for slower color transition */
+  animation: pulse-glow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Update gradient text utility to use primary/accent colors */
+@layer utilities {
+  .text-gradient {
+    /* Using a gradient derived from primary/accent */
+    @apply bg-gradient-to-r from-primary via-accent to-pink-500 bg-clip-text text-transparent;
+     /* Fallback color if gradient not supported */
+    @apply text-primary;
+  }
+  .dark .text-gradient {
+    /* Ensure contrast in dark mode, maybe slightly lighter/brighter */
+    @apply bg-gradient-to-r from-primary via-accent to-pink-400 bg-clip-text text-transparent;
+     /* Fallback color if gradient not supported */
+    @apply text-primary;
+  }
+}
+
+/* Remove gradient button utility as it's handled in buttonVariants */
+/*
+@layer components {
+  .button-gradient {
+    @apply bg-gradient-to-r from-primary via-accent to-pink-500 text-primary-foreground shadow-md hover:opacity-90 transition-opacity;
+  }
+  .dark .button-gradient {
+      @apply bg-gradient-to-r from-primary via-accent to-pink-400 text-primary-foreground shadow-md hover:opacity-90 transition-opacity;
+  }
+}
+*/
+/* @keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-shimmer {
+  background-size: 200% auto;
+  animation: shimmer 3s linear infinite;
+}
+
+.drop-shadow-glow-sm {
+  text-shadow: 0 0 4px rgba(0, 21, 255, 0.751);
+} */
+
+
+@keyframes soft-glow {
+  0% {
+    text-shadow: 0 0 4px rgba(255, 255, 255, 0.4), 0 0 10px rgba(255, 165, 0, 0.2);
+  }
+  50% {
+    text-shadow: 0 0 6px rgba(255, 255, 255, 0.6), 0 0 14px rgba(255, 165, 0, 0.4);
+  }
+  100% {
+    text-shadow: 0 0 4px rgba(5, 10, 141, 0.4), 0 0 10px rgba(255, 165, 0, 0.2);
+  }
+}
+
+.animate-soft-glow {
+  animation: soft-glow 3s ease-in-out infinite;
+}
+
+@keyframes slow-glow {
+  0%, 100% { box-shadow: 0 0 8px 2px #fbbf24, 0 0 16px 4px #f59e42; }
+  50% { box-shadow: 0 0 24px 8px #fbbf24, 0 0 32px 12px #f59e42; }
+}
+.animate-slow-glow {
+  animation: slow-glow 2.5s infinite;
+}
+
+@keyframes meteor {
+  0% { opacity: 0; transform: translateY(0) scaleX(1); }
+  10% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(600px) scaleX(0.7); }
+}
+.animate-meteor {
+  animation: meteor linear forwards;
+}
+
+@keyframes meteor-diag {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scaleX(1);
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx, 0), var(--dy, 600px)) scaleX(0.7);
+  }
+}
+.animate-meteor-diag {
+  animation: meteor-diag linear infinite;
+}
+
+
+@theme inline {
+  --animate-aurora: aurora 8s ease-in-out infinite alternate;
+ 
+  @keyframes aurora {
+    0% {
+      background-position: 0% 50%;
+      transform: rotate(-5deg) scale(0.9);
+    }
+    25% {
+      background-position: 50% 100%;
+      transform: rotate(5deg) scale(1.1);
+    }
+    50% {
+      background-position: 100% 50%;
+      transform: rotate(-3deg) scale(0.95);
+    }
+    75% {
+      background-position: 50% 0%;
+      transform: rotate(3deg) scale(1.05);
+    }
+    100% {
+      background-position: 0% 50%;
+      transform: rotate(-5deg) scale(0.9);
+    }
+  }
+  --animate-shimmer-slide: shimmer-slide var(--speed) ease-in-out infinite
+    alternate;
+  --animate-spin-around: spin-around calc(var(--speed) * 2) infinite linear;
+ 
+  @keyframes shimmer-slide {
+    to {
+      transform: translate(calc(100cqw - 100%), 0);
+    }
+  }
+  @keyframes spin-around {
+    0% {
+      transform: translateZ(0) rotate(0);
+    }
+    15%,
+    35% {
+      transform: translateZ(0) rotate(90deg);
+    }
+    65%,
+    85% {
+      transform: translateZ(0) rotate(270deg);
+    }
+    100% {
+      transform: translateZ(0) rotate(360deg);
+    }
+  }
+}
+
+/* Lamp animations */
+@keyframes float {
+  0%, 100% { transform: translateY(-10px); }
+  50% { transform: translateY(0); }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes glow {
+  0%, 100% { filter: drop-shadow(0 0 8px rgba(255, 231, 102, 0.8)); }
+  50% { filter: drop-shadow(0 0 12px rgba(255, 231, 102, 0.9)); }
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+.light-beam {
+  filter: blur(4px);
+}
+
+/* For -rotate-15 and rotate-15 transforms */
+.rotate-15 {
+  transform: rotate(15deg);
+}
+
+.-rotate-15 {
+  transform: rotate(-15deg);
+}
+
+.select-trigger, .select-value, .select-item {
+  display: flex;
+  align-items: center;
+  min-height: 3rem; /* 48px, matches h-12 */
+  padding-left: 1rem;
+  padding-right: 1rem;
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+
+/* If using Tailwind, you can also add these as @apply utilities in a @layer utilities block: */
+@layer utilities {
+  .select-trigger, .select-value, .select-item {
+    @apply flex items-center min-h-12 px-4 text-base;
+  }
 }

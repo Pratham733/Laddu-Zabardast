@@ -1,0 +1,45 @@
+{
+  "version": 2,
+  "framework": "nextjs",  "env": {
+    "MONGODB_URI": "${MONGODB_URI}",
+    "MONGODB_DB_NAME": "${MONGODB_DB_NAME}",
+    "JWT_SECRET": "${JWT_SECRET}",
+    "NEXT_PUBLIC_BASE_URL": "${NEXT_PUBLIC_BASE_URL}",
+    "RATE_LIMIT_WINDOW": "${RATE_LIMIT_WINDOW}",
+    "RATE_LIMIT_MAX_REQUESTS": "${RATE_LIMIT_MAX_REQUESTS}",
+    "EMAIL_USER": "${EMAIL_USER}",
+    "EMAIL_PASS": "${EMAIL_PASS}",
+    "ADMIN_EMAIL": "${ADMIN_EMAIL}",
+    "ADMIN_WHATSAPP": "${ADMIN_WHATSAPP}",
+    "TWILIO_ACCOUNT_SID": "${TWILIO_ACCOUNT_SID}",
+    "TWILIO_AUTH_TOKEN": "${TWILIO_AUTH_TOKEN}",
+    "TWILIO_WHATSAPP_NUMBER": "${TWILIO_WHATSAPP_NUMBER}",    "NEXTAUTH_SECRET": "${NEXTAUTH_SECRET}",
+    "NEXTAUTH_URL": "https://laddu-zabardast.vercel.app"
+  },
+  "github": {
+    "silent": true
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
+      ]
+    }
+  ]
+}
