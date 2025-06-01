@@ -5,7 +5,11 @@ if (!process.env.MONGODB_URI) {
   throw new Error('Please add your MONGODB_URI to your environment variables');
 }
 
-const uri = process.env.MONGODB_URI;
+const uri = process.env.MONGODB_URI?.trim().replace(/^["']|["']$/g, '');
+if (!uri?.startsWith('mongodb://') && !uri?.startsWith('mongodb+srv://')) {
+  throw new Error('Invalid MongoDB URI format. Must start with mongodb:// or mongodb+srv://');
+}
+
 const options: MongoClientOptions = {
   maxPoolSize: 10,
   minPoolSize: 2,

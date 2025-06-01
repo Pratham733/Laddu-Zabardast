@@ -1,6 +1,9 @@
 {
   "version": 2,
-  "framework": "nextjs",  "env": {
+  "framework": "nextjs",
+  "buildCommand": "next build",
+  "installCommand": "npm install",
+  "env": {
     "MONGODB_URI": "${MONGODB_URI}",
     "MONGODB_DB_NAME": "${MONGODB_DB_NAME}",
     "JWT_SECRET": "${JWT_SECRET}",
