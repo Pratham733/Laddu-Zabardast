@@ -1,3 +1,4 @@
+//src/app/api/signup/route.ts
 import { NextResponse, NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';

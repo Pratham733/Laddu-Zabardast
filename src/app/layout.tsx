@@ -25,11 +25,15 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
-// No need for metadata export in a client component
-// export const metadata: Metadata = {
-//   title: 'LADDU ZABARDAST', // Updated website name
-//   description: 'Authentic Indian Sweets & Pickles',
-// };
+// Add metadata configuration
+export const metadata = {
+  title: 'LADDU ZABARDAST',
+  description: 'Authentic Indian Sweets & Pickles',
+  icons: {
+    icon: '/images/logo.png',
+    apple: '/images/logo.png',
+  },
+};
 
 // Page transition variants - Smoother, less dramatic movement
 const pageVariants = {
