@@ -1,19 +1,17 @@
-"use client"; // Add "use client" for framer-motion
-
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { Navbar } from '@/components/layout/navbar';
 import { Footer } from '@/components/layout/footer';
-import { Toaster } from "@/components/ui/toaster"; // Import Toaster
-import { CartProvider } from '@/context/cart-context'; // Import CartProvider
-import { ThemeProvider } from '@/context/theme-provider'; // Import ThemeProvider
-import { WishlistProvider } from '@/context/wishlist-context'; // Import WishlistProvider
-import { AuthProvider } from '@/context/auth-context'; // Import AuthProvider
-import { motion, AnimatePresence } from 'framer-motion'; // Import motion and AnimatePresence
-import { usePathname } from 'next/navigation'; // Import usePathname
-import { BackgroundLaddu } from '@/components/animations/BackgroundLaddu'; // Import the new component
-import { useAuth } from '@/context/auth-context'; // Import useAuth
+import { Toaster } from "@/components/ui/toaster";
+import { CartProvider } from '@/context/cart-context';
+import { ThemeProvider } from '@/context/theme-provider';
+import { WishlistProvider } from '@/context/wishlist-context';
+import { AuthProvider } from '@/context/auth-context';
+import { motion, AnimatePresence } from 'framer-motion';
+import { usePathname } from 'next/navigation';
+import { BackgroundLaddu } from '@/components/animations/BackgroundLaddu';
+import { useAuth } from '@/context/auth-context';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
