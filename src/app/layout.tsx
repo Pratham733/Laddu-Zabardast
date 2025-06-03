@@ -25,15 +25,10 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
-// Add metadata configuration
-export const metadata = {
-  title: 'LADDU ZABARDAST',
-  description: 'Authentic Indian Sweets & Pickles',
-  icons: {
-    icon: '/images/logo.png',
-    apple: '/images/logo.png',
-  },
-};
+// export const metadata: Metadata = {
+//   title: 'LADDU ZABARDAST', // Updated website name
+//   description: 'Authentic Indian Sweets & Pickles',
+// };
 
 // Page transition variants - Smoother, less dramatic movement
 const pageVariants = {

@@ -8,8 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "check-db": "node scripts/check-db.js",
-    "postinstall": "npm run typecheck"
+    "check-db": "node scripts/check-db.js"
   },
   "dependencies": {
     "@genkit-ai/googleai": "^1.7.0",

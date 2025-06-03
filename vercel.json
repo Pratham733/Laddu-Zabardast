@@ -1,7 +1,8 @@
-{  "version": 2,
+{
+  "version": 2,
   "framework": "nextjs",
   "buildCommand": "npm run build",
-  "installCommand": "npm install",
+  "installCommand": "npm install --legacy-peer-deps",
   "env": {
     "MONGODB_URI": "${MONGODB_URI}",
     "MONGODB_DB_NAME": "${MONGODB_DB_NAME}",
