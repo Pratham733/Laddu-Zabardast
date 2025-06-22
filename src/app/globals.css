@@ -314,3 +314,121 @@ body {
     @apply flex items-center min-h-12 px-4 text-base;
   }
 }
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out forwards;
+}
+
+/* Add a subtle hover effect for interactive elements */
+.hover-scale {
+  transition: transform 0.2s ease-out;
+}
+
+.hover-scale:hover {
+  transform: scale(1.02);
+}
+
+/* Gradient text */
+.text-gradient {
+  background: linear-gradient(to right, var(--primary) 0%, #9333ea 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Card hover effects */
+.search-card {
+  transition: all 0.3s ease;
+}
+
+.search-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.1);
+}
+
+/* Product Card Styles */
+.product-grid {
+  container-type: inline-size;
+  container-name: product-grid;
+}
+
+.product-grid > div {
+  width: 100%;
+  max-width: 320px;
+  margin: 0 auto;
+  height: fit-content;
+}
+
+@container product-grid (min-width: 640px) {
+  .product-grid > div {
+    max-width: none;
+  }
+}
+
+/* Hover Effects */
+.hover-lift {
+  transform: translateY(0);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.1);
+}
+
+/* Product Grid Transitions */
+.product-grid {
+  transition: opacity 0.3s ease-out;
+}
+
+.product-grid.sorting {
+  opacity: 0.8;
+}
+
+/* Animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Filter animations */
+.filter-group {
+  animation: slideIn 0.3s ease-out forwards;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
