@@ -25,21 +25,6 @@ This is a NextJS starter app for Ladoo Zabardast, an online store for Indian swe
 2.  **Environment Setup**:
     *   Create a `.env.local` file in your project root and add your environment variables:
 
-        ```env
-        # MongoDB Configuration
-        MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/dbname?retryWrites=true&w=majority
-        MONGODB_DB_NAME=ladoo_zabardast_db
-
-        # JWT Configuration
-        JWT_SECRET=your_secure_jwt_secret_min_32_chars
-
-        # Google OAuth (Optional)
-        GOOGLE_CLIENT_ID=your_google_client_id
-        GOOGLE_CLIENT_SECRET=your_google_client_secret
-
-        # Optional: If using Genkit features
-        # GOOGLE_GENAI_API_KEY="YOUR_GOOGLE_GENAI_API_KEY"
-        ```
 
 3.  **Run the Development Server**:
     ```bash
