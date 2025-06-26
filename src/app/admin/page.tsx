@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -35,6 +35,14 @@ interface Order {
   paymentMethod: 'cod' | 'card' | 'upi' | 'cash';
 }
 
+interface ProductFormState {
+  name: string;
+  price: string;
+  category: string;
+  description: string;
+  imageUrl: string;
+}
+
 export default function AdminPage() {
   const { token } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
@@ -43,12 +51,18 @@ export default function AdminPage() {
   const [productImageUrl, setProductImageUrl] = useState("");
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [editForm, setEditForm] = useState({ name: '', price: '', category: '', description: '', imageUrl: '' });
+  const [editForm, setEditForm] = useState<ProductFormState>({
+    name: '',
+    price: '',
+    category: '',
+    description: '',
+    imageUrl: ''
+  });
   const [category, setCategory] = useState<'laddu' | 'pickle' | 'all'>('laddu');
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
@@ -95,76 +109,117 @@ export default function AdminPage() {
     fetchProducts();
   }, [isSubmittingProduct]);
 
-  const handleProductImageChange = async (event: React.ChangeEvent<HTMLInputElement> | DragEvent) => {
-    let file: File | undefined;
-    if ('dataTransfer' in event) {
-      file = event.dataTransfer?.files?.[0];
-    } else {
-      file = event.target.files?.[0];
-    }
-    if (!file) return;
-    setIsUploadingImage(true);
-    setUploadProgress(0);
-    const formData = new FormData();
-    formData.append("file", file);
-    try {
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", "/api/upload-product-image");
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) {
-          setUploadProgress(Math.round((e.loaded / e.total) * 100));
-        }
-      };
-      xhr.onload = () => {
-        setIsUploadingImage(false);
-        if (xhr.status === 200) {
-          const data = JSON.parse(xhr.responseText);
-          setProductImageUrl(data.url);
-          toast({ title: "Image Uploaded", description: "Product image uploaded successfully." });
-        } else {
-          toast({ title: "Image Upload Failed", description: xhr.responseText, variant: "destructive" });
-        }
-      };
-      xhr.onerror = () => {
-        setIsUploadingImage(false);
-        toast({ title: "Image Upload Failed", description: "Network error", variant: "destructive" });
-      };
-      xhr.send(formData);
-    } catch (err: any) {
-      setIsUploadingImage(false);
-      toast({ title: "Image Upload Failed", description: err.message, variant: "destructive" });
-    }
-  };
+  // File upload section component
+  interface FileUploadSectionProps {
+    fileInputRef: React.RefObject<HTMLInputElement>;
+    dragActive: boolean;
+    setDragActive: (active: boolean) => void;
+    isUploadingImage: boolean;
+    uploadProgress: number;
+    productImageUrl: string;
+    handleFileUpload: (file: File) => Promise<void>;
+  }
 
-  // Drag and drop handlers
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setDragActive(true);
-  };
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setDragActive(false);
-  };
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setDragActive(false);
-    handleProductImageChange(e.nativeEvent);
+  const FileUploadSection: React.FC<FileUploadSectionProps> = ({
+    fileInputRef,
+    dragActive,
+    setDragActive,
+    isUploadingImage,
+    uploadProgress,
+    productImageUrl,
+    handleFileUpload
+  }) => {
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDragActive(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDragActive(false);
+    };
+
+    const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDragActive(false);
+      const file = e.dataTransfer?.files?.[0];
+      if (file) {
+        handleFileUpload(file);
+      }
+    };
+
+    const handleProductImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        handleFileUpload(file);
+      }
+    };
+
+    return (
+      <div
+        className={`relative border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center transition-colors duration-200 ${
+          dragActive ? 'border-primary bg-primary/10' : 'border-muted bg-muted/30'
+        } ${isUploadingImage ? 'opacity-60 pointer-events-none' : ''}`}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        style={{ cursor: isUploadingImage ? 'not-allowed' : 'pointer' }}
+        onClick={() => !isUploadingImage && fileInputRef.current?.click()}
+      >      {productImageUrl && productImageUrl.trim() ? (
+        <img 
+          src={productImageUrl.trim()} 
+          alt="Product Preview" 
+          className="h-32 rounded border-2 border-primary/40 mb-2 shadow-lg transition-transform hover:scale-105" 
+        />
+      ) : (
+        <>
+          <ImageIcon className="h-10 w-10 text-primary mb-2 animate-bounce" />
+          <span className="text-sm text-muted-foreground">Drag & drop or click to upload</span>
+        </>
+      )}      <input
+        type="file"
+        id="product-image"
+        name="file"
+        accept="image/*"
+        ref={fileInputRef}
+        style={{ display: 'none' }}
+        onChange={handleProductImageChange}
+        disabled={isUploadingImage}
+        multiple={false}
+      />
+        {isUploadingImage && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/70 dark:bg-black/70 rounded-lg">
+            <span className="text-primary font-semibold">Uploading...</span>
+            <div className="w-32 h-2 bg-muted rounded mt-2 overflow-hidden">
+              <div 
+                className="h-2 bg-primary rounded transition-all" 
+                style={{ width: `${uploadProgress}%` }} 
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   const handleAddProduct = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmittingProduct(true);
-    const form = event.currentTarget;
-    const formData = new FormData(form);
-    const product = {
-      name: formData.get("name") as string,
-      price: parseFloat(formData.get("price") as string),
-      category: formData.get("category") as string,
-      description: formData.get("description") as string,
-      imageUrl: productImageUrl, // Use uploaded image URL
-    };
 
     try {
+      const form = event.currentTarget;
+      const formData = new FormData(form);
+      const product = {
+        name: formData.get("name") as string,
+        price: parseFloat(formData.get("price") as string),
+        category: formData.get("category") as string,
+        description: formData.get("description") as string,
+        imageUrl: productImageUrl, // Use the already uploaded image URL
+      };
+
       const response = await fetch("/api/add-product", {
         method: "POST",
         headers: {
@@ -182,9 +237,12 @@ export default function AdminPage() {
         title: "Product Added",
         description: `${product.name} has been successfully added.`,
       });
-      form.reset(); // Reset form fields
+
+      // Reset form and state
+      form.reset();
       setProductImageUrl("");
       if (fileInputRef.current) fileInputRef.current.value = "";
+
     } catch (error: any) {
       console.error("Error adding product:", error);
       toast({
@@ -261,6 +319,89 @@ export default function AdminPage() {
       });
     }
   };
+
+  const handleFileUpload = useCallback(async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast({ 
+        title: "Error", 
+        description: "Please upload an image file", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    const MAX_SIZE = 5 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      toast({ 
+        title: "Error", 
+        description: "File size must be less than 5MB", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    setIsUploadingImage(true);
+    setUploadProgress(0);    try {
+      // Create the form data
+      const formData = new FormData();
+      formData.append('file', file);
+
+      // Log the file details
+      console.log('File details:', {
+        name: file.name,
+        type: file.type,
+        size: file.size
+      });
+
+      // Make the request
+      const response = await fetch('/api/upload-product-image', {
+        method: 'POST',
+        body: formData,
+        // Do not set any headers - let the browser handle it
+      });
+
+      // Log response details
+      console.log('Upload response:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Upload error response:', errorText);
+        try {
+          const errorData = JSON.parse(errorText);
+          throw new Error(errorData.error || `Upload failed with status ${response.status}`);
+        } catch (e) {
+          throw new Error(`Upload failed: ${errorText || response.statusText}`);
+        }
+      }
+
+      const data = await response.json();
+      console.log('Upload success response:', data);
+      
+      setProductImageUrl(data.url);
+      toast({ 
+        title: "Success", 
+        description: "Image uploaded successfully" 
+      });
+
+    } catch (err) {
+      console.error('Upload error:', err);
+      toast({ 
+        title: "Upload Failed", 
+        description: err instanceof Error ? err.message : "An unexpected error occurred", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsUploadingImage(false);
+      setUploadProgress(0);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  }, []);
 
   return (
     <div className="container mx-auto px-2 sm:px-4 py-6 md:px-6 md:py-12">
@@ -457,7 +598,7 @@ export default function AdminPage() {
             <CardDescription className="text-xs sm:text-base text-muted-foreground">Fill in the details to add a new product to the store.</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleAddProduct} className="space-y-4 sm:space-y-6">
+            <form encType="multipart/form-data" onSubmit={handleAddProduct} className="space-y-4 sm:space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                 <div>
                   <Label htmlFor="name" className="flex items-center gap-1 mb-1 font-semibold text-primary">
@@ -520,52 +661,23 @@ export default function AdminPage() {
                 <Label htmlFor="product-image" className="flex items-center gap-1 mb-1 font-semibold text-primary">
                   <ImageIcon className="h-4 w-4" /> Product Image
                 </Label>
-                <div
-                  className={`relative border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center transition-colors duration-200 ${dragActive ? 'border-primary bg-primary/10' : 'border-muted bg-muted/30'} ${isUploadingImage ? 'opacity-60 pointer-events-none' : ''}`}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  style={{ cursor: isUploadingImage ? 'not-allowed' : 'pointer' }}
-                  tabIndex={0}
-                  onClick={() => !isUploadingImage && fileInputRef.current?.click()}
-                  onKeyDown={e => { if (e.key === 'Enter' && !isUploadingImage) fileInputRef.current?.click(); }}
-                  aria-label="Upload product image"
-                >
-                  {productImageUrl ? (
-                    <img src={productImageUrl} alt="Product Preview" className="h-32 rounded border-2 border-primary/40 mb-2 shadow-lg transition-transform hover:scale-105" />
-                  ) : (
-                    <>
-                      <ImageIcon className="h-10 w-10 text-primary mb-2 animate-bounce" />
-                      <span className="text-sm text-muted-foreground">Drag & drop or click to upload</span>
-                    </>
-                  )}
-                  <Input
-                    type="file"
-                    id="product-image"
-                    name="product-image"
-                    accept="image/*"
-                    ref={fileInputRef}
-                    onChange={handleProductImageChange}
-                    disabled={isUploadingImage || isSubmittingProduct}
-                    className="absolute inset-0 opacity-0 cursor-pointer"
-                    tabIndex={-1}
-                  />
-                  {isUploadingImage && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/70 rounded-lg">
-                      <span className="text-primary font-semibold">Uploading...</span>
-                      <div className="w-32 h-2 bg-muted rounded mt-2 overflow-hidden">
-                        <div className="h-2 bg-primary rounded transition-all" style={{ width: `${uploadProgress}%` }} />
-                      </div>
-                    </div>
-                  )}
-                </div>
-                {productImageUrl && (
-                  <p className="text-xs text-muted-foreground mt-2">Image will be used for this product. Click image to change.</p>
-                )}
+                <FileUploadSection
+                  fileInputRef={fileInputRef}
+                  dragActive={dragActive}
+                  setDragActive={setDragActive}
+                  isUploadingImage={isUploadingImage}
+                  uploadProgress={uploadProgress}
+                  productImageUrl={productImageUrl}
+                  handleFileUpload={handleFileUpload}
+                />
               </div>
-              <InteractiveHoverButton type="submit" className="w-full shadow-lg hover:scale-[1.03] transition-transform duration-200 bg-orange-600 text-white disabled:opacity-60" disabled={isSubmittingProduct || isUploadingImage || !productImageUrl}>
-                {isSubmittingProduct ? <span className="flex items-center gap-2"><Loader2 className="animate-spin h-5 w-5" /> Adding...</span> : <span className="font-bold tracking-wide">Add Product</span>}
-              </InteractiveHoverButton>
+              <Button 
+                type="submit" 
+                disabled={isSubmittingProduct || isUploadingImage} 
+                className="w-full"
+              >
+                {isSubmittingProduct ? 'Adding Product...' : 'Add Product'}
+              </Button>
             </form>
           </CardContent>
         </Card>
@@ -599,7 +711,17 @@ export default function AdminPage() {
                     >{/*No whitespace*/}
                       <TableCell className="flex justify-center items-center">
                         <div className="w-14 h-14 rounded-lg overflow-hidden border-2 border-primary/30 shadow-md bg-muted animate-fade-in">
-                          <img src={prod.imageUrl} alt={prod.name} className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-110" />
+                          {prod.imageUrl ? (
+                            <img 
+                              src={prod.imageUrl} 
+                              alt={prod.name} 
+                              className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-110"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-muted">
+                              <ImageIcon className="w-6 h-6 text-muted-foreground" />
+                            </div>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="font-semibold text-primary/90 dark:text-white text-black">{prod.name}</TableCell>

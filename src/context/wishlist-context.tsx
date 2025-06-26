@@ -28,35 +28,36 @@ export const WishlistProvider = ({ children }: WishlistProviderProps): JSX.Eleme
 
   // Helper to load wishlist - memoized with stable dependencies
   const loadWishlist = useCallback(async () => {
-    if (typeof window === 'undefined') return;
-
-    setIsInitialised(false);
-
     if (!user?.userId || !token) {
-      try {
-        const saved = localStorage.getItem('ladooExpressWishlist');
-        setWishlist(saved ? JSON.parse(saved) : []);
-      } catch (err) {
-        console.error('[WishlistContext] Error loading from localStorage:', err);
-        setWishlist([]);
-      }
+      console.log('[WishlistContext] No user or token available');
+      setWishlist([]);
       setIsInitialised(true);
       return;
     }
 
     try {
-      const res = await fetch(`/api/wishlist/${user.userId}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const response = await fetch(`/api/wishlist/${user.userId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
-      
-      if (!res.ok) {
-        throw new Error(`Failed to fetch wishlist: ${res.status}`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch wishlist: ${response.status}`);
       }
-      
-      const data = await res.json();
-      setWishlist(data.items || []);
-    } catch (err) {
-      console.error('[WishlistContext] Error fetching wishlist:', err);
+
+      const text = await response.text();
+      try {
+        const data = JSON.parse(text);
+        setWishlist(data.wishlist || []);
+      } catch (parseError) {
+        console.error('[WishlistContext] Invalid JSON response:', text);
+        console.error('[WishlistContext] Parse error:', parseError);
+        setWishlist([]);
+      }
+    } catch (error) {
+      console.error('[WishlistContext] Error fetching wishlist:', error);
       setWishlist([]);
     } finally {
       setIsInitialised(true);

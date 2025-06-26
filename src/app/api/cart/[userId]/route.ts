@@ -34,13 +34,13 @@ interface MongoProduct extends Document {
   available?: boolean;
 }
 
-export async function GET(req: NextRequest, { params }: RouteParams<CartParams>) {
+export async function GET(req: NextRequest, context: RouteParams<CartParams>) {
   try {
     await connectToDatabase();
     
-    // Await params and validate userId
-    const { userId } = params;
-    const validatedUserId = await userId;
+    // Get and validate userId from params
+    const params = await context.params;
+    const validatedUserId = params.userId;
 
     if (!validatedUserId || validatedUserId.trim() === '') {
       return NextResponse.json({ error: "User ID is required" }, { status: 400 });
@@ -97,13 +97,13 @@ export async function GET(req: NextRequest, { params }: RouteParams<CartParams>)
   }
 }
 
-export async function PUT(req: NextRequest, { params }: RouteParams<CartParams>) {
+export async function PUT(req: NextRequest, context: RouteParams<CartParams>) {
   try {
     await connectToDatabase();
-
-    // Await params and validate userId
-    const { userId } = params;
-    const validatedUserId = await userId;
+    
+    // Get and validate userId from params
+    const params = await context.params;
+    const validatedUserId = params.userId;
 
     if (!validatedUserId || validatedUserId.trim() === '') {
       return NextResponse.json({ error: "User ID is required and must be valid" }, { status: 400 });

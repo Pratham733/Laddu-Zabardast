@@ -1,18 +1,29 @@
 //src/middleware.ts
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import * as jose from 'jose'; // Import jose for JWT verification
+import * as jose from 'jose';
 
 const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Max-Age': '86400',
-  'Content-Type': 'application/json'
+  'Access-Control-Max-Age': '86400'
+  // Removed 'Content-Type': 'application/json' to allow correct Content-Type for uploads
 };
 
 // Define the routes that require authentication
-const protectedRoutes = ['/profile', '/orders', '/checkout'];
+const protectedRoutes = [
+  '/profile', 
+  '/orders', 
+  '/checkout',
+  '/wishlist'
+];
+
+const protectedApiRoutes = [
+  '/api/wishlist',
+  '/api/orders',
+  '/api/upload-product-image'
+];
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -24,49 +35,25 @@ if (!JWT_SECRET) {
 // Encode the secret once here since it won't change
 const secret = new TextEncoder().encode(JWT_SECRET);
 
+function getAuthToken(request: NextRequest): string | null {
+  return request.cookies.get('authToken')?.value || 
+         request.cookies.get('next-auth.session-token')?.value ||
+         request.headers.get('Authorization')?.replace('Bearer ', '') ||
+         null;
+}
+
 async function verifyToken(token: string): Promise<boolean> {
   try {
     await jose.jwtVerify(token, secret);
-    return true; // Token is valid
+    return true;
   } catch (error) {
-    console.error('JWT Verification failed:', error);
-    return false; // Token is invalid or expired
+    console.error('Token verification failed:', error);
+    return false;
   }
 }
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-
-  // Check for the 'authToken' cookie
-  const authToken = request.cookies.get('authToken')?.value;
-
-  // Check if the route is protected
-  if (protectedRoutes.some(route => pathname.startsWith(route))) {
-    if (!authToken) {
-      // No token found, redirect to login with redirect param
-      const loginUrl = new URL('/login', request.url);
-      loginUrl.searchParams.set('redirect', pathname);
-      console.log(`Middleware: No auth token found for protected route ${pathname}. Redirecting to login.`);
-      return NextResponse.redirect(loginUrl);
-    }
-
-    // Verify the JWT token
-    const isTokenValid = await verifyToken(authToken);
-
-    if (!isTokenValid) {
-      // Token is invalid or expired, redirect to login and delete cookie
-      const loginUrl = new URL('/login', request.url);
-      loginUrl.searchParams.set('redirect', pathname);
-      console.log(`Middleware: Invalid or expired token for protected route ${pathname}. Redirecting to login.`);
-      
-      const response = NextResponse.redirect(loginUrl);
-      response.cookies.delete('authToken');
-      return response;
-    }
-
-    // Token is valid, allow access
-    console.log(`Middleware: Valid token found for protected route ${pathname}. Allowing access.`);
-  }
 
   // Handle OPTIONS preflight requests
   if (request.method === 'OPTIONS') {
@@ -76,18 +63,58 @@ export async function middleware(request: NextRequest) {
     });
   }
 
-  // Check if the request is to the API
-  if (request.nextUrl.pathname.startsWith('/api')) {
+  const token = getAuthToken(request);
+
+  // Check if it's an API route
+  if (pathname.startsWith('/api/')) {
+    if (protectedApiRoutes.some(route => pathname.startsWith(route))) {
+      if (!token) {
+        console.error(`API Authentication failed: No token provided for ${pathname}`);
+        return new NextResponse(
+          JSON.stringify({ error: 'Unauthorized: No token provided' }),
+          { status: 401, headers: corsHeaders }
+        );
+      }
+
+      const isValid = await verifyToken(token);
+      if (!isValid) {
+        console.error(`API Authentication failed: Invalid token for ${pathname}`);
+        return new NextResponse(
+          JSON.stringify({ error: 'Unauthorized: Invalid token' }),
+          { status: 401, headers: corsHeaders }
+        );
+      }
+    }
+
+    // Add CORS headers to all API responses
     const response = NextResponse.next();
-      // Add CORS headers to API responses
-    Object.entries(corsHeaders).forEach(([key, value]: [string, string]) => {
+    Object.entries(corsHeaders).forEach(([key, value]) => {
       response.headers.set(key, value);
     });
-    
     return response;
   }
 
-  // Allow request for non-protected routes or valid tokens
+  // Handle protected routes (non-API)
+  if (protectedRoutes.some(route => pathname.startsWith(route))) {
+    if (!token) {
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('redirect', pathname);
+      console.log(`No auth token found for protected route ${pathname}. Redirecting to login.`);
+      return NextResponse.redirect(loginUrl);
+    }
+
+    const isValid = await verifyToken(token);
+    if (!isValid) {
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('redirect', pathname);
+      console.log(`Invalid token for protected route ${pathname}. Redirecting to login.`);
+      
+      const response = NextResponse.redirect(loginUrl);
+      response.cookies.delete('authToken');
+      return response;
+    }
+  }
+
   return NextResponse.next();
 }
 
