@@ -1,7 +1,7 @@
 
-# Ladoo Zabardast
+# Laddu Zabardast
 
-This is a NextJS starter app for Ladoo Zabardast, an online store for Indian sweets and pickles.
+This is a NextJS starter app for Laddu Zabardast, an online store for Indian sweets and pickles.
 
 ## Features
 
