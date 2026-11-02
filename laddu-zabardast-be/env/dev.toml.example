@@ -1,0 +1,7 @@
+routes = [
+    "http://localhost:7000"
+]
+
+[master_mongo]
+	host = "mongodb+srv://<username>:<password>@ladduzabardast.4koynnb.mongodb.net/?appName=LadduZabardast"
+	database = "laddu_zabardast"

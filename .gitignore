@@ -1,0 +1,14 @@
+# Frontend ignores
+frontend/node_modules/
+frontend/dist/
+frontend/.next/
+frontend/.env*.local
+
+# Backend (Go) ignores
+backend/bin/
+backend/*.exe
+backend/*.test
+backend/.env
+
+# OS files
+.DS_Store
