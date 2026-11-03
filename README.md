@@ -1,4 +1,4 @@
-# 🍬 Laddu Zabardast (लड्डू ज़बरदस्त)
+# 🍬 Laddu Zabardast
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?style=flat&logo=go&logoColor=white)](https://golang.org)
