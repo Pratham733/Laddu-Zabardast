@@ -45,24 +45,28 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   // Helper to sanitize cart items
   function sanitizeCartItems(items: any[]): CartItem[] {
     return (items || [])
-      .map((item) => ({
-        ...item,
-        price:
-          typeof item.price === "number" && !isNaN(item.price) ? item.price : 0,
-        quantity:
-          typeof item.quantity === "number" && item.quantity > 0
-            ? item.quantity
-            : 1,
-        id: item.id?.toString() || item.id || item.productId || "",
-
-      }))
-      .filter((item) => item.id);
+      .map((item) => {
+        const id = item.productId ?? item.id;
+        if (!id) return null;
+        return {
+          ...item,
+          price:
+            typeof item.price === "number" && !isNaN(item.price) ? item.price : 0,
+          quantity:
+            typeof item.quantity === "number" && item.quantity > 0
+              ? item.quantity
+              : 1,
+          id: String(id),
+          productId: String(id),
+        };
+      })
+      .filter((item): item is CartItem => item !== null);
   }
 
   // Load cart from backend or localStorage on mount or user change
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!user || !token) {
+    if (!user || !user.userId) {
       // Not logged in: load from localStorage
       const saved = localStorage.getItem(CART_STORAGE_KEY);
       setCart(saved ? sanitizeCartItems(JSON.parse(saved)) : []);
@@ -70,7 +74,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
     // Logged in: fetch from backend
-    getCart(user.userId, token)
+    getCart(user.userId, token ?? undefined)
       .then((data) => {
         // Only set cart if backend returns items
         if (Array.isArray(data.items)) {
@@ -91,28 +95,31 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     const cartString = JSON.stringify(cart);
     if (prevCartRef.current === cartString) return;
     prevCartRef.current = cartString;
-    if (!user || !token) {
+    if (!user || !user.userId) {
       localStorage.setItem(CART_STORAGE_KEY, cartString);
     } else {
       // Save to backend
-      // Only send productId and quantity to backend
-      const itemsToSave = cart.map((item) => ({
-        productId: item.id?.toString() || item.id,
-        quantity: item.quantity,
-      }));
-      updateCart(user.userId, itemsToSave, token);
+      const itemsToSave = cart.map((item) => {
+        if (!item.id) {
+          throw new Error("Cart item missing product ID");
+        }
+        return {
+          productId: item.id,
+          quantity: item.quantity,
+        };
+      });
+      updateCart(user.userId, itemsToSave, token ?? undefined);
     }
   }, [cart, user, token, isInitialised]);
 
   const addToCart = (product: Product) => {
-    setCart((prevCart) => {
-      // Always use MongoDB id as the canonical ID
-      const productId = product.id?.toString() || product.id;
-      if (!productId) {
-        console.error("Product has no id, cannot add to cart:", product);
-        return prevCart;
-      }
+    if (!product.id) {
+      console.error("Product has no id, cannot add to cart:", product);
+      return;
+    }
+    const productId = product.id;
 
+    setCart((prevCart) => {
       const existingItem = prevCart.find((item) => item.id === productId);
       if (existingItem) {
         return prevCart.map((item) =>
@@ -121,7 +128,6 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
             : item,
         );
       } else {
-        // When adding new item, ensure it has a valid 'id' and 'id'
         return [
           ...prevCart,
           { ...product, id: productId, quantity: 1 },

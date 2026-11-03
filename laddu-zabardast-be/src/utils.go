@@ -63,3 +63,16 @@ func WriteJSON(w http.ResponseWriter, statusCode int, data map[string]any, messa
 
 	json.NewEncoder(w).Encode(data)
 }
+
+// WithBody decodes the JSON request body into req of type T and passes it into fn.
+// If decoding fails, it returns 400 Bad Request immediately.
+func WithBody[T any](fn func(w http.ResponseWriter, r *http.Request, req T)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req T
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+		fn(w, r, req)
+	}
+}

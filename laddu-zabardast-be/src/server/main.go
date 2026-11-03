@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	constants "github.com/Pratham733/laddu-zabardast-be/src"
 	"github.com/Pratham733/laddu-zabardast-be/src/config"
@@ -14,9 +15,7 @@ import (
 )
 
 func main() {
-	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "OK")
-	})
+	_ = os.MkdirAll("public/uploads", 0755)
 
 	// err := config.LoadConfig(constants.DevEnv)
 	err := config.LoadConfig(constants.LocalEnv)
@@ -30,12 +29,23 @@ func main() {
 	}
 
 	r := mux.NewRouter()
-	corsHandler := cors.CORSHandler(r)
+
+	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "OK")
+	}).Methods("GET")
+
+	// Static file server for uploaded product images
+	r.PathPrefix("/uploads/").Handler(http.StripPrefix("/uploads/", http.FileServer(http.Dir("public/uploads"))))
 
 	routes.AuthRoutes(r)
 	routes.UserRoutes(r)
 	routes.ProductRoutes(r)
 	routes.OrderRoutes(r)
+	routes.CartRoutes(r)
+	routes.WishlistRoutes(r)
+	routes.ReviewRoutes(r)
+
+	corsHandler := cors.CORSHandler(r)
 
 	fmt.Println("Server running on :8080")
 	http.ListenAndServe(":8080", corsHandler)

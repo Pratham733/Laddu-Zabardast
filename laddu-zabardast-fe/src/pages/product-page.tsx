@@ -54,8 +54,9 @@ const ProductReviews: React.FC<{
       .then((data) => {
         setReviews(data.reviews || []);
         if (user) {
+          const currentUserId = user.userId;
           const mine = (data.reviews || []).find(
-            (r: Review) => r.userId === user.userId,
+            (r: Review) => currentUserId && r.userId === currentUserId,
           );
           setMyReview(mine || null);
           if (mine) {
@@ -255,7 +256,7 @@ export default function Page({ params }: PageProps) {
         <h2 className="text-2xl font-bold mb-8">Related Products</h2>
         <Box className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {relatedProducts.map((p) => (
-            <Box key={p.id || p.id}>
+            <Box key={p.id}>
               <ProductCard product={p} />
             </Box>
           ))}

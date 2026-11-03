@@ -734,7 +734,7 @@ export default function AdminPage() {
                 <TableBody>
                   {products.map((prod, idx) => (
                     <TableRow
-                      key={prod.id || prod.id}
+                      key={prod.id}
                       className="group hover:scale-[1.01] hover:shadow-xl transition-all duration-300 bg-white/90 dark:bg-black hover:bg-gradient-to-r hover:from-primary/5 hover:to-secondary/10 dark:hover:from-zinc-900 dark:hover:to-black"
                       style={{ animationDelay: `${idx * 40}ms` }}
                     >
@@ -798,7 +798,7 @@ export default function AdminPage() {
                               ) {
                                 try {
                                   const data = await deleteProduct(
-                                    (prod.id || prod.id)!,
+                                    prod.id!,
                                   );
                                   toast({
                                     title: "Product Deleted",

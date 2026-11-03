@@ -296,33 +296,36 @@ export default function OrdersPage() {
                                     <TooltipTrigger asChild>
                                       <span className="inline-flex items-center gap-1.5 cursor-default text-muted-foreground dark:text-zinc-400">
                                         Payment:
-                                        {details[order.id]?.paymentStatus
-                                          ?.status === "completed" ||
-                                        details[order.id]?.paymentStatus
-                                          ?.status === "paid" ? (
-                                          <CheckCircle
-                                            className="text-green-500"
-                                            size={16}
-                                          />
-                                        ) : (
-                                          <LoaderCircle
-                                            className="text-yellow-500 animate-spin"
-                                            size={16}
-                                          />
-                                        )}
+                                        {(() => {
+                                          const pStatus = typeof details[order.id]?.paymentStatus === "object"
+                                            ? details[order.id]?.paymentStatus?.status
+                                            : details[order.id]?.paymentStatus;
+                                          return pStatus === "completed" || pStatus === "paid" ? (
+                                            <CheckCircle
+                                              className="text-green-500"
+                                              size={16}
+                                            />
+                                          ) : (
+                                            <LoaderCircle
+                                              className="text-yellow-500 animate-spin"
+                                              size={16}
+                                            />
+                                          );
+                                        })()}
                                         <span className="capitalize">
-                                          {
-                                            details[order.id]?.paymentStatus
-                                              ?.status
-                                          }
+                                          {typeof details[order.id]?.paymentStatus === "object"
+                                            ? details[order.id]?.paymentStatus?.status || "pending"
+                                            : details[order.id]?.paymentStatus || "pending"}
                                         </span>
                                       </span>
                                     </TooltipTrigger>
                                     <TooltipContent className="bg-popover text-popover-foreground dark:bg-zinc-700 dark:text-zinc-200">
-                                      {details[order.id]?.paymentStatus
-                                        ?.status === "completed" ||
-                                      details[order.id]?.paymentStatus
-                                        ?.status === "paid"
+                                      {(typeof details[order.id]?.paymentStatus === "object"
+                                        ? details[order.id]?.paymentStatus?.status
+                                        : details[order.id]?.paymentStatus) === "completed" ||
+                                      (typeof details[order.id]?.paymentStatus === "object"
+                                        ? details[order.id]?.paymentStatus?.status
+                                        : details[order.id]?.paymentStatus) === "paid"
                                         ? "Payment received"
                                         : "Awaiting payment confirmation"}
                                     </TooltipContent>
@@ -340,7 +343,7 @@ export default function OrdersPage() {
                               <ul className="space-y-3">
                                 {details[order.id]?.items.map((item) => (
                                   <li
-                                    key={item.id || item.productId}
+                                    key={item.productId}
                                     className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 dark:hover:bg-zinc-700/50 transition-colors"
                                   >
                                     <img

@@ -84,11 +84,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.log("[AuthContext] Checking cookie session via /user...");
         const data = await getUser();
         if (data && data.user) {
+          const u = data.user;
+          if (!u.userId) {
+            throw new Error("Invalid session user: userId is required");
+          }
           setUser({
             source: "db",
-            ...data.user,
-            firstName: data.user.firstName ?? '',
-            lastName: data.user.lastName ?? '',
+            ...u,
+            userId: u.userId,
+            id: u.userId,
+            firstName: u.firstName ?? '',
+            lastName: u.lastName ?? '',
+            isAdmin: Boolean(u.isAdmin || u.email === adminEmail),
           });
           console.log("[AuthContext] Session recovered:", data.user);
         } else {

@@ -30,7 +30,7 @@ const WishlistPage: React.FC = () => {
 
   // Defensive: filter out undefined/null products
   const validWishlist = Array.isArray(wishlist)
-    ? wishlist.filter((p) => p && (p.id || p.id))
+    ? wishlist.filter((p) => p && p.id)
     : [];
 
   if (!isInitialised) {
@@ -90,9 +90,9 @@ const WishlistPage: React.FC = () => {
             </Link>
           </Row>
           <Box className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
-            {validWishlist.map((product, idx) => (
+            {validWishlist.map((product) => (
               <motion.div
-                key={product.id || product.id || idx}
+                key={product.id}
                 variants={itemVariants}
                 initial="hidden"
                 animate="show"

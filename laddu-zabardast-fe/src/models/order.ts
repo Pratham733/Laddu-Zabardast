@@ -22,13 +22,17 @@ export interface ShippingDetails {
 
 export interface Order {
   id?: string;
-  userId: string;
+  _id?: string;
+  userId?: string;
+  email?: string;
   items: OrderItem[];
   shippingDetails: ShippingDetails;
   totalAmount: number;
   paymentStatus: any;
-  paymentMethod: 'cod' | 'card' | 'upi' | 'cash';
-  orderStatus: any;
+  paymentMethod?: 'cod' | 'card' | 'upi' | 'cash';
+  orderStatus?: any;
+  status?: string;
+  date?: string;
   createdAt?: string;
 }
 

@@ -38,11 +38,9 @@ export function ProductCard({ product }: ProductCardProps) {
   const isProductInWishlist = useMemo(
     () =>
       wishlist.some(
-        (item) =>
-          (item.id && product.id && item.id === product.id) ||
-          (item.id && product.id && item.id === product.id),
+        (item) => Boolean(item.id && product.id && item.id === product.id),
       ),
-    [wishlist, product.id, product.id],
+    [wishlist, product.id],
   );
 
   const handleAddToWishlist = useCallback(() => {

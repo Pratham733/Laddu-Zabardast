@@ -173,7 +173,7 @@ export default function SearchPage() {
           // Filter out any invalid products
           const validProducts = data.products.filter(
             (p: Product) =>
-              p && p.name && p.price && p.category && (p.id || p.id),
+              p && p.name && p.price && p.category && p.id,
           );
           setProducts(validProducts);
           performSearch(validProducts, query);
@@ -216,7 +216,7 @@ export default function SearchPage() {
         product.name && // Ensure required fields exist
         product.price &&
         product.category &&
-        (product.id || product.id) && // Must have an ID
+        product.id && // Must have an ID
         (product.name.toLowerCase().includes(lowerCaseQuery) ||
           (product.description &&
             product.description.toLowerCase().includes(lowerCaseQuery)) ||
@@ -333,7 +333,7 @@ export default function SearchPage() {
       ) : sortedProducts.length > 0 ? (
         <Box className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
           {sortedProducts.map((product) => (
-            <ProductCard key={product.id || product.id} product={product} />
+            <ProductCard key={product.id} product={product} />
           ))}
         </Box>
       ) : (

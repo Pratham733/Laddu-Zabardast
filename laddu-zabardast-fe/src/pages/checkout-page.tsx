@@ -237,12 +237,25 @@ export default function CheckoutPage() {
     try {
       // For QR code flow, we assume payment is done externally.
       // The user clicks "I have made the payment" to proceed.
+      const orderItems = cart.map((item) => {
+        if (!item.id) {
+          throw new Error("All items in cart must have a valid product ID");
+        }
+        return {
+          productId: item.id,
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          imageUrl: item.imageUrl,
+        };
+      });
+
       const orderData = {
         shippingDetails: data,
-        items: cart,
+        items: orderItems,
         totalAmount: total,
         paymentStatus: paymentMethod === "upi" ? "completed" : "pending",
-        paymentMethod: paymentMethod, // Add the selected payment method
+        paymentMethod: paymentMethod,
         orderStatus: "Processing",
       };
 

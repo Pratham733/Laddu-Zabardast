@@ -1,32 +1,21 @@
 package packet
 
-type OrderItemPacket struct {
-	ProductID string  `json:"productId"`
-	Name      string  `json:"name"`
-	Quantity  int     `json:"quantity"`
-	Price     float64 `json:"price"`
-	ImageUrl  string  `json:"imageUrl,omitempty"`
-}
-
-type OrderPacket struct {
-	ID            string            `json:"_id,omitempty"`
-	UserID        string            `json:"userId"`
-	Email         string            `json:"email"`
-	Items         []OrderItemPacket `json:"items"`
-	TotalAmount   float64           `json:"totalAmount"`
-	Status        string            `json:"status"`
-	PaymentStatus string            `json:"paymentStatus"`
-	Date          string            `json:"date"`
-	Address       string            `json:"address,omitempty"`
-}
+import "github.com/Pratham733/laddu-zabardast-be/src/model"
 
 type CreateOrderRequest struct {
-	Items       []OrderItemPacket `json:"items"`
-	TotalAmount float64           `json:"totalAmount"`
-	Address     string            `json:"address,omitempty"`
+	ShippingDetails model.ShippingDetails `json:"shippingDetails"`
+	Items           []model.OrderItem     `json:"items"`
+	TotalAmount     float64               `json:"totalAmount"`
+	PaymentStatus   string                `json:"paymentStatus"`
+	PaymentMethod   string                `json:"paymentMethod"`
+	OrderStatus     string                `json:"orderStatus"`
+	Status          string                `json:"status,omitempty"`
+	Address         string                `json:"address,omitempty"`
 }
 
 type UpdateOrderStatusRequest struct {
+	OrderID       string `json:"orderId,omitempty"`
 	Status        string `json:"status,omitempty"`
+	OrderStatus   string `json:"orderStatus,omitempty"`
 	PaymentStatus string `json:"paymentStatus,omitempty"`
 }

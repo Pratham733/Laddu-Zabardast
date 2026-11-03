@@ -17,7 +17,7 @@ func CORSHandler(next http.Handler) http.Handler {
 			w.Header().Set(corsAllowOriginHeader, origin)
 		}
 		w.Header().Set(corsAllowCredentials, "true")
-		w.Header().Set(corsAllowMethodsHeader, "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set(corsAllowMethodsHeader, "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		w.Header().Set(corsAllowHeadersHeader, "Content-Type, Authorization")
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)

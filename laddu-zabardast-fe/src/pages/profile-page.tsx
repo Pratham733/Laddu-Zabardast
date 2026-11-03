@@ -116,12 +116,20 @@ export default function ProfilePage() {
     (async () => {
       try {
         const data = await getProfile();
-        setUser({
-          ...data.user,
-          firstName: data.user.firstName ?? "",
-          lastName: data.user.lastName ?? "",
-          source: "db",
-        });
+        if (data && data.user) {
+          const u = data.user;
+          if (!u.userId) {
+            throw new Error("User ID is missing from profile response");
+          }
+          setUser({
+            ...u,
+            userId: u.userId,
+            id: u.userId,
+            firstName: u.firstName ?? "",
+            lastName: u.lastName ?? "",
+            source: "db",
+          });
+        }
       } catch (e) {
         console.error("Failed to fetch profile details:", e);
       }
@@ -474,7 +482,8 @@ function AddressManager({
       setAddresses(data.addresses || []);
       setUser({
         source: "jwt",
-        userId: user?.userId || "",
+        userId: user?.userId || (user as any)?.id || "",
+        id: user?.id || user?.userId || "",
         email: user?.email ?? null,
         firstName: user?.firstName ?? "",
         lastName: user?.lastName ?? "",

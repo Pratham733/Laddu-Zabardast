@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"time"
 
@@ -37,21 +36,29 @@ func GetAppUsers(w http.ResponseWriter, r *http.Request) {
 
 	// Strip passwords before sending
 	type safeUser struct {
-		ID        string           `json:"_id"`
+		ID        string           `json:"id"`
+		UserID    string           `json:"userId"`
+		MongoID   string           `json:"_id"`
 		FirstName string           `json:"firstName"`
 		LastName  string           `json:"lastName"`
 		Email     string           `json:"email"`
 		Phone     string           `json:"phone,omitempty"`
+		Role      string           `json:"role,omitempty"`
+		IsAdmin   bool             `json:"isAdmin"`
 		Addresses []models.Address `json:"addresses,omitempty"`
 	}
 	safe := make([]safeUser, 0, len(users))
 	for _, u := range users {
 		safe = append(safe, safeUser{
 			ID:        u.ID,
+			UserID:    u.ID,
+			MongoID:   u.ID,
 			FirstName: u.FirstName,
 			LastName:  u.LastName,
 			Email:     u.Email,
 			Phone:     u.Phone,
+			Role:      u.Role,
+			IsAdmin:   u.Role == "admin" || u.Email == "spratham388@gmail.com",
 			Addresses: u.Addresses,
 		})
 	}
@@ -82,23 +89,21 @@ func GetAppUser(w http.ResponseWriter, r *http.Request) {
 
 	utils.WriteJSON(w, http.StatusOK, map[string]any{
 		"user": map[string]any{
+			"id":        user.ID,
+			"userId":    user.ID,
 			"_id":       user.ID,
 			"firstName": user.FirstName,
 			"lastName":  user.LastName,
 			"email":     user.Email,
 			"phone":     user.Phone,
+			"role":      user.Role,
+			"isAdmin":   user.Role == "admin" || user.Email == "spratham388@gmail.com",
 			"addresses": user.Addresses,
 		},
 	}, "User fetched successfully")
 }
 
-func CreateAppUser(w http.ResponseWriter, r *http.Request) {
-	// Use SignupHandler logic for creating users via API
-	var user models.User
-	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
+func CreateAppUser(w http.ResponseWriter, r *http.Request, user models.User) {
 	user.ID = uuid.NewString()
 
 	collection := db.GetCollection(utils.LadduZabardast, utils.Users)
@@ -114,10 +119,11 @@ func CreateAppUser(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, http.StatusCreated, map[string]any{
 		"message": "User created",
 		"_id":     user.ID,
+		"id":      user.ID,
 	}, "User created")
 }
 
-func UpdateAppUser(w http.ResponseWriter, r *http.Request) {
+func UpdateAppUser(w http.ResponseWriter, r *http.Request, updates bson.M) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 	if id == "" {
@@ -125,12 +131,8 @@ func UpdateAppUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var updates bson.M
-	if err := json.NewDecoder(r.Body).Decode(&updates); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
 	delete(updates, "_id")
+	delete(updates, "id")
 	delete(updates, "password") // Never allow password update via this route
 
 	collection := db.GetCollection(utils.LadduZabardast, utils.Users)

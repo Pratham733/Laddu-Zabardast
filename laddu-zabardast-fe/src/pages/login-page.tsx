@@ -224,8 +224,13 @@ export default function LoginPage() {
       }
 
       if (userDetails) {
+        if (!userDetails.userId) {
+          throw new Error("User ID is missing from login response");
+        }
         setUser({
           ...userDetails,
+          userId: userDetails.userId,
+          id: userDetails.userId,
           firstName: userDetails.firstName ?? "",
           lastName: userDetails.lastName ?? "",
           source: "db",

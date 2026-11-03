@@ -43,15 +43,15 @@ export const WishlistProvider = ({
 
   // Helper to load wishlist - memoized with stable dependencies
   const loadWishlist = useCallback(async () => {
-    if (!user?.userId || !token) {
-      console.log("[WishlistContext] No user or token available");
+    if (!user?.userId) {
+      console.log("[WishlistContext] No user available");
       setWishlist([]);
       setIsInitialised(true);
       return;
     }
 
     try {
-      const data = await getWishlist(user.userId, token);
+      const data = await getWishlist(user.userId, token ?? undefined);
       setWishlist(data.wishlist || []);
     } catch (error) {
       console.error("[WishlistContext] Error fetching wishlist:", error);
@@ -81,25 +81,24 @@ export const WishlistProvider = ({
     if (prevWishlistRef.current === wishlistString) return;
     prevWishlistRef.current = wishlistString;
 
-    if (!user?.userId || !token) {
+    if (!user?.userId) {
       localStorage.setItem("ladooExpressWishlist", wishlistString);
       return;
     }
 
-    updateWishlist(user.userId, wishlist, token).catch((err) => {
+    updateWishlist(user.userId, wishlist, token ?? undefined).catch((err) => {
       console.error("[WishlistContext] PUT fetch error:", err);
     });
   }, [wishlist, user?.userId, token, isInitialised]);
 
   const addToWishlist = useCallback((product: Product) => {
     setWishlist((prevWishlist) => {
-      if (
-        prevWishlist.find(
-          (p) =>
-            (p.id && product.id && p.id === product.id) ||
-            (p.id && product.id && p.id === product.id),
-        )
-      ) {
+      const prodId = product.id;
+      if (!prodId) {
+        console.error("[WishlistContext] Product has no id:", product);
+        return prevWishlist;
+      }
+      if (prevWishlist.some((p) => p.id === prodId)) {
         return prevWishlist;
       }
       return [...prevWishlist, product];
@@ -107,15 +106,11 @@ export const WishlistProvider = ({
   }, []);
 
   const removeFromWishlist = useCallback((product: Product) => {
-    setWishlist((prevWishlist) =>
-      prevWishlist.filter(
-        (p) =>
-          !(
-            (p.id && product.id && p.id === product.id) ||
-            (p.id && product.id && p.id === product.id)
-          ),
-      ),
-    );
+    setWishlist((prevWishlist) => {
+      const prodId = product.id;
+      if (!prodId) return prevWishlist;
+      return prevWishlist.filter((p) => p.id !== prodId);
+    });
   }, []);
 
   const contextValue = useMemo(

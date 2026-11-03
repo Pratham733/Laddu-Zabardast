@@ -39,12 +39,12 @@ export default function Home() {
 
         const products: Product[] = (data.products || []).map((item: any) => ({
           ...item,
-          id: item.id || item.id,
+          id: item.id,
         }));
 
-        // Remove duplicates by id or id
+        // Remove duplicates by id
         const uniqueProducts = Array.from(
-          new Map(products.map((p) => [p.id || p.id, p])).values(),
+          new Map(products.map((p) => [p.id, p])).values(),
         );
         // For 'Laddus', show only products with category 'laddu' (not 'all')
         const laddusOnly = uniqueProducts.filter((p) => p.category === "laddu");

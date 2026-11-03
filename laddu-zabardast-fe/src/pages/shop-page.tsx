@@ -53,7 +53,7 @@ export default function ShopPage() {
 
   // Remove duplicates
   const uniqueProducts = useMemo(
-    () => Array.from(new Map(products.map((p) => [p.id || p.id, p])).values()),
+    () => Array.from(new Map(products.map((p) => [p.id, p])).values()),
     [products],
   );
 
@@ -112,7 +112,7 @@ export default function ShopPage() {
       </Row>
       <Box className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
         {sortProducts(productsList).map((product) => (
-          <ProductCard key={product.id || product.id} product={product} />
+          <ProductCard key={product.id} product={product} />
         ))}
       </Box>
     </Column>

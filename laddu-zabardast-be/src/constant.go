@@ -22,4 +22,8 @@ const (
 	Users          = "users"
 	Products       = "products"
 	Orders         = "orders"
+	Carts          = "carts"
+	Wishlists      = "wishlists"
+	Reviews        = "reviews"
 )
+

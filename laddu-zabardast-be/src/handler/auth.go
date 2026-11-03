@@ -2,12 +2,11 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
-	"time"
-
 	"strconv"
+	"strings"
+	"time"
 
 	utils "github.com/Pratham733/laddu-zabardast-be/src"
 	"github.com/Pratham733/laddu-zabardast-be/src/config"
@@ -22,15 +21,97 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func SignupHandler(w http.ResponseWriter, r *http.Request) {
+// modelAddressesToPacket converts model addresses to packet addresses.
+func modelAddressesToPacket(addrs []models.Address) []packet.AddressResponse {
+	if addrs == nil {
+		return []packet.AddressResponse{}
+	}
+	result := make([]packet.AddressResponse, 0, len(addrs))
+	for _, a := range addrs {
+		result = append(result, packet.AddressResponse{
+			ID:         a.ID,
+			Label:      a.Label,
+			Street:     a.Street,
+			City:       a.City,
+			State:      a.State,
+			Country:    a.Country,
+			PostalCode: a.PostalCode,
+			IsDefault:  a.IsDefault,
+		})
+	}
+	return result
+}
+
+func buildUserResponse(user models.User) packet.UserResponse {
+	var phone *string
+	if user.Phone != "" {
+		phone = &user.Phone
+	}
+	var role *string
+	if user.Role != "" {
+		role = &user.Role
+	}
+	var photoURL *string
+	if user.PhotoURL != "" {
+		photoURL = &user.PhotoURL
+	}
+	var picture *string
+	if user.Picture != "" {
+		picture = &user.Picture
+	}
+	isAdmin := user.Role == "admin" || user.Email == "spratham388@gmail.com"
+
+	return packet.UserResponse{
+		ID:        user.ID,
+		UserID:    user.ID,
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		Email:     user.Email,
+		Phone:     phone,
+		Role:      role,
+		IsAdmin:   isAdmin,
+		PhotoURL:  photoURL,
+		Picture:   picture,
+		Addresses: modelAddressesToPacket(user.Addresses),
+		CreatedAt: user.CreatedAt,
+	}
+}
+
+// parseClaims extracts and validates the JWT from Bearer header or cookie.
+func parseClaims(r *http.Request) (*utils.Claims, error) {
+	var tokenStr string
+	authHeader := r.Header.Get("Authorization")
+	if strings.HasPrefix(authHeader, "Bearer ") {
+		tokenStr = strings.TrimPrefix(authHeader, "Bearer ")
+	} else if cookie, err := r.Cookie(utils.AuthToken); err == nil && cookie.Value != "" {
+		tokenStr = cookie.Value
+	} else if authHeader != "" {
+		tokenStr = authHeader
+	}
+
+	if tokenStr == "" {
+		return nil, errors.New("authorization required")
+	}
+
+	claims := &utils.Claims{}
+	jwtSecret := []byte(config.AppConfig.Auth.JWTSecret)
+	token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (interface{}, error) {
+		return jwtSecret, nil
+	})
+	if err != nil || !token.Valid {
+		return nil, errors.New("invalid token")
+	}
+	return claims, nil
+}
+
+func SignupHandler(w http.ResponseWriter, r *http.Request, req packet.SignupRequest) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	var req packet.SignupRequest
-	err := utils.ValidateSignup(&req, w, r)
-	if err != nil {
+	if req.Email == "" || req.Password == "" || req.FirstName == "" || req.LastName == "" {
+		http.Error(w, "All fields are required", http.StatusBadRequest)
 		return
 	}
 
@@ -39,7 +120,7 @@ func SignupHandler(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	var existingUser models.User
-	err = collection.FindOne(ctx, bson.M{"email": req.Email}).Decode(&existingUser)
+	err := collection.FindOne(ctx, bson.M{"email": req.Email}).Decode(&existingUser)
 	if err == nil {
 		http.Error(w, "User already exists", http.StatusConflict)
 		return
@@ -62,6 +143,7 @@ func SignupHandler(w http.ResponseWriter, r *http.Request) {
 		Email:     req.Email,
 		Password:  string(hashedPassword),
 		Addresses: []models.Address{},
+		CreatedAt: time.Now().UTC().Format(time.RFC3339),
 	}
 
 	_, err = collection.InsertOne(ctx, newUser)
@@ -78,28 +160,23 @@ func SignupHandler(w http.ResponseWriter, r *http.Request) {
 
 	utils.SetTokenCookie(w, token)
 
-	resUser := packet.UserResponse{
-		ID:        newUser.ID,
-		FirstName: newUser.FirstName,
-		LastName:  newUser.LastName,
-		Email:     newUser.Email,
-		Addresses: []packet.AddressResponse{},
-	}
+	resUser := buildUserResponse(newUser)
 
 	utils.WriteJSON(w, http.StatusCreated, map[string]any{
+		"token":    token,
 		utils.User: resUser,
-	}, "User created successfully")
+		"message":  "User registered successfully",
+	}, "User registered successfully")
 }
 
-func LoginHandler(w http.ResponseWriter, r *http.Request) {
+func LoginHandler(w http.ResponseWriter, r *http.Request, req packet.LoginRequest) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	var req packet.LoginRequest
-	err := utils.ValidateLogin(&req, w, r)
-	if err != nil {
+	if req.Email == "" || req.Password == "" {
+		http.Error(w, "Email and password are required", http.StatusBadRequest)
 		return
 	}
 
@@ -118,7 +195,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
+	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
 	if err != nil {
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
@@ -132,7 +209,13 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	utils.SetTokenCookie(w, token)
 
-	utils.WriteJSON(w, http.StatusOK, nil, "Login successful")
+	resUser := buildUserResponse(user)
+
+	utils.WriteJSON(w, http.StatusOK, map[string]any{
+		"token":    token,
+		utils.User: resUser,
+		"message":  "Login successful",
+	}, "Login successful")
 }
 
 func LogoutHandler(w http.ResponseWriter, r *http.Request) {
@@ -149,46 +232,9 @@ func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 	})
 
-	utils.WriteJSON(w, http.StatusOK, nil, "Logged out successfully")
-}
-
-// parseClaims extracts and validates the JWT from the request cookie.
-func parseClaims(r *http.Request) (*utils.Claims, error) {
-	cookie, err := r.Cookie(utils.AuthToken)
-	if err != nil {
-		return nil, err
-	}
-	tokenStr := cookie.Value
-	claims := &utils.Claims{}
-	jwtSecret := []byte(config.AppConfig.Auth.JWTSecret)
-	token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (interface{}, error) {
-		return jwtSecret, nil
-	})
-	if err != nil || !token.Valid {
-		return nil, errors.New("invalid token")
-	}
-	return claims, nil
-}
-
-// modelAddressesToPacket converts model addresses to packet addresses.
-func modelAddressesToPacket(addrs []models.Address) []packet.AddressResponse {
-	if addrs == nil {
-		return []packet.AddressResponse{}
-	}
-	result := make([]packet.AddressResponse, 0, len(addrs))
-	for _, a := range addrs {
-		result = append(result, packet.AddressResponse{
-			ID:         a.ID,
-			Label:      a.Label,
-			Street:     a.Street,
-			City:       a.City,
-			State:      a.State,
-			Country:    a.Country,
-			PostalCode: a.PostalCode,
-			IsDefault:  a.IsDefault,
-		})
-	}
-	return result
+	utils.WriteJSON(w, http.StatusOK, map[string]any{
+		"success": true,
+	}, "Logged out successfully")
 }
 
 func GetProfileHandler(w http.ResponseWriter, r *http.Request) {
@@ -214,14 +260,7 @@ func GetProfileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resUser := packet.UserResponse{
-		ID:        user.ID,
-		FirstName: user.FirstName,
-		LastName:  user.LastName,
-		Email:     user.Email,
-		Phone:     user.Phone,
-		Addresses: modelAddressesToPacket(user.Addresses),
-	}
+	resUser := buildUserResponse(user)
 
 	utils.WriteJSON(w, http.StatusOK, map[string]any{
 		utils.User: resUser,
@@ -251,17 +290,14 @@ func GetUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	resUser := buildUserResponse(user)
+
 	utils.WriteJSON(w, http.StatusOK, map[string]any{
-		utils.User: map[string]any{
-			utils.Email: user.Email,
-			utils.Name:  user.FirstName + " " + user.LastName,
-			"firstName": user.FirstName,
-			"lastName":  user.LastName,
-		},
+		utils.User: resUser,
 	}, "User fetched successfully")
 }
 
-func UpdateProfileHandler(w http.ResponseWriter, r *http.Request) {
+func UpdateProfileHandler(w http.ResponseWriter, r *http.Request, req packet.UpdateProfileRequest) {
 	if r.Method != http.MethodPost && r.Method != http.MethodPut {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -273,12 +309,6 @@ func UpdateProfileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req packet.UpdateProfileRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
 	updateFields := bson.M{}
 	if req.FirstName != "" {
 		updateFields["firstName"] = req.FirstName
@@ -286,7 +316,7 @@ func UpdateProfileHandler(w http.ResponseWriter, r *http.Request) {
 	if req.LastName != "" {
 		updateFields["lastName"] = req.LastName
 	}
-	// Allow clearing phone by allowing empty string update
+	// Allow updating phone (including empty to clear)
 	if req.Phone != "" || r.ContentLength > 0 {
 		updateFields["phone"] = req.Phone
 	}
@@ -310,10 +340,18 @@ func UpdateProfileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	utils.WriteJSON(w, http.StatusOK, nil, "Profile updated successfully")
+	var updatedUser models.User
+	_ = collection.FindOne(ctx, bson.M{"_id": claims.UserID}).Decode(&updatedUser)
+	resUser := buildUserResponse(updatedUser)
+
+	utils.WriteJSON(w, http.StatusOK, map[string]any{
+		"success":  true,
+		utils.User: resUser,
+		"message":  "Profile updated successfully",
+	}, "Profile updated successfully")
 }
 
-func ChangePasswordHandler(w http.ResponseWriter, r *http.Request) {
+func ChangePasswordHandler(w http.ResponseWriter, r *http.Request, req packet.ChangePasswordRequest) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -322,15 +360,6 @@ func ChangePasswordHandler(w http.ResponseWriter, r *http.Request) {
 	claims, err := parseClaims(r)
 	if err != nil {
 		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
-		return
-	}
-
-	var req struct {
-		CurrentPassword string `json:"currentPassword"`
-		NewPassword     string `json:"newPassword"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
@@ -362,7 +391,10 @@ func ChangePasswordHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	utils.WriteJSON(w, http.StatusOK, nil, "Password changed successfully")
+	utils.WriteJSON(w, http.StatusOK, map[string]any{
+		"success": true,
+		"message": "Password changed successfully",
+	}, "Password changed successfully")
 }
 
 func GetAddressesHandler(w http.ResponseWriter, r *http.Request) {
@@ -393,7 +425,7 @@ func GetAddressesHandler(w http.ResponseWriter, r *http.Request) {
 	}, "Addresses fetched successfully")
 }
 
-func SaveAddressHandler(w http.ResponseWriter, r *http.Request) {
+func SaveAddressHandler(w http.ResponseWriter, r *http.Request, addr models.Address) {
 	if r.Method != http.MethodPost && r.Method != http.MethodPut {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -402,12 +434,6 @@ func SaveAddressHandler(w http.ResponseWriter, r *http.Request) {
 	claims, err := parseClaims(r)
 	if err != nil {
 		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
-		return
-	}
-
-	var addr models.Address
-	if err := json.NewDecoder(r.Body).Decode(&addr); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
@@ -433,8 +459,12 @@ func SaveAddressHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if r.Method == http.MethodPut && addr.ID != "" {
-		// Update existing
+	if r.Method == http.MethodPut {
+		if strings.TrimSpace(addr.ID) == "" {
+			http.Error(w, "Address ID is required to update an address", http.StatusBadRequest)
+			return
+		}
+
 		found := false
 		for i, existing := range user.Addresses {
 			if existing.ID == addr.ID {
@@ -444,12 +474,16 @@ func SaveAddressHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if !found {
-			// Fallback: append if not found
-			addr.ID = uuid.NewString()
-			user.Addresses = append(user.Addresses, addr)
+			http.Error(w, "Address not found", http.StatusNotFound)
+			return
 		}
 	} else {
-		// Create new
+		if strings.TrimSpace(addr.Street) == "" || strings.TrimSpace(addr.City) == "" ||
+			strings.TrimSpace(addr.State) == "" || strings.TrimSpace(addr.Country) == "" ||
+			strings.TrimSpace(addr.PostalCode) == "" {
+			http.Error(w, "Street, city, state, country, and postalCode are required", http.StatusBadRequest)
+			return
+		}
 		addr.ID = uuid.NewString()
 		user.Addresses = append(user.Addresses, addr)
 	}
@@ -461,6 +495,7 @@ func SaveAddressHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.WriteJSON(w, http.StatusOK, map[string]any{
+		"success":   true,
 		"addresses": modelAddressesToPacket(user.Addresses),
 	}, "Address saved successfully")
 }
@@ -510,6 +545,7 @@ func DeleteAddressHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.WriteJSON(w, http.StatusOK, map[string]any{
+		"success":   true,
 		"addresses": modelAddressesToPacket(user.Addresses),
 	}, "Address deleted successfully")
 }

@@ -24,7 +24,7 @@ export default function OrderConfirmationPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [downloadLoading, setDownloadLoading] = useState(false);
-  const { token } = useAuth();
+  const { user, token } = useAuth();
 
   useEffect(() => {
     const fetchOrder = async () => {
@@ -59,12 +59,12 @@ export default function OrderConfirmationPage() {
   }, [orderId]);
 
   const downloadInvoice = async () => {
-    const oid = order?.id || (order as any)?.id;
+    const oid = order?.id;
     if (!oid) {
       console.error("Order ID not available for invoice download.");
       return;
     }
-    if (!token) {
+    if (!user && !token) {
       alert("You must be logged in to download the invoice.");
       return;
     }
@@ -185,7 +185,7 @@ export default function OrderConfirmationPage() {
               <Box>
                 <span className="text-xs text-muted-foreground">Order ID:</span>
                 <span className="ml-2 text-base font-semibold text-primary">
-                  {order.id || (order as any).id}
+                  {order.id}
                 </span>
               </Box>
               <span className="text-xs text-green-600 font-medium">

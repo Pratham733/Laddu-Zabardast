@@ -1,4 +1,6 @@
 export type Address = {
+  id?: string;
+  label?: string;
   street: string;
   city: string;
   state: string;
@@ -10,6 +12,7 @@ export type Address = {
 export type AppUser = {
   source: 'jwt' | 'db';
   userId: string;
+  id?: string;
   email: string | null;
   firstName: string;
   lastName: string;
