@@ -159,7 +159,7 @@ func (us *GridFSUploadStream) uploadChunks(ctx context.Context, uploadPartial bo
 		}
 		chunkData := us.buffer[i:endIndex]
 		docs[us.chunkIndex-begChunkIndex] = bson.D{
-			{"id", bson.NewObjectID()},
+			{"_id", bson.NewObjectID()},
 			{"files_id", us.FileID},
 			{"n", int32(us.chunkIndex)},
 			{"data", bson.Binary{Subtype: 0x00, Data: chunkData}},
@@ -184,7 +184,7 @@ func (us *GridFSUploadStream) uploadChunks(ctx context.Context, uploadPartial bo
 
 func (us *GridFSUploadStream) createFilesCollDoc(ctx context.Context) error {
 	doc := bson.D{
-		{"id", us.FileID},
+		{"_id", us.FileID},
 		{"length", us.fileLen},
 		{"chunkSize", us.chunkSize},
 		{"uploadDate", bson.DateTime(time.Now().UnixNano() / int64(time.Millisecond))},

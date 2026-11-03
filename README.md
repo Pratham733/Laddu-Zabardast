@@ -3,10 +3,10 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?style=flat&logo=go&logoColor=white)](https://golang.org)
 [![React](https://img.shields.io/badge/React-18.3-61DAFB?style=flat&logo=react&logoColor=black)](https://reactjs.org/)
-[![Vite](https://img.shields.io/badge/Vite-4.2+-646CFF?style=flat&logo=vite&logoColor=white)](https://vitejs.dev/)
+[![Vite](https://img.shields.io/badge/Vite-5.2+-646CFF?style=flat&logo=vite&logoColor=white)](https://vitejs.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/TailwindCSS-3.4+-38B2AC?style=flat&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
-[![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?style=flat&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-Local%20%2F%20Atlas-47A248?style=flat&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
 
 An authentic, modern e-commerce platform dedicated to handcrafted Indian artisanal sweets (*laddus*) and traditional homemade pickles (*achaar*). Built with a blazing-fast **Golang REST API backend** and an interactive, highly responsive **React + TypeScript + Vite frontend**.
 
@@ -14,21 +14,82 @@ An authentic, modern e-commerce platform dedicated to handcrafted Indian artisan
 
 ## 📑 Table of Contents
 
-- [Project Architecture](#-project-architecture)
-- [Repository Structure](#-repository-structure)
-- [Key Features](#-key-features)
-- [Tech Stack](#-tech-stack)
-  - [Frontend](#frontend)
-  - [Backend](#backend)
-- [Getting Started](#-getting-started)
+- [⚡ Quick Start: One-Click IDE Debugger](#-quick-start-one-click-ide-debugger-recommended)
+- [✅ Pre-flight Checklist (Things to Ensure Before Running)](#-pre-flight-checklist-things-to-ensure-before-running)
+- [🏛 Project Architecture](#-project-architecture)
+- [📁 Repository Structure](#-repository-structure)
+- [✨ Key Features](#-key-features)
+- [🛠 Tech Stack](#-tech-stack)
+- [🚀 Manual Setup Guide](#-manual-setup-guide)
   - [Prerequisites](#prerequisites)
   - [1. Backend Setup](#1-backend-setup-laddu-zabardast-be)
   - [2. Frontend Setup](#2-frontend-setup-laddu-zabardast-fe)
-- [API Reference](#-api-reference)
-- [Environment Configuration](#-environment-configuration)
-- [Scripts & Commands](#-scripts--commands)
-- [Contributing](#-contributing)
-- [License](#-license)
+- [📡 API Reference](#-api-reference)
+- [⚙ Environment Configuration](#-environment-configuration)
+- [📜 Scripts & Commands](#-scripts--commands)
+- [🔍 Troubleshooting & Common Issues](#-troubleshooting--common-issues)
+- [🤝 Contributing](#-contributing)
+- [📄 License](#-license)
+
+---
+
+## ⚡ Quick Start: One-Click IDE Debugger (Recommended)
+
+This repository includes a preconfigured [`.vscode/launch.json`](.vscode/launch.json) for VS Code, Cursor, and GoLand. You can launch and debug both the backend and frontend simultaneously with **zero extra setup**:
+
+1. Open the repository root (`Laddu-Zabardast`) in your IDE.
+2. Press **`F5`** (or go to **Run and Debug** via `Cmd+Shift+D` / `Ctrl+Shift+D`).
+3. The default configuration **`Full Stack (Backend + Frontend)`** will start:
+   - **Backend** running on `http://localhost:8080` with Delve live breakpoint debugging.
+   - **Frontend** running on `http://localhost:7000` via the Vite development server.
+4. Stopping the debug session will cleanly shut down both servers (`stopAll: true`).
+
+### Available Launch Configurations
+| Runner Option | Description |
+|:--------------|:------------|
+| **`Full Stack (Backend + Frontend)`** *(Default)* | Launches both Backend (`:8080`) and Frontend (`:7000`) concurrently. |
+| **`Launch Backend`** | Starts only the Go API backend connected to local MongoDB. |
+| **`Launch Frontend (Vite)`** | Starts only the Vite development server in an integrated debug terminal. |
+| **`Launch Backend (Dev - Atlas)`** | Starts the Go backend with `APP_ENV=dev` (cloud MongoDB). |
+| **`Debug Frontend (Chrome)`** | Attaches Chrome devtools to the frontend on `http://localhost:7000`. |
+
+---
+
+## ✅ Pre-flight Checklist (Things to Ensure Before Running)
+
+Before launching the project, verify the following prerequisites:
+
+### 1. MongoDB Service Running
+The backend requires an active MongoDB database:
+- **Local MongoDB (Default)**: Ensure MongoDB is running on port `27017`.
+  - **macOS (Homebrew)**: `brew services start mongodb-community`
+  - **Linux (systemd)**: `sudo systemctl start mongod`
+  - **Docker**: `docker run -d -p 27017:27017 --name lz-mongo mongo:latest`
+  - **Test connection**: `mongosh --eval "db.adminCommand('ping')"`
+- When the backend connects successfully, it outputs:
+  ```text
+  Pinged your deployment. You successfully connected to MongoDB!
+  Server running on :8080
+  ```
+
+### 2. Required Ports Are Available
+Ensure no leftover processes are blocking the ports:
+- **`8080`** for Backend API (`lsof -i :8080`)
+- **`7000`** for Frontend Vite Dev Server (`lsof -i :7000`)
+- **`27017`** for MongoDB (`lsof -i :27017`)
+
+*If a port is in use, terminate the process with: `kill -9 <PID>`*
+
+### 3. Node.js & Go Runtime Versions
+- **Go**: v1.23+ or v1.25+ (`go version`)
+- **Node.js**: v18.0.0+ (`node -v`)
+- **npm**: v9.0.0+ (`npm -v`)
+
+### 4. Frontend Environment Variable
+Ensure `laddu-zabardast-fe/.env` exists and contains:
+```env
+VITE_BACKEND_URL=http://localhost:8080
+```
 
 ---
 
@@ -47,17 +108,23 @@ An authentic, modern e-commerce platform dedicated to handcrafted Indian artisan
                        ┌───────────────────────────────┐
                        │       Golang API Backend      │
                        │     Gorilla Mux + JWT Auth    │
+                       │   WithBody[T] Strict Packets  │
                        │       Port: 8080              │
                        └──────────────┬────────────────┘
                                       │
-                               MongoDB Driver v2
+                              MongoDB Driver v2
                                       │
                                       ▼
                        ┌───────────────────────────────┐
                        │        MongoDB Database       │
-                       │ (Users, Products, Orders, etc)│
+                       │  Users, Products, Orders,     │
+                       │   Cart, Wishlist, Reviews     │
                        └───────────────────────────────┘
 ```
+
+### Strict API Contract Architecture
+- **Parameter-injected DTOs**: Request packets are automatically decoded into typed structures using the `utils.WithBody[T]` wrapper (`func(w, r, req T)`), preventing manual decode boilerplate.
+- **Zero Fallback Validation**: Requests validate required entity IDs (`productId`, `userId`, `orderId`) strictly with no fallback chains. Invalid or missing identifiers return immediate, actionable HTTP 400 Bad Request responses.
 
 ---
 
@@ -65,40 +132,44 @@ An authentic, modern e-commerce platform dedicated to handcrafted Indian artisan
 
 ```plaintext
 Laddu-Zabardast/
+├── .vscode/
+│   └── launch.json                 # Unified IDE runner & debugger configurations
 ├── laddu-zabardast-be/             # Backend service (Golang)
-│   ├── env/                        # Environment config files (TOML)
-│   │   ├── dev.toml.example
-│   │   └── local.toml
+│   ├── env/                        # TOML environment configuration files
+│   │   ├── dev.toml                # Cloud / Atlas configuration
+│   │   ├── dev.toml.example        # Example configuration template
+│   │   └── local.toml              # Local MongoDB & CORS configuration
+│   ├── public/
+│   │   └── uploads/                # Static uploaded product media
 │   ├── src/
-│   │   ├── config/                 # Config loader & TOML parser
-│   │   ├── cors/                   # CORS middleware handler
-│   │   ├── db/                     # MongoDB connection client
-│   │   ├── handler/                # HTTP request handlers (Auth, User, Product, Order)
-│   │   ├── model/                  # Data structures (User, Product, Order, Address)
-│   │   ├── packet/                 # Request/Response DTO contracts
-│   │   ├── routes/                 # Route registrations (Mux)
-│   │   ├── server/                 # Application entrypoint (main.go)
+│   │   ├── config/                 # TOML configuration parser
+│   │   ├── cors/                   # Strict CORS middleware handler
+│   │   ├── db/                     # MongoDB v2 connection client
+│   │   ├── handler/                # HTTP request handlers (Auth, Product, Order, Cart, Wishlist, Review)
+│   │   ├── model/                  # Database entity models
+│   │   ├── packet/                 # Request & response contract DTOs
+│   │   ├── routes/                 # Route registrations
+│   │   ├── server/                 # Entrypoint (main.go)
 │   │   ├── constant.go             # Global backend constants
-│   │   ├── utils.go                # Token generation & helper utilities
-│   │   └── validate.go             # Input validation logic
-│   ├── design.md                   # Backend API specification & model design
+│   │   └── utils.go                # WithBody[T] generic wrapper & JWT utilities
+│   ├── design.md                   # API specification & design notes
 │   ├── go.mod                      # Go module definition
-│   └── go.sum                      # Go dependency checksums
+│   └── go.sum                      # Dependency checksums
 │
 ├── laddu-zabardast-fe/             # Frontend application (React + Vite)
-│   ├── env/                        # Frontend environment variables
-│   │   └── .env
+│   ├── .env                        # Frontend environment variables (VITE_BACKEND_URL)
 │   ├── src/
-│   │   ├── app/                    # Top-level application layout
-│   │   ├── components/             # Reusable UI & Layout components (Shadcn/UI)
+│   │   ├── components/             # UI component library (Shadcn/UI & Radix primitives)
 │   │   ├── context/                # React context providers (Auth, Cart, Wishlist)
-│   │   ├── hooks/                  # Custom React hooks
-│   │   ├── lib/                    # Client utilities & helpers
-│   │   ├── pages/                  # Route view components
+│   │   ├── hooks/                  # Custom application hooks
+│   │   ├── lib/                    # Client utilities
+│   │   ├── models/                 # Frontend TypeScript models
+│   │   ├── packets/                # Frontend API request/response contracts
+│   │   ├── pages/                  # Page route components
 │   │   ├── queries/                # TanStack query definitions
-│   │   ├── types/                  # TypeScript interface definitions
+│   │   ├── routes/                 # Client API call helpers & fetch client
 │   │   ├── App.tsx                 # Client routing with React Router
-│   │   ├── globals.css             # Tailwind base & custom design tokens
+│   │   ├── globals.css             # Tailwind base & design tokens
 │   │   └── main.tsx                # Frontend entrypoint
 │   ├── package.json                # Dependencies and frontend scripts
 │   ├── tailwind.config.ts          # Tailwind styling configuration
@@ -114,26 +185,27 @@ Laddu-Zabardast/
 ## ✨ Key Features
 
 ### 🛍 Customer Experience
-- **Interactive Storefront**: Explore handcrafted laddus and authentic pickles with rich descriptions, dietary tags, and pricing.
+- **Interactive Storefront**: Handcrafted laddus and artisanal pickles with rich descriptions, dietary tags, and pricing.
 - **Dynamic Search & Filtering**: Instant keyword search and category filtering (`laddu`, `pickle`).
-- **Cart & Wishlist**: Persistent cart and wishlist with fluid quantity management and price calculations.
-- **Streamlined Checkout**: Multi-step checkout with address book selection and multiple payment methods (`COD`, `UPI`, `Card`, `Cash`).
-- **Customer Account & Profiles**: User profile updates, password change, order history tracking, and saved delivery addresses.
+- **Cart & Wishlist**: Real-time synchronized cart and wishlist with database persistence.
+- **Product Reviews & Ratings**: Verified customer reviews with rating stars, feedback comments, and admin review pinning.
+- **Streamlined Checkout**: Multi-step checkout with address selection and payment options (`COD`, `UPI`, `Card`, `Cash`).
+- **Customer Account & Profiles**: User profile updates, secure password change, order tracking, and saved address book.
 - **Dark / Light Mode**: Beautiful theme toggle powered by Tailwind CSS and Next Themes.
-- **Smooth Animations**: Micro-interactions and animated transitions powered by Framer Motion.
+- **Smooth Animations**: Animated interactions and transitions powered by Framer Motion.
 
 ### 🛡 Admin & Operations
-- **Product Management**: Create, update, toggle availability, and remove products.
+- **Product Management**: Create new products with local image upload, update product details, toggle availability, and delete items.
 - **Order Management**: Monitor live customer orders, update delivery status (`processing` → `shipped` → `delivered`), and verify payment status.
-- **User Directory**: View registered users and manage permissions.
+- **Review Moderation**: Pin standout reviews and delete inappropriate submissions.
 
 ---
 
 ## 🛠 Tech Stack
 
 ### Frontend
-- **Framework**: [React 18](https://react.dev/) + [Vite](https://vitejs.dev/)
-- **Language**: [TypeScript](https://www.typescriptlang.org/)
+- **Framework**: [React 18](https://react.dev/) + [Vite 5](https://vitejs.dev/)
+- **Language**: [TypeScript 5](https://www.typescriptlang.org/)
 - **Routing**: [React Router v6](https://reactrouter.com/)
 - **Styling**: [Tailwind CSS](https://tailwindcss.com/)
 - **UI Components**: [Radix UI](https://www.radix-ui.com/) primitives + [Shadcn UI](https://ui.shadcn.com/)
@@ -152,65 +224,71 @@ Laddu-Zabardast/
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Manual Setup Guide
+
+If you prefer using the terminal rather than the IDE runner:
 
 ### Prerequisites
 
-Ensure you have the following installed:
+Ensure you have installed:
 - [Node.js](https://nodejs.org/) (v18.0.0 or higher) & `npm`
-- [Go](https://go.dev/dl/) (v1.23+ recommended)
-- [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) account or local MongoDB instance
+- [Go](https://go.dev/dl/) (v1.23+ or v1.25+)
+- Local MongoDB running on `localhost:27017` (or MongoDB Atlas URI)
 
 ---
 
 ### 1. Backend Setup (`laddu-zabardast-be`)
 
-1. **Navigate to the backend directory**:
+1. **Navigate to backend directory**:
    ```bash
    cd laddu-zabardast-be
    ```
 
-2. **Configure environment settings**:
-   Copy the sample environment file to create your configuration:
-   ```bash
-   cp env/dev.toml.example env/local.toml
-   ```
-   Open `env/local.toml` and configure your MongoDB connection string and allowed frontend origins:
+2. **Verify configuration (`env/local.toml`)**:
+   Ensure `env/local.toml` points to your local MongoDB:
    ```toml
    routes = [
        "http://localhost:7000"
    ]
 
    [master_mongo]
-   host = "mongodb+srv://<username>:<password>@cluster.mongodb.net/?appName=LadduZabardast"
-   database = "laddu_zabardast"
+   host = "mongodb://localhost:27017"
+   database = "lz_local"
+
+   [auth]
+   jwt_secret = "seQdPYk/vWPg9AgUrPm9mrNQ1t3cpvvRy0jPQy9TJLY="
    ```
 
-3. **Install dependencies**:
+3. **Install dependencies & build**:
    ```bash
    go mod download
+   go build ./...
    ```
 
 4. **Start the backend server**:
    ```bash
    go run src/server/main.go
    ```
-   The backend API will start on: `http://localhost:8080`  
-   Health check: `http://localhost:8080/health`
+   *Expected output:*
+   ```text
+   Pinged your deployment. You successfully connected to MongoDB!
+   Server running on :8080
+   ```
+   *Verify health check:* `curl http://localhost:8080/health` → `OK`
 
 ---
 
 ### 2. Frontend Setup (`laddu-zabardast-fe`)
 
-1. **Navigate to the frontend directory**:
+1. **Navigate to frontend directory**:
    ```bash
    cd laddu-zabardast-fe
    ```
 
-2. **Configure environment variables**:
-   Ensure `env/.env` contains the backend API URL:
+2. **Configure environment (`.env`)**:
+   Create or verify `.env`:
    ```env
-   BACKEND_URL="http://localhost:8080"
+   VITE_BACKEND_URL=http://localhost:8080
    ```
 
 3. **Install dependencies**:
@@ -218,57 +296,90 @@ Ensure you have the following installed:
    npm install
    ```
 
-4. **Start the development server**:
+4. **Start Vite development server**:
    ```bash
    npm run dev
    ```
-   The web application will be live at: `http://localhost:7000`
+   *The application will open on:* `http://localhost:7000`
 
 ---
 
 ## 📡 API Reference
 
-All backend routes are served at `http://localhost:8080`.
+All backend API routes are served at `http://localhost:8080`.
 
+### Health Check
 | Method | Endpoint | Description | Auth Required |
 |:-------|:---------|:------------|:-------------:|
-| `GET` | `/health` | Server health check | No |
+| `GET` | `/health` | Server health verification | No |
+
+### Authentication & User
+| Method | Endpoint | Description | Auth Required |
+|:-------|:---------|:------------|:-------------:|
 | `POST` | `/signup` | Register a new user | No |
 | `POST` | `/login` | User login & JWT issuance | No |
 | `POST` | `/logout` | User session logout | Yes |
 | `GET` | `/profile` | Get current user's profile | Yes |
-| `POST` / `PUT` | `/update-profile` | Update user details | Yes |
-| `POST` | `/change-password` | Update account password | Yes |
-| `GET` | `/addresses` | Fetch saved addresses | Yes |
-| `POST` / `PUT` | `/addresses` | Save / update shipping address | Yes |
+| `POST` | `/update-profile` | Update profile information | Yes |
+| `POST` | `/change-password` | Change account password | Yes |
+| `GET` | `/addresses` | Fetch saved delivery addresses | Yes |
+| `POST` | `/addresses` | Add a new address to address book | Yes |
 | `DELETE` | `/addresses/{idx}` | Remove address by index | Yes |
+
+### Products & Static Media
+| Method | Endpoint | Description | Auth Required |
+|:-------|:---------|:------------|:-------------:|
 | `GET` | `/products` | List all available products | No |
 | `GET` | `/products/search?q={query}` | Search products by name/description | No |
 | `GET` | `/products/{id}` | Get product details by ID | No |
-| `POST` | `/products/create` | Create a new product (Admin) | Yes |
-| `PUT` | `/products/edit/{id}` | Update product information (Admin) | Yes |
-| `DELETE` | `/products/delete/{id}` | Remove a product (Admin) | Yes |
-| `GET` | `/orders` | List user orders / all orders (Admin) | Yes |
-| `GET` | `/orders/{id}` | Get specific order details | Yes |
+| `POST` | `/products/create` | Create a new product (Supports image upload) | Yes |
+| `PUT` | `/products/edit/{id}` | Update product information | Yes |
+| `DELETE` | `/products/delete/{id}` | Delete a product | Yes |
+| `GET` | `/uploads/{filename}` | Serve uploaded product media files | No |
+
+### Cart & Wishlist
+| Method | Endpoint | Description | Auth Required |
+|:-------|:---------|:------------|:-------------:|
+| `GET` | `/cart` | Fetch authenticated user's cart | Yes |
+| `POST` | `/cart` | Replace/sync full cart items payload | Yes |
+| `GET` | `/wishlist` | Fetch authenticated user's wishlist | Yes |
+| `POST` | `/wishlist` | Replace/sync full wishlist product IDs | Yes |
+
+### Reviews & Ratings
+| Method | Endpoint | Description | Auth Required |
+|:-------|:---------|:------------|:-------------:|
+| `GET` | `/reviews/{productId}` | List verified reviews for a product | No |
+| `POST` | `/reviews/create` | Submit a new review and rating | Yes |
+| `PUT` | `/reviews/edit/{id}` | Update existing review content | Yes |
+| `DELETE` | `/reviews/delete/{id}` | Remove a review | Yes |
+| `POST` | `/reviews/pin/{id}` | Pin/unpin review to top (Admin) | Yes |
+
+### Orders
+| Method | Endpoint | Description | Auth Required |
+|:-------|:---------|:------------|:-------------:|
+| `GET` | `/orders` | List user orders (or all orders for Admin) | Yes |
+| `GET` | `/orders/{id}` | Get detailed order summary | Yes |
 | `POST` | `/orders` | Place a new order | Yes |
-| `PUT` | `/orders/{id}` | Update order status / payment status | Yes |
-| `DELETE` | `/orders/{id}` | Cancel / remove order | Yes |
+| `PUT` | `/orders/{id}` | Full update of order information | Yes |
+| `PATCH` | `/orders/{id}` | Partial update of order or payment status | Yes |
+| `DELETE` | `/orders/{id}` | Cancel/delete an order | Yes |
 
 ---
 
 ## ⚙ Environment Configuration
 
-### Backend (`env/local.toml` or `env/dev.toml`)
+### Backend Configuration (`env/local.toml` or `env/dev.toml`)
 | Key | Type | Description |
 |:----|:-----|:------------|
-| `routes` | Array of strings | List of allowed CORS origins (e.g. `["http://localhost:7000"]`) |
-| `master_mongo.host` | String | MongoDB connection URI (`mongodb+srv://...` or `mongodb://localhost:27017`) |
-| `master_mongo.database` | String | MongoDB database name (`laddu_zabardast`) |
+| `routes` | `string[]` | Allowed CORS origins (e.g. `["http://localhost:7000"]`) |
+| `master_mongo.host` | `string` | MongoDB connection URI (`mongodb://localhost:27017` or Atlas URI) |
+| `master_mongo.database` | `string` | Target MongoDB database name (e.g. `lz_local`) |
+| `auth.jwt_secret` | `string` | Secret key used for signing JWT tokens |
 
-### Frontend (`env/.env`)
+### Frontend Configuration (`laddu-zabardast-fe/.env`)
 | Key | Default | Description |
 |:----|:--------|:------------|
-| `BACKEND_URL` | `http://localhost:8080` | URL of the running Go API backend |
+| `VITE_BACKEND_URL` | `http://localhost:8080` | URL of the running Go API backend |
 
 ---
 
@@ -277,18 +388,45 @@ All backend routes are served at `http://localhost:8080`.
 ### Frontend (`laddu-zabardast-fe`)
 ```bash
 npm run dev        # Starts Vite development server on port 7000
-npm run build      # Compiles production bundle to dist/
+npm run build      # Compiles production bundle into dist/
 npm run preview    # Locally previews production build
 npm run lint       # Runs ESLint checks
-npm run typecheck  # Validates TypeScript types with tsc
+npm run typecheck  # Validates TypeScript types (tsc --noEmit)
 ```
 
 ### Backend (`laddu-zabardast-be`)
 ```bash
-go run src/server/main.go  # Starts the Go API server
-go build -o bin/server src/server/main.go  # Compiles binary to bin/server
-go test ./...              # Runs test suites
+go run src/server/main.go               # Starts Go API server with local config
+APP_ENV=dev go run src/server/main.go   # Starts Go API server with dev config
+go build -o bin/server src/server/main.go  # Compiles binary into bin/server
+go test ./...                           # Runs test suites
 ```
+
+---
+
+## 🔍 Troubleshooting & Common Issues
+
+### 1. `error parsing uri: lookup ...: no such host`
+- **Cause**: The MongoDB Atlas hostname in `env/dev.toml` does not resolve or has expired.
+- **Fix**: Run with local MongoDB (default) or update `host` in `env/dev.toml` with an active Atlas cluster URI.
+
+### 2. `failed to connect to `localhost:27017`: connection refused`
+- **Cause**: Local MongoDB service is not started.
+- **Fix**: Start MongoDB using `brew services start mongodb-community` (macOS) or `sudo systemctl start mongod` (Linux).
+
+### 3. `Port 8080 is in use` or `Port 7000 is in use`
+- **Cause**: Another instance of the backend or frontend is already running.
+- **Fix**: Find and kill the process:
+  ```bash
+  lsof -i :8080  # Check backend PID
+  kill -9 <PID>
+  lsof -i :7000  # Check frontend PID
+  kill -9 <PID>
+  ```
+
+### 4. CORS Errors in Browser Console
+- **Cause**: Frontend origin does not match the allowed origins list in backend configuration.
+- **Fix**: Ensure `routes = ["http://localhost:7000"]` is present in `laddu-zabardast-be/env/local.toml`.
 
 ---
 

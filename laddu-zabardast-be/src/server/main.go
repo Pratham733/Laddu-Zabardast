@@ -17,8 +17,15 @@ import (
 func main() {
 	_ = os.MkdirAll("public/uploads", 0755)
 
-	// err := config.LoadConfig(constants.DevEnv)
-	err := config.LoadConfig(constants.LocalEnv)
+	envPath := constants.LocalEnv
+	if os.Getenv("APP_ENV") == "dev" {
+		envPath = constants.DevEnv
+	}
+	if p := os.Getenv("CONFIG_PATH"); p != "" {
+		envPath = p
+	}
+
+	err := config.LoadConfig(envPath)
 	if err != nil {
 		log.Fatal(err)
 	}

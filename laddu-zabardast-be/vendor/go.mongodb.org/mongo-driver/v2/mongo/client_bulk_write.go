@@ -174,7 +174,7 @@ type cursorInfo struct {
 	N         int32
 	NModified *int32
 	Upserted  *struct {
-		ID any `bson:"id"`
+		ID any `bson:"_id"`
 	}
 }
 
