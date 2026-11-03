@@ -2,9 +2,9 @@
 
 import * as React from "react";
 import Autoplay from "embla-carousel-autoplay";
-import Image from "next/image";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion"; // Import motion
+import { motion } from "framer-motion";
+import { Loader2 } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -14,44 +14,9 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
-import { Button } from "@mui/material";
 import { InteractiveHoverButton } from "@/components/magicui/interactive-hover-button";
-
-const carouselItems = [
-  {
-    id: 1,
-    title: "Authentic Indian Sweets",
-    description:
-      "Experience the taste of tradition with our handcrafted laddus, made with love and the finest ingredients.",
-    imageUrl: "/images/ban1.jpg",
-    imageAlt: "Colorful assortment of Indian sweets",
-    aiHint: "indian sweets festival",
-    buttonText: "Shop Laddus",
-    buttonLink: "/shop",
-  },
-  {
-    id: 2,
-    title: "Tangy Homemade Pickles",
-    description:
-      "Spice up your meals with our traditional homemade pickles, bursting with authentic flavors.",
-    imageUrl: "/images/ban2.jpg",
-    imageAlt: "Jars of various Indian pickles",
-    aiHint: "indian pickles jars",
-    buttonText: "Explore Pickles",
-    buttonLink: "/shop",
-  },
-  {
-    id: 3,
-    title: "LADDU ZABARDAST Delights",
-    description:
-      "Freshly made daily, bringing the authentic taste of India right to your doorstep.",
-    imageUrl: "/images/ban3.jpg",
-    imageAlt: "Indian sweet shop display",
-    aiHint: "indian sweet shop",
-    buttonText: "View Our Shop",
-    buttonLink: "/shop",
-  },
-];
+import { getBanners } from "@/routes/banner";
+import type { BannerItem } from "@/models/banner";
 
 // Animation variants for the text content
 const contentVariants = {
@@ -62,20 +27,62 @@ const contentVariants = {
     transition: {
       duration: 0.6,
       ease: "easeOut",
-      delay: 0.2, // Add a small delay
+      delay: 0.2,
     },
   },
 };
 
 export function HeroCarousel() {
+  const [banners, setBanners] = React.useState<BannerItem[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+
   const plugin = React.useRef(
-    Autoplay({ delay: 5000, stopOnInteraction: true }),
+    Autoplay({ delay: 5000, stopOnInteraction: true })
   );
+
+  React.useEffect(() => {
+    let isMounted = true;
+    async function loadBanners() {
+      try {
+        setIsLoading(true);
+        const data = await getBanners();
+        if (isMounted) {
+          setBanners(Array.isArray(data) ? data : []);
+        }
+      } catch (err) {
+        console.error("Failed to load banners from backend:", err);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+    loadBanners();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  if (isLoading) {
+    return (
+      <section className="w-full py-6 md:py-10 overflow-hidden">
+        <div className="p-1">
+          <Card className="overflow-hidden border-none shadow-none rounded-none">
+            <CardContent className="relative flex aspect-[2/1] items-center justify-center p-0 bg-muted/30 animate-pulse">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+    );
+  }
+
+  if (banners.length === 0) {
+    return null;
+  }
 
   return (
     <section className="w-full py-6 md:py-10 overflow-hidden">
-      {" "}
-      {/* Added overflow-hidden */}
       <Carousel
         plugins={[plugin.current]}
         className="w-full"
@@ -86,50 +93,53 @@ export function HeroCarousel() {
         }}
       >
         <CarouselContent>
-          {carouselItems.map((item) => (
+          {banners.map((item, index) => (
             <CarouselItem key={item.id}>
               <div className="p-1">
                 <Card className="overflow-hidden border-none shadow-none rounded-none">
                   <CardContent className="relative flex aspect-[2/1] items-center justify-center p-0">
-                    {/* Background Image with subtle parallax possibility (optional, requires more complex setup) */}
+                    {/* Background Image with subtle parallax */}
                     <motion.div
                       className="absolute inset-0 z-0"
                       initial={{ scale: 1.1, opacity: 0.8 }}
                       animate={{ scale: 1, opacity: 1 }}
-                      transition={{ duration: 1.5, ease: [0.22, 1, 0.36, 1] }} // Smoother easing
+                      transition={{ duration: 1.5, ease: [0.22, 1, 0.36, 1] }}
                     >
                       <img
-                        src={item.imageUrl}
-                        alt={item.imageAlt}
+                        src={item.imageURL}
+                        alt={item.name}
+                        onError={(e) => {
+                          if (item.altURL && e.currentTarget.src !== item.altURL) {
+                            e.currentTarget.src = item.altURL;
+                          }
+                        }}
                         className="absolute inset-0 w-full h-full object-cover opacity-70 dark:opacity-30"
-                        data-ai-hint={item.aiHint}
-                        loading={item.id === 1 ? "eager" : "lazy"}
+                        loading={index === 0 ? "eager" : "lazy"}
                       />
                     </motion.div>
                     {/* Animated Content Wrapper */}
                     <motion.div
-                      className="container px-4 md:px-6 text-center relative z-10 text-foreground p-8 rounded-lg bg-background/80 dark:bg-background/70 max-w-3xl mx-auto" // Increased light mode opacity from /60 to /80
+                      className="container px-4 md:px-6 text-center relative z-10 text-foreground p-8 rounded-lg bg-background/80 dark:bg-background/70 max-w-3xl mx-auto"
                       variants={contentVariants}
                       initial="hidden"
-                      animate="show" // Trigger animation on load/mount
-                      key={item.id} // Re-trigger animation on slide change
+                      animate="show"
+                      key={item.id}
                     >
                       <h1 className="text-3xl md:text-5xl font-bold tracking-tight mb-3 text-gradient drop-shadow-sm">
-                        {" "}
-                        {/* Applied text-gradient */}
-                        {item.title}
+                        {item.name}
                       </h1>
-                      <p className="text-md md:text-lg mb-6 max-w-xl mx-auto drop-shadow-sm">
-                        {item.description}
-                      </p>
-                      {/* Add subtle hover effect to button */}
+                      {item.description && (
+                        <p className="text-md md:text-lg mb-6 max-w-xl mx-auto drop-shadow-sm">
+                          {item.description}
+                        </p>
+                      )}
                       <motion.div
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                       >
-                        <Link to={item.buttonLink}>
+                        <Link to={item.buttonLink || "/shop"}>
                           <InteractiveHoverButton className="bg-orange-600 text-white shadow-md px-8 py-3 text-lg font-semibold rounded-full hover:opacity-90 transition-opacity">
-                            {item.buttonText}
+                            {item.buttonText || "Shop Now"}
                           </InteractiveHoverButton>
                         </Link>
                       </motion.div>

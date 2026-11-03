@@ -1,7 +1,7 @@
 //src/app/signup/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Container, Column, Row, Box } from "@/components/ui/layout";;
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -29,6 +29,7 @@ import { useAuth, toast } from "@/hooks";
 import { UserPlus, Mail, Lock, LoaderCircle, Eye, EyeOff } from "lucide-react";
 import { InteractiveHoverButton } from "@/components/magicui/interactive-hover-button";
 import { signup } from "@/routes";
+import { getUser } from "@/queries";
 import { Button } from "@mui/material"; // Import Button
 import { MailOpen } from "lucide-react"; // Import MailOpen icon
 
@@ -141,8 +142,15 @@ const ImpressiveLamp = () => (
 export default function SignupPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user, setUser, setToken } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      router.push("/");
+    }
+  }, [user, router]);
 
   const form = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
@@ -158,26 +166,54 @@ export default function SignupPage() {
   const onSubmit = async (data: SignupFormValues) => {
     setIsLoading(true);
     try {
-      await signup({
+      const result = await signup({
         firstName: data.firstName,
         lastName: data.lastName,
         email: data.email,
         password: data.password,
       });
 
-      toast({
-        title: "Signup Successful",
-        description: "Your account has been created. Please log in.", // Prompt user to log in
-      });
-      // Redirect to login page after successful signup, preserving original redirect target
-      const loginUrl = new URL("/login", window.location.origin);
-      if (searchParams?.get("redirect")) {
-        loginUrl.searchParams.set(
-          "redirect",
-          searchParams.get("redirect")!,
-        );
+      let userDetails = result.user;
+      if (!userDetails) {
+        try {
+          const meResult = await getUser();
+          if (meResult && meResult.user) {
+            userDetails = meResult.user;
+          }
+        } catch (meError) {
+          console.error("Failed to fetch user details after signup:", meError);
+        }
       }
-      router.push(loginUrl.toString());
+
+      if (userDetails) {
+        setUser({
+          ...userDetails,
+          source: "db",
+          userId: userDetails.userId || (userDetails as any).id || "",
+          id: userDetails.userId || (userDetails as any).id || "",
+          firstName: userDetails.firstName ?? data.firstName,
+          lastName: userDetails.lastName ?? data.lastName,
+          email: userDetails.email ?? data.email,
+          phone: userDetails.phone ?? null,
+          photoURL: userDetails.photoURL ?? null,
+          role: userDetails.role ?? null,
+          isAdmin: Boolean(userDetails.isAdmin || data.email === "spratham388@gmail.com"),
+          picture: userDetails.picture ?? null,
+          addresses: userDetails.addresses ?? [],
+        });
+      }
+
+      if (result && result.token) {
+        setToken(result.token);
+      }
+
+      toast({
+        title: "Welcome to Laddu Zabardast!",
+        description: "Your account has been created successfully.",
+      });
+
+      // Always go directly to the home page upon signup
+      router.push("/");
     } catch (error: any) {
       toast({
         title: "Signup Failed",

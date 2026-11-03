@@ -51,9 +51,12 @@ func main() {
 	routes.CartRoutes(r)
 	routes.WishlistRoutes(r)
 	routes.ReviewRoutes(r)
+	routes.BannerRoutes(r)
 
 	corsHandler := cors.CORSHandler(r)
 
 	fmt.Println("Server running on :8080")
-	http.ListenAndServe(":8080", corsHandler)
+	if err := http.ListenAndServe(":8080", corsHandler); err != nil {
+		log.Fatal(err)
+	}
 }

@@ -1,8 +1,8 @@
 package utils
 
 const (
-	DevEnv    = "env/dev.toml"
-	LocalEnv  = "env/local.toml"
+	DevEnv    = "env/dev.local.json"
+	LocalEnv  = "env/local.local.json"
 	AuthToken = "authToken"
 )
 
@@ -25,5 +25,5 @@ const (
 	Carts          = "carts"
 	Wishlists      = "wishlists"
 	Reviews        = "reviews"
+	Banners        = "banners"
 )
-

@@ -58,7 +58,7 @@ const interactiveVariants = {
 
 export function Navbar() {
   const { cart } = useCart();
-  const { user, token, setToken, isUserAdmin } = useAuth(); // Use auth context, include isUserAdmin
+  const { user, token, setToken, logout, isUserAdmin } = useAuth(); // Use auth context with logout
   const router = useRouter(); // Initialize router
   const pathname = usePathname(); // Get current pathname
   const [itemCount, setItemCount] = useState(0);
@@ -80,15 +80,18 @@ export function Navbar() {
     }
   }, [cart, isClient]);
 
-  // Use the logout function from AuthContext
+  // Use the logout function from AuthContext and redirect to /login
   const handleLogout = async () => {
-    setToken(null); // Clear JWT token and user state
+    try {
+      await logout();
+    } catch (e) {
+      console.error("Logout error:", e);
+    }
     toast({
       title: "Logged Out",
       description: "You have been successfully logged out.",
     });
-    router.push("/"); // Redirect to home after logout
-    console.log("User logged out.");
+    router.push("/login");
   };
 
   // Function to handle search submission (navigating to search page)
@@ -203,7 +206,7 @@ export function Navbar() {
                 whileTap="tap"
               >
                 <Link
-                  href="/"
+                  href={Boolean(user && pathname !== "/login" && pathname !== "/signup") ? "/" : "/login"}
                   className="flex items-center gap-2 flex-shrink-0 mr-4"
                 >
                   <div className="h-12 w-12 rounded-full bg-white flex items-center justify-center overflow-hidden">
@@ -224,140 +227,143 @@ export function Navbar() {
                 </Link>
               </motion.div>
 
-              {/* Navigation Links */}
-              <nav className="hidden items-center gap-6 text-sm font-medium md:flex">
-                <motion.div
-                  variants={interactiveVariants}
-                  whileHover="hover"
-                  whileTap="tap"
-                >
-                  <Link
-                    href="/"
-                    className="group relative px-2 py-1 transition-all duration-300 text-primary-foreground/90 hover:text-primary-foreground flex items-center gap-2"
+              {/* Navigation Links - only rendered when user is logged in */}
+              {Boolean(user && pathname !== "/login" && pathname !== "/signup") && (
+                <nav className="hidden items-center gap-6 text-sm font-medium md:flex">
+                  <motion.div
+                    variants={interactiveVariants}
+                    whileHover="hover"
+                    whileTap="tap"
                   >
-                    <span className="absolute inset-x-0 -bottom-0.5 h-0.5 bg-white transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left rounded-full"></span>
-                    <HomeIcon className="h-4 w-4 group-hover:rotate-12 transition-transform" />
-                    <span className="relative">
-                      Home
-                      <span className="absolute -inset-x-2 -inset-y-1 scale-75 bg-white/10 opacity-0 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 rounded-lg -z-10"></span>
-                    </span>
-                  </Link>
-                </motion.div>
-                <motion.div
-                  variants={interactiveVariants}
-                  whileHover="hover"
-                  whileTap="tap"
-                >
-                  <Link
-                    href="/shop"
-                    className="group relative px-2 py-1 transition-all duration-300 text-primary-foreground/90 hover:text-primary-foreground flex items-center gap-2"
+                    <Link
+                      href="/"
+                      className="group relative px-2 py-1 transition-all duration-300 text-primary-foreground/90 hover:text-primary-foreground flex items-center gap-2"
+                    >
+                      <span className="absolute inset-x-0 -bottom-0.5 h-0.5 bg-white transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left rounded-full"></span>
+                      <HomeIcon className="h-4 w-4 group-hover:rotate-12 transition-transform" />
+                      <span className="relative">
+                        Home
+                        <span className="absolute -inset-x-2 -inset-y-1 scale-75 bg-white/10 opacity-0 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 rounded-lg -z-10"></span>
+                      </span>
+                    </Link>
+                  </motion.div>
+                  <motion.div
+                    variants={interactiveVariants}
+                    whileHover="hover"
+                    whileTap="tap"
                   >
-                    <span className="absolute inset-x-0 -bottom-0.5 h-0.5 bg-white transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left rounded-full"></span>
-                    <Store className="h-4 w-4 group-hover:rotate-12 transition-transform" />
-                    <span className="relative">
-                      Shop
-                      <span className="absolute -inset-x-2 -inset-y-1 scale-75 bg-white/10 opacity-0 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 rounded-lg -z-10"></span>
-                    </span>
-                  </Link>
-                </motion.div>
-              </nav>
+                    <Link
+                      href="/shop"
+                      className="group relative px-2 py-1 transition-all duration-300 text-primary-foreground/90 hover:text-primary-foreground flex items-center gap-2"
+                    >
+                      <span className="absolute inset-x-0 -bottom-0.5 h-0.5 bg-white transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left rounded-full"></span>
+                      <Store className="h-4 w-4 group-hover:rotate-12 transition-transform" />
+                      <span className="relative">
+                        Shop
+                        <span className="absolute -inset-x-2 -inset-y-1 scale-75 bg-white/10 opacity-0 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 rounded-lg -z-10"></span>
+                      </span>
+                    </Link>
+                  </motion.div>
+                </nav>
+              )}
             </div>
           </div>
 
-          {/* Right Side: Search + Icons */}
+          {/* Right Side: Search + Icons (Only when logged in) */}
           <div className="flex items-center gap-2">
-            {/* Laddu Button moved here */}
-            <div className="relative z-[9999]">
-              <CoolMode
-                options={{ particle: "circle", particleCount: 32, size: 32 }}
-              >
-                <ShimmerButton
-                  className="group relative px-4 py-2 text-sm font-black rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all duration-300 hover:scale-105 border border-black bg-orange-600 hover:bg-orange-500 shadow-lg"
-                  shimmerColor="rgba(255,255,255,0.6)"
-                  shimmerDuration="2.5s"
-                  shimmerSize="0.08em"
-                >
-                  {" "}
-                  <div className="relative">
-                    <span className="block leading-tight text-center font-extrabold text-white drop-shadow-sm transform group-hover:scale-105 transition-all duration-300 ease-out">
-                      ✨ Free Laddus ✨
-                    </span>
-                    <div className="absolute -top-1 -left-1 w-2 h-2 bg-yellow-300 rounded-full animate-ping"></div>
-                    <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-yellow-300 rounded-full animate-ping delay-300"></div>
-                  </div>
-                  <Meteors number={5} className="opacity-30" />
-                </ShimmerButton>
-              </CoolMode>
-            </div>
-            {/* Search Bar with Autocomplete Popover */}
-            <motion.div
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: "auto", opacity: 1 }}
-              transition={{ delay: 0.2, duration: 0.4 }}
-              className="max-w-xs md:max-w-sm lg:max-w-md hidden sm:block overflow-visible" // Use overflow-visible for Popover
-            >
-              <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
-                <PopoverAnchor asChild>
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      handleSearchSubmit(searchQuery);
-                    }}
-                    className="relative"
+            {Boolean(user && pathname !== "/login" && pathname !== "/signup") && (
+              <>
+                {/* Laddu Button */}
+                <div className="relative z-[9999]">
+                  <CoolMode
+                    options={{ particle: "circle", particleCount: 32, size: 32 }}
                   >
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
-                    <PopoverTrigger asChild>
-                      <Input
-                        type="search"
-                        name="search"
-                        placeholder="Search products..."
-                        className="pl-8 w-full h-9 bg-white/10 dark:bg-black/10 
-                                    backdrop-blur-sm placeholder:text-primary-foreground/70 
-                                    text-primary-foreground border-white/30 hover:border-white/50 
-                                    focus:border-white focus-visible:ring-white/50 
-                                    transition-all duration-300 rounded-full
-                                    shadow-[0_0_10px_-3px_rgba(255,255,255,0.1)]
-                                    hover:shadow-[0_0_15px_-3px_rgba(255,255,255,0.2)]
-                                    focus:shadow-[0_0_20px_-3px_rgba(255,255,255,0.3)]"
-                        value={searchQuery}
-                        onChange={handleInputChange}
-                        onFocus={handleFocus}
-                        onBlur={handleBlur}
-                        aria-autocomplete="list"
-                        aria-controls="search-suggestions"
-                      />
-                    </PopoverTrigger>
-                  </form>
-                </PopoverAnchor>
-                {/* Keep popover content standard colors */}
-                <PopoverContent
-                  id="search-suggestions"
-                  className="w-[--radix-popover-trigger-width] p-0 mt-1 bg-popover text-popover-foreground"
-                  // Prevent focus loss from input when clicking suggestion
-                  onOpenAutoFocus={(e) => e.preventDefault()}
+                    <ShimmerButton
+                      className="group relative px-4 py-2 text-sm font-black rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all duration-300 hover:scale-105 border border-black bg-orange-600 hover:bg-orange-500 shadow-lg"
+                      shimmerColor="rgba(255,255,255,0.6)"
+                      shimmerDuration="2.5s"
+                      shimmerSize="0.08em"
+                    >
+                      <div className="relative">
+                        <span className="block leading-tight text-center font-extrabold text-white drop-shadow-sm transform group-hover:scale-105 transition-all duration-300 ease-out">
+                          ✨ Free Laddus ✨
+                        </span>
+                        <div className="absolute -top-1 -left-1 w-2 h-2 bg-yellow-300 rounded-full animate-ping"></div>
+                        <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-yellow-300 rounded-full animate-ping delay-300"></div>
+                      </div>
+                      <Meteors number={5} className="opacity-30" />
+                    </ShimmerButton>
+                  </CoolMode>
+                </div>
+
+                {/* Search Bar with Autocomplete Popover */}
+                <motion.div
+                  initial={{ width: 0, opacity: 0 }}
+                  animate={{ width: "auto", opacity: 1 }}
+                  transition={{ delay: 0.2, duration: 0.4 }}
+                  className="max-w-xs md:max-w-sm lg:max-w-md hidden sm:block overflow-visible"
                 >
-                  {suggestions.length > 0 && (
-                    <div className="flex flex-col max-h-60 overflow-y-auto">
-                      {suggestions.map((product) => (
-                        <Button
-                          key={product.id || product.key || product.id}
-                          variant="text" // Use standard ghost variant for popover
-                          className="justify-start px-3 py-2 h-auto text-sm rounded-none border-b last:border-b-0 text-popover-foreground hover:bg-accent hover:text-accent-foreground"
-                          onClick={() => handleSuggestionClick(product.name)}
-                          // Prevent blur when clicking suggestion
-                          onMouseDown={(e) => e.preventDefault()}
-                        >
-                          {product.name}
-                        </Button>
-                      ))}
-                    </div>
-                  )}
-                </PopoverContent>
-              </Popover>
-            </motion.div>
+                  <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+                    <PopoverAnchor asChild>
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          handleSearchSubmit(searchQuery);
+                        }}
+                        className="relative"
+                      >
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+                        <PopoverTrigger asChild>
+                          <Input
+                            type="search"
+                            name="search"
+                            placeholder="Search products..."
+                            className="pl-8 w-full h-9 bg-white/10 dark:bg-black/10 
+                                        backdrop-blur-sm placeholder:text-primary-foreground/70 
+                                        text-primary-foreground border-white/30 hover:border-white/50 
+                                        focus:border-white focus-visible:ring-white/50 
+                                        transition-all duration-300 rounded-full
+                                        shadow-[0_0_10px_-3px_rgba(255,255,255,0.1)]
+                                        hover:shadow-[0_0_15px_-3px_rgba(255,255,255,0.2)]
+                                        focus:shadow-[0_0_20px_-3px_rgba(255,255,255,0.3)]"
+                            value={searchQuery}
+                            onChange={handleInputChange}
+                            onFocus={handleFocus}
+                            onBlur={handleBlur}
+                            aria-autocomplete="list"
+                            aria-controls="search-suggestions"
+                          />
+                        </PopoverTrigger>
+                      </form>
+                    </PopoverAnchor>
+                    <PopoverContent
+                      id="search-suggestions"
+                      className="w-[--radix-popover-trigger-width] p-0 mt-1 bg-popover text-popover-foreground"
+                      onOpenAutoFocus={(e) => e.preventDefault()}
+                    >
+                      {suggestions.length > 0 && (
+                        <div className="flex flex-col max-h-60 overflow-y-auto">
+                          {suggestions.map((product) => (
+                            <Button
+                              key={product.id || product.key || product.id}
+                              variant="text"
+                              className="justify-start px-3 py-2 h-auto text-sm rounded-none border-b last:border-b-0 text-popover-foreground hover:bg-accent hover:text-accent-foreground"
+                              onClick={() => handleSuggestionClick(product.name)}
+                              onMouseDown={(e) => e.preventDefault()}
+                            >
+                              {product.name}
+                            </Button>
+                          ))}
+                        </div>
+                      )}
+                    </PopoverContent>
+                  </Popover>
+                </motion.div>
+              </>
+            )}
 
             {/* Icons Group */}
-            <motion.div // Stagger icon appearance
+            <motion.div
               initial="hidden"
               animate="show"
               variants={{
@@ -374,67 +380,86 @@ export function Navbar() {
                 whileHover="hover"
                 whileTap="tap"
               >
-                {/* Update ThemeToggle button style */}
                 <ThemeToggle />
               </motion.div>
-              {/* Cart Button with enhanced effects */}
-              <motion.div
-                variants={interactiveVariants}
-                whileHover="hover"
-                whileTap="tap"
-              >
-                <Button
-                  variant="text"
-                  size="small"
-                  sx={{
-                    color: (theme) =>
-                      theme.palette.mode === "dark"
-                        ? "black !important"
-                        : "white !important",
-                  }}
-                  className="relative group text-primary-foreground hover:bg-white/10 hover:text-primary-foreground"
-                  onClick={() => router.push("/cart")}
+
+              {/* If user is not logged in, show auth link button */}
+              {Boolean(!user || pathname === "/login" || pathname === "/signup") && (
+                <motion.div
+                  variants={interactiveVariants}
+                  whileHover="hover"
+                  whileTap="tap"
                 >
-                  <div className="absolute inset-0 rounded-full bg-white/5 scale-0 group-hover:scale-100 transition-transform duration-200" />
-                  <ShoppingCart className="h-5 w-5 transform group-hover:scale-110 transition-transform duration-200" />
+                  <Link
+                    href={pathname === "/signup" ? "/login" : "/signup"}
+                    className="px-4 py-1.5 rounded-full border border-white/60 text-white hover:bg-white hover:text-orange-600 font-semibold text-xs sm:text-sm transition-all duration-200 shadow-sm"
+                  >
+                    {pathname === "/signup" ? "Log In" : "Sign Up"}
+                  </Link>
+                </motion.div>
+              )}
 
-                  {isClient && itemCount > 0 && (
-                    <motion.div
-                      initial={{ scale: 0, y: 10 }}
-                      animate={{ scale: 1, y: 0 }}
-                      exit={{ scale: 0, y: 10 }}
-                      transition={{
-                        type: "spring",
-                        stiffness: 500,
-                        damping: 30,
-                        bounce: 0.5,
-                      }}
-                    >
-                      <Badge
-                        variant="destructive"
-                        className="absolute -top-2 -right-2 h-5 min-w-[1.25rem] 
-                                          justify-center rounded-full p-1 text-xs font-bold
-                                          animate-pulse shadow-lg shadow-red-500/20
-                                          border border-white/20"
+              {/* Cart Button (Only when logged in) */}
+              {Boolean(user && pathname !== "/login" && pathname !== "/signup") && (
+                <motion.div
+                  variants={interactiveVariants}
+                  whileHover="hover"
+                  whileTap="tap"
+                >
+                  <Button
+                    variant="text"
+                    size="small"
+                    sx={{
+                      color: (theme) =>
+                        theme.palette.mode === "dark"
+                          ? "black !important"
+                          : "white !important",
+                    }}
+                    className="relative group text-primary-foreground hover:bg-white/10 hover:text-primary-foreground"
+                    onClick={() => router.push("/cart")}
+                  >
+                    <div className="absolute inset-0 rounded-full bg-white/5 scale-0 group-hover:scale-100 transition-transform duration-200" />
+                    <ShoppingCart className="h-5 w-5 transform group-hover:scale-110 transition-transform duration-200" />
+
+                    {isClient && itemCount > 0 && (
+                      <motion.div
+                        initial={{ scale: 0, y: 10 }}
+                        animate={{ scale: 1, y: 0 }}
+                        exit={{ scale: 0, y: 10 }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 500,
+                          damping: 30,
+                          bounce: 0.5,
+                        }}
                       >
-                        {itemCount > 99 ? "99+" : itemCount}
-                      </Badge>
-                    </motion.div>
-                  )}
+                        <Badge
+                          variant="destructive"
+                          className="absolute -top-2 -right-2 h-5 min-w-[1.25rem] 
+                                            justify-center rounded-full p-1 text-xs font-bold
+                                            animate-pulse shadow-lg shadow-red-500/20
+                                            border border-white/20"
+                        >
+                          {itemCount > 99 ? "99+" : itemCount}
+                        </Badge>
+                      </motion.div>
+                    )}
 
-                  {/* Ripple effect on hover */}
-                  <span className="absolute inset-0 rounded-full bg-white/20 opacity-0 group-hover:animate-ping" />
-                  <span className="sr-only">View Cart</span>
-                </Button>
-              </motion.div>
-              {/* Sidebar Sheet */}
-              <motion.div
-                variants={interactiveVariants}
-                whileHover="hover"
-                whileTap="tap"
-              >
-                <Sheet>
-                  <SheetTrigger asChild>
+                    <span className="absolute inset-0 rounded-full bg-white/20 opacity-0 group-hover:animate-ping" />
+                    <span className="sr-only">View Cart</span>
+                  </Button>
+                </motion.div>
+              )}
+
+              {/* Sidebar Sheet (Only when logged in) */}
+              {Boolean(user && pathname !== "/login" && pathname !== "/signup") && (
+                <motion.div
+                  variants={interactiveVariants}
+                  whileHover="hover"
+                  whileTap="tap"
+                >
+                  <Sheet>
+                    <SheetTrigger asChild>
                     {/* Menu Button - Use ghost variant and white text */}
                     <Button
                       variant="text"
@@ -589,8 +614,9 @@ export function Navbar() {
                   </SheetContent>
                 </Sheet>
               </motion.div>
-            </motion.div>
-          </div>
+            )}
+          </motion.div>
+        </div>
         </div>
       </motion.header>
       <ScrollProgress className="top-16 h-1" />

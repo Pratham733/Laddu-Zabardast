@@ -1,0 +1,12 @@
+{
+  "routes": [
+    "http://localhost:7000"
+  ],
+  "master_mongo": {
+    "host": "mongodb://localhost:27017",
+    "database": "lz_local"
+  },
+  "auth": {
+    "jwt_secret": "seQdPYk/vWPg9AgUrPm9mrNQ1t3cpvvRy0jPQy9TJLY="
+  }
+}
