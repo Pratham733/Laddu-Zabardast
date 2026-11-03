@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Container, Column, Row, Box } from "@/components/ui/layout";;
+import { Container, Column, Row, Box } from "@/components/ui/layout";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -30,8 +30,8 @@ import { UserPlus, Mail, Lock, LoaderCircle, Eye, EyeOff } from "lucide-react";
 import { InteractiveHoverButton } from "@/components/magicui/interactive-hover-button";
 import { signup } from "@/routes";
 import { getUser } from "@/queries";
-import { Button } from "@mui/material"; // Import Button
-import { MailOpen } from "lucide-react"; // Import MailOpen icon
+import { Button } from "@mui/material";
+import { MailOpen } from "lucide-react";
 
 const signupSchema = z.object({
   firstName: z.string().min(1, { message: "First name is required." }),
@@ -46,7 +46,6 @@ type SignupFormValues = z.infer<typeof signupSchema>;
 
 const ImpressiveLamp = () => (
   <Column className="items-center mb-4 relative select-none">
-    {/* Ambient Glow Background */}
     <Box className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200px] h-[200px] bg-yellow-100/30 rounded-full blur-3xl animate-pulse" />
 
     <svg
@@ -57,21 +56,13 @@ const ImpressiveLamp = () => (
       xmlns="http://www.w3.org/2000/svg"
       className="animate-float"
     >
-      {/* Decorative Top Arc */}
       <path d="M40,10 Q60,0 80,10" stroke="#444" strokeWidth="3" fill="none" />
-
-      {/* Main Power Cable */}
       <path d="M60,0 V30" stroke="#666" strokeWidth="4" />
-
-      {/* Lamp Head */}
       <g transform="rotate(-15 60 50)">
-        {/* Outer Shade */}
         <ellipse cx="60" cy="50" rx="30" ry="15" fill="url(#lampGradient)" />
-        {/* Inner Shade */}
         <ellipse cx="60" cy="48" rx="25" ry="12" fill="#2a2a2a" />
       </g>
 
-      {/* Glowing Bulb */}
       <circle
         cx="60"
         cy="60"
@@ -87,7 +78,6 @@ const ImpressiveLamp = () => (
         />
       </circle>
 
-      {/* Light Beam */}
       <g className="light-beam">
         <path
           d="M30,65 L90,65 L100,150 L20,150"
@@ -95,7 +85,6 @@ const ImpressiveLamp = () => (
           opacity="0.4"
           className="animate-pulse"
         />
-        {/* Secondary Light Beams */}
         <path
           d="M45,65 L75,65 L80,150 L40,150"
           fill="url(#beamGradient)"
@@ -108,11 +97,9 @@ const ImpressiveLamp = () => (
         />
       </g>
 
-      {/* Decorative Elements */}
       <circle cx="60" cy="40" r="2" fill="gold" className="animate-ping" />
       <path d="M45,45 Q60,40 75,45" stroke="#888" strokeWidth="1" fill="none" />
 
-      {/* Gradients */}
       <defs>
         <radialGradient id="lampGradient" cx="50%" cy="50%" r="50%">
           <stop offset="80%" stopColor="#333" />
@@ -132,7 +119,6 @@ const ImpressiveLamp = () => (
       </defs>
     </svg>
 
-    {/* Additional Light Rays */}
     <Box className="absolute -left-2 top-1/2 w-[2px] h-[80px] bg-gradient-to-b from-yellow-200/50 to-transparent transform -rotate-15"></Box>
     <Box className="absolute -right-2 top-1/2 w-[2px] h-[80px] bg-gradient-to-b from-yellow-200/50 to-transparent transform rotate-15"></Box>
     <Box className="absolute top-[60px] left-1/2 -translate-x-1/2 w-[2px] h-[80px] bg-gradient-to-b from-yellow-200/50 to-transparent transform rotate-15"></Box>
@@ -162,7 +148,6 @@ export default function SignupPage() {
     },
   });
 
-  // Handle Email/Password Signup via API route
   const onSubmit = async (data: SignupFormValues) => {
     setIsLoading(true);
     try {
@@ -189,15 +174,17 @@ export default function SignupPage() {
         setUser({
           ...userDetails,
           source: "db",
-          userId: userDetails.userId || (userDetails as any).id || "",
-          id: userDetails.userId || (userDetails as any).id || "",
+          userId: userDetails.userId || userDetails.id || "",
+          id: userDetails.userId || userDetails.id || "",
           firstName: userDetails.firstName ?? data.firstName,
           lastName: userDetails.lastName ?? data.lastName,
           email: userDetails.email ?? data.email,
           phone: userDetails.phone ?? null,
           photoURL: userDetails.photoURL ?? null,
           role: userDetails.role ?? null,
-          isAdmin: Boolean(userDetails.isAdmin || data.email === "spratham388@gmail.com"),
+          isAdmin: Boolean(
+            userDetails.isAdmin || data.email === "spratham388@gmail.com",
+          ),
           picture: userDetails.picture ?? null,
           addresses: userDetails.addresses ?? [],
         });
@@ -212,12 +199,13 @@ export default function SignupPage() {
         description: "Your account has been created successfully.",
       });
 
-      // Always go directly to the home page upon signup
       router.push("/");
     } catch (error: any) {
       toast({
         title: "Signup Failed",
-        description: error.message || "Something went wrong during signup. Please try again.",
+        description:
+          error.message ||
+          "Something went wrong during signup. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -225,14 +213,11 @@ export default function SignupPage() {
     }
   };
 
-
-
   return (
     <Container className="px-4 py-12 md:px-6 md:py-20 flex justify-center items-center min-h-[70vh]">
       {" "}
       <Card className="w-full max-w-md shadow-lg relative overflow-visible">
         {" "}
-        {/* Impressive Lamp */}
         <Box className="absolute left-1/2 -top-32 transform -translate-x-1/2 z-20">
           <ImpressiveLamp />
         </Box>
@@ -246,7 +231,6 @@ export default function SignupPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Email/Password Form */}
             <Form {...form}>
               <form
                 onSubmit={form.handleSubmit(onSubmit)}
@@ -337,7 +321,11 @@ export default function SignupPage() {
                             onClick={() => setShowPassword(!showPassword)}
                             tabIndex={-1}
                           >
-                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            {showPassword ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
                           </button>
                         </Box>
                       </FormControl>
@@ -364,10 +352,8 @@ export default function SignupPage() {
               </form>
             </Form>
 
-            {/* Separator */}
             <Box className="relative my-4"></Box>
           </CardContent>
-          {/* <Separator /> */}
 
           <CardFooter className="text-center text-sm flex items-center justify-center gap-1 flex-wrap mt-2">
             <p className="text-muted-foreground flex items-center justify-center gap-1 flex-wrap">
