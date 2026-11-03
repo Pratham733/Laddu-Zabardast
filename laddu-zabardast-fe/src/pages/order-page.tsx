@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState, useMemo } from "react";
 import { Container, Column, Row, Box } from "@/components/ui/layout";
 import {
@@ -297,10 +295,15 @@ export default function OrdersPage() {
                                       <span className="inline-flex items-center gap-1.5 cursor-default text-muted-foreground dark:text-zinc-400">
                                         Payment:
                                         {(() => {
-                                          const pStatus = typeof details[order.id]?.paymentStatus === "object"
-                                            ? details[order.id]?.paymentStatus?.status
-                                            : details[order.id]?.paymentStatus;
-                                          return pStatus === "completed" || pStatus === "paid" ? (
+                                          const pStatus =
+                                            typeof details[order.id]
+                                              ?.paymentStatus === "object"
+                                              ? details[order.id]?.paymentStatus
+                                                  ?.status
+                                              : details[order.id]
+                                                  ?.paymentStatus;
+                                          return pStatus === "completed" ||
+                                            pStatus === "paid" ? (
                                             <CheckCircle
                                               className="text-green-500"
                                               size={16}
@@ -313,19 +316,28 @@ export default function OrdersPage() {
                                           );
                                         })()}
                                         <span className="capitalize">
-                                          {typeof details[order.id]?.paymentStatus === "object"
-                                            ? details[order.id]?.paymentStatus?.status || "pending"
-                                            : details[order.id]?.paymentStatus || "pending"}
+                                          {typeof details[order.id]
+                                            ?.paymentStatus === "object"
+                                            ? details[order.id]?.paymentStatus
+                                                ?.status || "pending"
+                                            : details[order.id]
+                                                ?.paymentStatus || "pending"}
                                         </span>
                                       </span>
                                     </TooltipTrigger>
                                     <TooltipContent className="bg-popover text-popover-foreground dark:bg-zinc-700 dark:text-zinc-200">
-                                      {(typeof details[order.id]?.paymentStatus === "object"
-                                        ? details[order.id]?.paymentStatus?.status
-                                        : details[order.id]?.paymentStatus) === "completed" ||
-                                      (typeof details[order.id]?.paymentStatus === "object"
-                                        ? details[order.id]?.paymentStatus?.status
-                                        : details[order.id]?.paymentStatus) === "paid"
+                                      {(typeof details[order.id]
+                                        ?.paymentStatus === "object"
+                                        ? details[order.id]?.paymentStatus
+                                            ?.status
+                                        : details[order.id]?.paymentStatus) ===
+                                        "completed" ||
+                                      (typeof details[order.id]
+                                        ?.paymentStatus === "object"
+                                        ? details[order.id]?.paymentStatus
+                                            ?.status
+                                        : details[order.id]?.paymentStatus) ===
+                                        "paid"
                                         ? "Payment received"
                                         : "Awaiting payment confirmation"}
                                     </TooltipContent>

@@ -1,5 +1,4 @@
 //src/components/layout/navbar.tsx
-"use client";
 
 import Link from "next/link";
 import Image from "next/image";
@@ -17,12 +16,15 @@ import {
   UserPlus,
   ShieldCheck,
   Heart,
+  X,
+  Sparkles,
 } from "lucide-react";
-import { Button } from "@mui/material";
+import { Button, Box, Typography, CircularProgress } from "@mui/material";
 import { Input } from "@/components/ui/input";
 import { useCart, useAuth, toast } from "@/hooks";
 import { Badge } from "@/components/ui/badge";
 import { useEffect, useState, useRef } from "react";
+import { useTheme } from "next-themes";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   Sheet,
@@ -35,14 +37,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { useRouter, usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  PopoverAnchor,
-} from "@/components/ui/popover"; // Import Popover components
 import { searchProducts } from "@/queries";
-import type { Product } from "@/models";
+import type { Product } from "@/types";
 import { cn } from "@/lib/utils"; // Import cn utility
 import { CoolMode } from "@/components/animations/CoolMode";
 import { ScrollProgress } from "@/components/layout/ScrollProgress";
@@ -50,6 +46,22 @@ import { ShimmerButton } from "@/components/magicui/shimmer-button";
 import { Meteors } from "@/components/magicui/meteors";
 import { SparklesText } from "@/components/magicui/sparkles-text";
 import { AuroraText } from "../magicui/aurora-text";
+
+const POPULAR_SEARCHES = [
+  "Motichoor Laddu",
+  "Besan Laddu",
+  "Mango Pickle",
+  "Gongura Pickle",
+  "Festive Gift Box",
+];
+
+const QUICK_CATEGORIES = [
+  { label: "Laddus", href: "/shop?category=laddu" },
+  { label: "Pickles", href: "/shop?category=pickle" },
+  { label: "Best Sellers", href: "/#bestsellers" },
+  { label: "Gift Boxes", href: "/#gifts" },
+];
+
 // Animation for hover/tap on interactive elements
 const interactiveVariants = {
   hover: { scale: 1.05, transition: { duration: 0.2 } }, // Faster transition on hover
@@ -66,9 +78,29 @@ export function Navbar() {
   const [searchQuery, setSearchQuery] = useState("");
   const [suggestions, setSuggestions] = useState<Product[]>([]);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const popoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const { resolvedTheme } = useTheme();
+  const isDark = isClient && resolvedTheme === "dark";
+  const searchBorderColor = isDark ? "#000000" : "#ffffff";
+
+  // Handle outside click to close suggestions dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(event.target as Node)
+      ) {
+        setIsPopoverOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     setIsClient(true); // Ensure this runs only on the client
@@ -115,21 +147,25 @@ export function Navbar() {
     }
 
     if (query.trim().length > 0) {
-      // Debounce the API call by 300ms
+      setIsSearching(true);
+      // Debounce the API call by 250ms
       searchDebounceRef.current = setTimeout(async () => {
         try {
           const data = await searchProducts(query.trim());
           const results = data.products || [];
           setSuggestions(results);
-          setIsPopoverOpen(results.length > 0);
+          setIsPopoverOpen(true);
         } catch {
           setSuggestions([]);
-          setIsPopoverOpen(false);
+          setIsPopoverOpen(true);
+        } finally {
+          setIsSearching(false);
         }
-      }, 300);
+      }, 250);
     } else {
       setSuggestions([]);
-      setIsPopoverOpen(false);
+      setIsSearching(false);
+      setIsPopoverOpen(true);
     }
   };
 
@@ -138,34 +174,29 @@ export function Navbar() {
     setSearchQuery(productName); // Fill input with suggestion
     setIsPopoverOpen(false);
     setSuggestions([]);
-    // Optionally, navigate directly or just fill the input
     handleSearchSubmit(productName); // Submit search immediately on click
   };
 
   // Handle input focus
   const handleFocus = () => {
-    if (popoverTimeoutRef.current) {
-      clearTimeout(popoverTimeoutRef.current); // Clear timeout if re-focusing quickly
-    }
-    if (searchQuery.trim().length > 1 && suggestions.length > 0) {
-      setIsPopoverOpen(true);
-    }
+    setIsPopoverOpen(true);
   };
 
-  // Handle input blur with a delay to allow clicking on suggestions
-  const handleBlur = () => {
-    // Use a timeout to delay closing the popover
-    popoverTimeoutRef.current = setTimeout(() => {
-      setIsPopoverOpen(false);
-    }, 150); // Adjust delay as needed (e.g., 100-200ms)
-  };
-
-  // Clear timeouts on unmount
+  // Clear timeouts on unmount & add Cmd+K keyboard shortcut
   useEffect(() => {
-    return () => {
-      if (popoverTimeoutRef.current) {
-        clearTimeout(popoverTimeoutRef.current);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        setIsPopoverOpen((prev) => !prev);
       }
+      if (e.key === "Escape") {
+        setIsPopoverOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
       if (searchDebounceRef.current) {
         clearTimeout(searchDebounceRef.current);
       }
@@ -195,7 +226,7 @@ export function Navbar() {
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.4, ease: "easeOut" }} // Slightly faster
         // Apply gradient background from footer
-        className="sticky top-0 z-50 w-full border-b bg-orange-600 text-primary-foreground" // Changed background, added text-primary-foreground
+        className="sticky top-0 z-50 w-full border-b bg-orange-600 text-primary-foreground"
       >
         <div className="container flex h-16 items-center px-4 md:px-6 justify-between">
           <div className="flex items-center gap-4 md:gap-6">
@@ -206,7 +237,13 @@ export function Navbar() {
                 whileTap="tap"
               >
                 <Link
-                  href={Boolean(user && pathname !== "/login" && pathname !== "/signup") ? "/" : "/login"}
+                  href={
+                    Boolean(
+                      user && pathname !== "/login" && pathname !== "/signup",
+                    )
+                      ? "/"
+                      : "/login"
+                  }
                   className="flex items-center gap-2 flex-shrink-0 mr-4"
                 >
                   <div className="h-12 w-12 rounded-full bg-white flex items-center justify-center overflow-hidden">
@@ -227,8 +264,9 @@ export function Navbar() {
                 </Link>
               </motion.div>
 
-              {/* Navigation Links - only rendered when user is logged in */}
-              {Boolean(user && pathname !== "/login" && pathname !== "/signup") && (
+              {Boolean(
+                user && pathname !== "/login" && pathname !== "/signup",
+              ) && (
                 <nav className="hidden items-center gap-6 text-sm font-medium md:flex">
                   <motion.div
                     variants={interactiveVariants}
@@ -269,100 +307,523 @@ export function Navbar() {
             </div>
           </div>
 
-          {/* Right Side: Search + Icons (Only when logged in) */}
           <div className="flex items-center gap-2">
-            {Boolean(user && pathname !== "/login" && pathname !== "/signup") && (
+            {Boolean(
+              user && pathname !== "/login" && pathname !== "/signup",
+            ) && (
               <>
-                {/* Laddu Button */}
-                <div className="relative z-[9999]">
-                  <CoolMode
-                    options={{ particle: "circle", particleCount: 32, size: 32 }}
-                  >
-                    <ShimmerButton
-                      className="group relative px-4 py-2 text-sm font-black rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all duration-300 hover:scale-105 border border-black bg-orange-600 hover:bg-orange-500 shadow-lg"
-                      shimmerColor="rgba(255,255,255,0.6)"
-                      shimmerDuration="2.5s"
-                      shimmerSize="0.08em"
-                    >
-                      <div className="relative">
-                        <span className="block leading-tight text-center font-extrabold text-white drop-shadow-sm transform group-hover:scale-105 transition-all duration-300 ease-out">
-                          ✨ Free Laddus ✨
-                        </span>
-                        <div className="absolute -top-1 -left-1 w-2 h-2 bg-yellow-300 rounded-full animate-ping"></div>
-                        <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-yellow-300 rounded-full animate-ping delay-300"></div>
-                      </div>
-                      <Meteors number={5} className="opacity-30" />
-                    </ShimmerButton>
-                  </CoolMode>
-                </div>
-
-                {/* Search Bar with Autocomplete Popover */}
-                <motion.div
+                <Box
+                  component={motion.div}
                   initial={{ width: 0, opacity: 0 }}
                   animate={{ width: "auto", opacity: 1 }}
                   transition={{ delay: 0.2, duration: 0.4 }}
-                  className="max-w-xs md:max-w-sm lg:max-w-md hidden sm:block overflow-visible"
+                  ref={searchContainerRef}
+                  sx={{
+                    display: { xs: "none", sm: "block" },
+                    width: { sm: 320, md: 420, lg: 500, xl: 580 },
+                    overflow: "visible",
+                    position: "relative",
+                    zIndex: 50,
+                  }}
                 >
-                  <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
-                    <PopoverAnchor asChild>
-                      <form
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          handleSearchSubmit(searchQuery);
-                        }}
-                        className="relative"
-                      >
-                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
-                        <PopoverTrigger asChild>
-                          <Input
-                            type="search"
-                            name="search"
-                            placeholder="Search products..."
-                            className="pl-8 w-full h-9 bg-white/10 dark:bg-black/10 
-                                        backdrop-blur-sm placeholder:text-primary-foreground/70 
-                                        text-primary-foreground border-white/30 hover:border-white/50 
-                                        focus:border-white focus-visible:ring-white/50 
-                                        transition-all duration-300 rounded-full
-                                        shadow-[0_0_10px_-3px_rgba(255,255,255,0.1)]
-                                        hover:shadow-[0_0_15px_-3px_rgba(255,255,255,0.2)]
-                                        focus:shadow-[0_0_20px_-3px_rgba(255,255,255,0.3)]"
-                            value={searchQuery}
-                            onChange={handleInputChange}
-                            onFocus={handleFocus}
-                            onBlur={handleBlur}
-                            aria-autocomplete="list"
-                            aria-controls="search-suggestions"
-                          />
-                        </PopoverTrigger>
-                      </form>
-                    </PopoverAnchor>
-                    <PopoverContent
-                      id="search-suggestions"
-                      className="w-[--radix-popover-trigger-width] p-0 mt-1 bg-popover text-popover-foreground"
-                      onOpenAutoFocus={(e) => e.preventDefault()}
+                  <Box
+                    component="form"
+                    onSubmit={(e: React.FormEvent) => {
+                      e.preventDefault();
+                      handleSearchSubmit(searchQuery);
+                    }}
+                    sx={{
+                      position: "relative",
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      backgroundColor: "#ea580c",
+                      border: `2px solid ${searchBorderColor}`,
+                      borderRadius: isPopoverOpen ? "22px 22px 0 0" : "9999px",
+                      borderBottomColor: isPopoverOpen
+                        ? "transparent"
+                        : searchBorderColor,
+                      boxShadow: isPopoverOpen
+                        ? "0 4px 12px rgba(0, 0, 0, 0.15)"
+                        : "0 2px 8px rgba(0, 0, 0, 0.15)",
+                      transition:
+                        "border-radius 0.15s ease, border-color 0.15s ease",
+                      height: 44,
+                      px: "14px",
+                    }}
+                  >
+                    <Box
+                      component="button"
+                      type="submit"
+                      aria-label="Search"
+                      sx={{
+                        p: "4px",
+                        ml: "-4px",
+                        mr: "8px",
+                        color: "rgba(255,255,255,0.8)",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        borderRadius: "50%",
+                        flexShrink: 0,
+                        background: "none",
+                        border: "none",
+                        transition: "all 0.15s ease",
+                        "&:hover": {
+                          color: "#fff",
+                          backgroundColor: "rgba(255,255,255,0.1)",
+                        },
+                      }}
                     >
-                      {suggestions.length > 0 && (
-                        <div className="flex flex-col max-h-60 overflow-y-auto">
-                          {suggestions.map((product) => (
-                            <Button
-                              key={product.id || product.key || product.id}
-                              variant="text"
-                              className="justify-start px-3 py-2 h-auto text-sm rounded-none border-b last:border-b-0 text-popover-foreground hover:bg-accent hover:text-accent-foreground"
-                              onClick={() => handleSuggestionClick(product.name)}
-                              onMouseDown={(e) => e.preventDefault()}
+                      <Search size={16} color="white" />
+                    </Box>
+
+                    <Box
+                      component="input"
+                      ref={searchInputRef}
+                      type="text"
+                      name="search"
+                      placeholder="Search products, laddus, pickles..."
+                      value={searchQuery}
+                      onChange={handleInputChange}
+                      onFocus={handleFocus}
+                      autoComplete="off"
+                      sx={{
+                        flex: 1,
+                        backgroundColor: "transparent",
+                        color: "#fff",
+                        fontSize: "0.875rem",
+                        fontWeight: 500,
+                        outline: "none",
+                        border: "none",
+                        height: "100%",
+                        minWidth: 0,
+                        "&::placeholder": {
+                          color: "rgba(255,255,255,0.75)",
+                        },
+                      }}
+                    />
+
+                    {searchQuery && (
+                      <Box
+                        component="button"
+                        type="button"
+                        onClick={() => {
+                          setSearchQuery("");
+                          setSuggestions([]);
+                          searchInputRef.current?.focus();
+                        }}
+                        aria-label="Clear search"
+                        sx={{
+                          p: "4px",
+                          borderRadius: "50%",
+                          color: "rgba(255,255,255,0.7)",
+                          cursor: "pointer",
+                          flexShrink: 0,
+                          background: "none",
+                          border: "none",
+                          display: "flex",
+                          alignItems: "center",
+                          transition: "all 0.15s ease",
+                          "&:hover": {
+                            color: "#fff",
+                            backgroundColor: "rgba(255,255,255,0.15)",
+                          },
+                        }}
+                      >
+                        <X size={16} />
+                      </Box>
+                    )}
+                  </Box>
+
+                  {/* Dropdown for options connected with curve directly from the search bar */}
+                  {isPopoverOpen && (
+                    <Box
+                      sx={{
+                        position: "absolute",
+                        top: "100%",
+                        left: 0,
+                        right: 0,
+                        backgroundColor: "#ea580c",
+                        borderLeft: `2px solid ${searchBorderColor}`,
+                        borderRight: `2px solid ${searchBorderColor}`,
+                        borderBottom: `2px solid ${searchBorderColor}`,
+                        borderTop: `1px solid ${isDark ? "rgba(0,0,0,0.15)" : "rgba(255,255,255,0.25)"}`,
+                        borderRadius: "0 0 22px 22px",
+                        boxShadow: "0 20px 35px -5px rgba(0,0,0,0.35)",
+                        overflow: "hidden",
+                        zIndex: 60,
+                      }}
+                    >
+                      {/* Loading state */}
+                      {isSearching ? (
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 1,
+                            py: 2.5,
+                          }}
+                        >
+                          <CircularProgress size={18} sx={{ color: "white" }} />
+                          <Typography
+                            sx={{
+                              fontSize: "0.875rem",
+                              fontWeight: 500,
+                              color: "#fff",
+                            }}
+                          >
+                            Searching delicacies...
+                          </Typography>
+                        </Box>
+                      ) : searchQuery.trim().length > 0 ? (
+                        /* Matched suggestions */
+                        suggestions.length > 0 ? (
+                          <Box
+                            sx={{
+                              maxHeight: 288,
+                              overflowY: "auto",
+                              py: 0.5,
+                              "&::-webkit-scrollbar": { display: "none" },
+                            }}
+                          >
+                            {suggestions.map((product) => (
+                              <Box
+                                component="button"
+                                key={product.id || product.key || product.id}
+                                type="button"
+                                onClick={() =>
+                                  handleSuggestionClick(product.name)
+                                }
+                                onMouseDown={(e: React.MouseEvent) =>
+                                  e.preventDefault()
+                                }
+                                sx={{
+                                  width: "100%",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "space-between",
+                                  gap: 1.5,
+                                  px: 2,
+                                  py: 1.25,
+                                  fontSize: "0.875rem",
+                                  textAlign: "left",
+                                  color: "#fff",
+                                  cursor: "pointer",
+                                  background: "none",
+                                  border: "none",
+                                  borderBottom:
+                                    "1px solid rgba(255,255,255,0.15)",
+                                  transition: "background 0.15s ease",
+                                  "&:last-of-type": { borderBottom: "none" },
+                                  "&:hover": {
+                                    backgroundColor: "rgba(255,255,255,0.15)",
+                                  },
+                                  "&:active": {
+                                    backgroundColor: "rgba(255,255,255,0.2)",
+                                  },
+                                }}
+                              >
+                                <Box
+                                  sx={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 1,
+                                    minWidth: 0,
+                                  }}
+                                >
+                                  <Search
+                                    size={14}
+                                    style={{
+                                      color: "rgba(255,255,255,0.75)",
+                                      flexShrink: 0,
+                                    }}
+                                  />
+                                  <Typography
+                                    sx={{
+                                      fontWeight: 500,
+                                      color: "#fff",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap",
+                                      fontSize: "0.875rem",
+                                    }}
+                                  >
+                                    {product.name}
+                                  </Typography>
+                                </Box>
+                                <Box
+                                  sx={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 1,
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  {product.price && (
+                                    <Typography
+                                      sx={{
+                                        fontSize: "0.75rem",
+                                        fontWeight: 700,
+                                        color: "rgba(255,255,255,0.9)",
+                                      }}
+                                    >
+                                      ₹{product.price}
+                                    </Typography>
+                                  )}
+                                  {product.category && (
+                                    <Box
+                                      component="span"
+                                      sx={{
+                                        fontSize: "0.6875rem",
+                                        fontWeight: 600,
+                                        px: 1,
+                                        py: 0.25,
+                                        borderRadius: "9999px",
+                                        backgroundColor:
+                                          "rgba(255,255,255,0.2)",
+                                        color: "#fff",
+                                        textTransform: "capitalize",
+                                      }}
+                                    >
+                                      {product.category}
+                                    </Box>
+                                  )}
+                                </Box>
+                              </Box>
+                            ))}
+                            <Box
+                              sx={{
+                                p: 1,
+                                borderTop: "1px solid rgba(255,255,255,0.15)",
+                                backgroundColor: "rgba(0,0,0,0.1)",
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                px: 2,
+                              }}
                             >
-                              {product.name}
-                            </Button>
-                          ))}
-                        </div>
+                              <Typography
+                                sx={{
+                                  fontSize: "0.75rem",
+                                  color: "rgba(255,255,255,0.8)",
+                                }}
+                              >
+                                Press Enter to view all results
+                              </Typography>
+                              <Box
+                                component="button"
+                                type="button"
+                                onClick={() => handleSearchSubmit(searchQuery)}
+                                sx={{
+                                  color: "#fff",
+                                  textDecoration: "underline",
+                                  fontSize: "0.75rem",
+                                  fontWeight: 500,
+                                  background: "none",
+                                  border: "none",
+                                  cursor: "pointer",
+                                  "&:hover": {
+                                    color: "rgba(255,255,255,0.9)",
+                                  },
+                                }}
+                              >
+                                View all &rarr;
+                              </Box>
+                            </Box>
+                          </Box>
+                        ) : (
+                          /* No products found */
+                          <Box sx={{ py: 2, px: 2, textAlign: "center" }}>
+                            <Typography
+                              sx={{
+                                fontSize: "0.875rem",
+                                color: "rgba(255,255,255,0.9)",
+                                fontWeight: 500,
+                              }}
+                            >
+                              No products found for &ldquo;{searchQuery}&rdquo;
+                            </Typography>
+                            <Box
+                              component="button"
+                              type="button"
+                              onClick={() => handleSearchSubmit(searchQuery)}
+                              sx={{
+                                mt: 1,
+                                fontSize: "0.75rem",
+                                fontWeight: 600,
+                                px: 1.5,
+                                py: 0.5,
+                                borderRadius: "9999px",
+                                backgroundColor: "rgba(255,255,255,0.2)",
+                                color: "#fff",
+                                border: "none",
+                                cursor: "pointer",
+                                transition: "background 0.15s ease",
+                                "&:hover": {
+                                  backgroundColor: "rgba(255,255,255,0.3)",
+                                },
+                              }}
+                            >
+                              Search for &ldquo;{searchQuery}&rdquo; anyway
+                              &rarr;
+                            </Box>
+                          </Box>
+                        )
+                      ) : (
+                        /* Empty query -> directly render options */
+                        <Box sx={{ py: 1.25, px: 1.5 }}>
+                          <Box
+                            sx={{
+                              px: 1,
+                              py: 0.5,
+                              fontSize: "0.6875rem",
+                              fontWeight: 600,
+                              textTransform: "uppercase",
+                              letterSpacing: "0.05em",
+                              color: "rgba(255,255,255,0.7)",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 0.75,
+                            }}
+                          >
+                            <Sparkles size={12} /> Popular Searches
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              flexWrap: "wrap",
+                              gap: 0.75,
+                              py: 0.75,
+                              px: 1,
+                            }}
+                          >
+                            {POPULAR_SEARCHES.map((term) => (
+                              <Box
+                                component="button"
+                                key={term}
+                                type="button"
+                                onClick={() => handleSuggestionClick(term)}
+                                onMouseDown={(e: React.MouseEvent) =>
+                                  e.preventDefault()
+                                }
+                                sx={{
+                                  px: 1.25,
+                                  py: 0.5,
+                                  fontSize: "0.75rem",
+                                  borderRadius: "9999px",
+                                  backgroundColor: "rgba(255,255,255,0.15)",
+                                  color: "#fff",
+                                  fontWeight: 500,
+                                  cursor: "pointer",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 0.5,
+                                  border: "none",
+                                  transition: "background 0.15s ease",
+                                  "&:hover": {
+                                    backgroundColor: "rgba(255,255,255,0.25)",
+                                  },
+                                  "&:active": {
+                                    backgroundColor: "rgba(255,255,255,0.3)",
+                                  },
+                                }}
+                              >
+                                <Search
+                                  size={10}
+                                  style={{ color: "rgba(255,255,255,0.7)" }}
+                                />
+                                {term}
+                              </Box>
+                            ))}
+                          </Box>
+
+                          <Box
+                            sx={{
+                              my: 0.75,
+                              borderTop: "1px solid rgba(255,255,255,0.15)",
+                            }}
+                          />
+
+                          <Box
+                            sx={{
+                              px: 1,
+                              py: 0.5,
+                              fontSize: "0.6875rem",
+                              fontWeight: 600,
+                              textTransform: "uppercase",
+                              letterSpacing: "0.05em",
+                              color: "rgba(255,255,255,0.7)",
+                            }}
+                          >
+                            Quick Categories
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "grid",
+                              gridTemplateColumns: "1fr 1fr",
+                              gap: 0.5,
+                              px: 0.5,
+                              pt: 0.5,
+                              pb: 0.5,
+                            }}
+                          >
+                            {QUICK_CATEGORIES.map((cat) => (
+                              <Box
+                                component="button"
+                                key={cat.label}
+                                type="button"
+                                onClick={() => {
+                                  setIsPopoverOpen(false);
+                                  router.push(cat.href);
+                                }}
+                                onMouseDown={(e: React.MouseEvent) =>
+                                  e.preventDefault()
+                                }
+                                sx={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 1,
+                                  px: 1.25,
+                                  py: 0.75,
+                                  borderRadius: "8px",
+                                  fontSize: "0.75rem",
+                                  fontWeight: 500,
+                                  color: "#fff",
+                                  textAlign: "left",
+                                  background: "none",
+                                  border: "none",
+                                  cursor: "pointer",
+                                  transition: "background 0.15s ease",
+                                  "&:hover": {
+                                    backgroundColor: "rgba(255,255,255,0.15)",
+                                  },
+                                }}
+                              >
+                                <Box
+                                  component="span"
+                                  sx={{
+                                    width: 6,
+                                    height: 6,
+                                    borderRadius: "50%",
+                                    backgroundColor: "rgba(255,255,255,0.7)",
+                                    flexShrink: 0,
+                                  }}
+                                />
+                                <span>{cat.label}</span>
+                              </Box>
+                            ))}
+                          </Box>
+                        </Box>
                       )}
-                    </PopoverContent>
-                  </Popover>
-                </motion.div>
+                    </Box>
+                  )}
+                </Box>
               </>
             )}
 
-            {/* Icons Group */}
             <motion.div
               initial="hidden"
               animate="show"
@@ -383,8 +844,9 @@ export function Navbar() {
                 <ThemeToggle />
               </motion.div>
 
-              {/* If user is not logged in, show auth link button */}
-              {Boolean(!user || pathname === "/login" || pathname === "/signup") && (
+              {Boolean(
+                !user || pathname === "/login" || pathname === "/signup",
+              ) && (
                 <motion.div
                   variants={interactiveVariants}
                   whileHover="hover"
@@ -399,8 +861,9 @@ export function Navbar() {
                 </motion.div>
               )}
 
-              {/* Cart Button (Only when logged in) */}
-              {Boolean(user && pathname !== "/login" && pathname !== "/signup") && (
+              {Boolean(
+                user && pathname !== "/login" && pathname !== "/signup",
+              ) && (
                 <motion.div
                   variants={interactiveVariants}
                   whileHover="hover"
@@ -451,8 +914,9 @@ export function Navbar() {
                 </motion.div>
               )}
 
-              {/* Sidebar Sheet (Only when logged in) */}
-              {Boolean(user && pathname !== "/login" && pathname !== "/signup") && (
+              {Boolean(
+                user && pathname !== "/login" && pathname !== "/signup",
+              ) && (
                 <motion.div
                   variants={interactiveVariants}
                   whileHover="hover"
@@ -460,178 +924,182 @@ export function Navbar() {
                 >
                   <Sheet>
                     <SheetTrigger asChild>
-                    {/* Menu Button - Use ghost variant and white text */}
-                    <Button
-                      variant="text"
-                      size="small"
-                      sx={{
-                        color: (theme) =>
-                          theme.palette.mode === "dark"
-                            ? "black !important"
-                            : "white !important",
-                      }}
-                      className="relative group hover:bg-white/10 hover:text-primary-foreground overflow-hidden"
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-r from-white/5 to-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-full" />
-                      <Menu className="h-5 w-5 transform group-hover:rotate-180 transition-transform duration-500" />
-                      <div className="absolute inset-0 rounded-full border border-white/20 scale-0 group-hover:scale-100 transition-transform duration-200" />
-                      <span className="absolute inset-0 rounded-full bg-white/10 opacity-0 group-hover:animate-ping" />
-                      <span className="sr-only">Open menu</span>
-                    </Button>
-                  </SheetTrigger>
-                  {/* Keep SheetContent standard colors */}
-                  <SheetContent
-                    side="right"
-                    className="w-full sm:w-[300px] bg-background text-foreground"
-                  >
-                    <SheetHeader className="mb-4">
-                      <SheetTitle className="text-lg font-semibold text-primary">
-                        {user ? "My Account" : "Menu"}
-                      </SheetTitle>
-                    </SheetHeader>
-
-                    {/* Mobile Search */}
-                    <div className="px-2 pb-6 sm:hidden">
-                      <form
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          const formData = new FormData(e.currentTarget);
-                          const mobileQuery = formData.get(
-                            "mobile-search",
-                          ) as string;
-                          // Find the SheetClose button and click it
-                          const sheetCloseButton = (e.target as HTMLElement)
-                            .closest('div[role="dialog"]')
-                            ?.querySelector('button[aria-label="Close"]');
-                          if (sheetCloseButton instanceof HTMLElement) {
-                            sheetCloseButton.click();
-                          }
-                          handleSearchSubmit(mobileQuery);
+                      <Button
+                        variant="text"
+                        size="small"
+                        sx={{
+                          color: (theme) =>
+                            theme.palette.mode === "dark"
+                              ? "black !important"
+                              : "white !important",
                         }}
-                        className="relative"
+                        className="relative group hover:bg-white/10 hover:text-primary-foreground overflow-hidden"
                       >
-                        <Search className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
-                        <Input
-                          type="search"
-                          name="mobile-search"
-                          placeholder="Search..."
-                          className="pl-10 w-full h-12 text-base" // Increased height and font size for touch
-                        />
-                      </form>
-                    </div>
+                        <div className="absolute inset-0 bg-gradient-to-r from-white/5 to-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-full" />
+                        <Menu className="h-5 w-5 transform group-hover:rotate-180 transition-transform duration-500" />
+                        <div className="absolute inset-0 rounded-full border border-white/20 scale-0 group-hover:scale-100 transition-transform duration-200" />
+                        <span className="absolute inset-0 rounded-full bg-white/10 opacity-0 group-hover:animate-ping" />
+                        <span className="sr-only">Open menu</span>
+                      </Button>
+                    </SheetTrigger>
+                    <SheetContent
+                      side="right"
+                      className="w-full sm:w-[300px] bg-background text-foreground"
+                    >
+                      <SheetHeader className="mb-4">
+                        <SheetTitle className="text-lg font-semibold text-primary">
+                          {user ? "My Account" : "Menu"}
+                        </SheetTitle>
+                      </SheetHeader>
 
-                    <nav className="flex flex-col gap-1">
-                      {/* Auth-dependent navigation with larger touch targets */}
-                      {user ? (
-                        <>
-                          <SheetClose asChild>
-                            <Link
-                              href="/profile"
-                              className="flex items-center px-4 py-3 rounded-md hover:bg-accent text-base"
-                            >
-                              <User className="mr-3 h-5 w-5" />
-                              Profile
-                            </Link>
-                          </SheetClose>
+                      <div className="px-2 pb-6 sm:hidden">
+                        <form
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            const formData = new FormData(e.currentTarget);
+                            const mobileQuery = formData.get(
+                              "mobile-search",
+                            ) as string;
+                            const sheetCloseButton = (e.target as HTMLElement)
+                              .closest('div[role="dialog"]')
+                              ?.querySelector('button[aria-label="Close"]');
+                            if (sheetCloseButton instanceof HTMLElement) {
+                              sheetCloseButton.click();
+                            }
+                            handleSearchSubmit(mobileQuery);
+                          }}
+                          className="flex items-center gap-2"
+                        >
+                          <div className="relative flex-1">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                            <Input
+                              type="search"
+                              name="mobile-search"
+                              placeholder="Search products..."
+                              className="pl-9 pr-3 w-full h-11 text-sm rounded-full bg-background"
+                            />
+                          </div>
+                          <Button
+                            type="submit"
+                            variant="contained"
+                            sx={{
+                              backgroundColor: "#ea580c !important",
+                              color: "#ffffff !important",
+                              borderColor: (theme) =>
+                                theme.palette.mode === "dark"
+                                  ? "#000000 !important"
+                                  : "#ffffff !important",
+                              border: "1.5px solid !important",
+                              borderRadius: "9999px !important",
+                              minWidth: 44,
+                              height: 44,
+                              p: 0,
+                              "&:hover": {
+                                backgroundColor: "#c2410c !important",
+                              },
+                            }}
+                          >
+                            <Search className="h-5 w-5" />
+                          </Button>
+                        </form>
+                      </div>
 
-                          <SheetClose asChild>
-                            <Link
-                              href="/orders"
-                              className="flex items-center px-4 py-3 rounded-md hover:bg-accent text-base"
-                            >
-                              <History className="mr-3 h-5 w-5" />
-                              Orders
-                            </Link>
-                          </SheetClose>
+                      <nav className="flex flex-col gap-1">
+                        {" "}
+                        {user ? (
+                          <>
+                            <SheetClose asChild>
+                              <Link
+                                href="/profile"
+                                className="flex items-center px-4 py-3 rounded-md hover:bg-accent text-base"
+                              >
+                                <User className="mr-3 h-5 w-5" />
+                                Profile
+                              </Link>
+                            </SheetClose>
 
-                          <SheetClose asChild>
-                            <Link
-                              href="/wishlist"
-                              className="flex items-center px-4 py-3 rounded-md hover:bg-accent text-base"
-                            >
-                              <Heart className="mr-3 h-5 w-5" />
-                              Wishlist
-                            </Link>
-                          </SheetClose>
-                        </>
-                      ) : (
-                        <>
-                          <SheetClose asChild>
-                            <Link
-                              href={`/login?redirect=${encodeURIComponent(pathname ?? "/")}`}
-                              className="flex items-center px-4 py-3 rounded-md hover:bg-accent text-base"
-                            >
-                              <LogIn className="mr-3 h-5 w-5" />
-                              Login
-                            </Link>
-                          </SheetClose>
+                            <SheetClose asChild>
+                              <Link
+                                href="/orders"
+                                className="flex items-center px-4 py-3 rounded-md hover:bg-accent text-base"
+                              >
+                                <History className="mr-3 h-5 w-5" />
+                                Orders
+                              </Link>
+                            </SheetClose>
 
-                          <SheetClose asChild>
-                            <Link
-                              href={`/signup?redirect=${encodeURIComponent(pathname ?? "/")}`}
-                              className="flex items-center px-4 py-3 rounded-md hover:bg-accent text-base"
-                            >
-                              <UserPlus className="mr-3 h-5 w-5" />
-                              Sign Up
-                            </Link>
-                          </SheetClose>
-                        </>
-                      )}
+                            <SheetClose asChild>
+                              <Link
+                                href="/wishlist"
+                                className="flex items-center px-4 py-3 rounded-md hover:bg-accent text-base"
+                              >
+                                <Heart className="mr-3 h-5 w-5" />
+                                Wishlist
+                              </Link>
+                            </SheetClose>
+                          </>
+                        ) : (
+                          <>
+                            <SheetClose asChild>
+                              <Link
+                                href={`/login?redirect=${encodeURIComponent(pathname ?? "/")}`}
+                                className="flex items-center px-4 py-3 rounded-md hover:bg-accent text-base"
+                              >
+                                <LogIn className="mr-3 h-5 w-5" />
+                                Login
+                              </Link>
+                            </SheetClose>
 
-                      {/* Admin link with larger touch target */}
-                      {user && isUserAdmin() && (
-                        <>
-                          <Separator className="my-3" />
-                          <SheetClose asChild>
-                            <Link
-                              href="/admin"
-                              className="flex items-center px-4 py-3 rounded-md hover:bg-accent text-base"
-                            >
-                              <ShieldCheck className="mr-3 h-5 w-5" />
-                              Admin Dashboard
-                            </Link>
-                          </SheetClose>
-                        </>
-                      )}
-
-                      {/* Logout with larger touch target */}
-                      {user && (
-                        <>
-                          <Separator className="my-3" />
-                          <SheetClose asChild>
-                            <button
-                              type="button"
-                              onClick={handleLogout}
-                              className="flex items-center px-4 py-3 rounded-md w-full text-left text-base text-destructive hover:bg-destructive/10"
-                            >
-                              <LogOut className="mr-3 h-5 w-5" />
-                              Logout
-                            </button>
-                          </SheetClose>
-                        </>
-                      )}
-                    </nav>
-                  </SheetContent>
-                </Sheet>
-              </motion.div>
-            )}
-          </motion.div>
-        </div>
+                            <SheetClose asChild>
+                              <Link
+                                href={`/signup?redirect=${encodeURIComponent(pathname ?? "/")}`}
+                                className="flex items-center px-4 py-3 rounded-md hover:bg-accent text-base"
+                              >
+                                <UserPlus className="mr-3 h-5 w-5" />
+                                Sign Up
+                              </Link>
+                            </SheetClose>
+                          </>
+                        )}
+                        {user && isUserAdmin() && (
+                          <>
+                            <Separator className="my-3" />
+                            <SheetClose asChild>
+                              <Link
+                                href="/admin"
+                                className="flex items-center px-4 py-3 rounded-md hover:bg-accent text-base"
+                              >
+                                <ShieldCheck className="mr-3 h-5 w-5" />
+                                Admin Dashboard
+                              </Link>
+                            </SheetClose>
+                          </>
+                        )}
+                        {user && (
+                          <>
+                            <Separator className="my-3" />
+                            <SheetClose asChild>
+                              <button
+                                type="button"
+                                onClick={handleLogout}
+                                className="flex items-center px-4 py-3 rounded-md w-full text-left text-base text-destructive hover:bg-destructive/10"
+                              >
+                                <LogOut className="mr-3 h-5 w-5" />
+                                Logout
+                              </button>
+                            </SheetClose>
+                          </>
+                        )}
+                      </nav>
+                    </SheetContent>
+                  </Sheet>
+                </motion.div>
+              )}
+            </motion.div>
+          </div>
         </div>
       </motion.header>
       <ScrollProgress className="top-16 h-1" />
     </>
   );
 }
-
-/* Add this to your global CSS if not present already: */
-/*
-@keyframes meteor {
-  0% { opacity: 0; transform: translateY(0) scaleX(1); }
-  10% { opacity: 1; }
-  100% { opacity: 0; transform: translateY(600px) scaleX(0.7); }
-}
-.animate-meteor {
-  animation: meteor linear forwards;
-}
-*/

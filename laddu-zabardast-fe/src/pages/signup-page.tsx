@@ -1,5 +1,4 @@
 //src/app/signup/page.tsx
-"use client";
 
 import { useState, useEffect } from "react";
 import { Container, Column, Row, Box } from "@/components/ui/layout";
@@ -32,17 +31,7 @@ import { signup } from "@/routes";
 import { getUser } from "@/queries";
 import { Button } from "@mui/material";
 import { MailOpen } from "lucide-react";
-
-const signupSchema = z.object({
-  firstName: z.string().min(1, { message: "First name is required." }),
-  lastName: z.string().min(1, { message: "Last name is required." }),
-  email: z.string().email({ message: "Please enter a valid email address." }),
-  password: z
-    .string()
-    .min(6, { message: "Password must be at least 6 characters." }),
-});
-
-type SignupFormValues = z.infer<typeof signupSchema>;
+import { signupSchema, type SignupFormValues } from "@/schema";
 
 const ImpressiveLamp = () => (
   <Column className="items-center mb-4 relative select-none">

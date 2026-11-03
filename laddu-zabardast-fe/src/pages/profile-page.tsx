@@ -1,10 +1,7 @@
-// src/app/profile/page.tsx
-"use client";
-
 import { type ChangeEvent } from "react";
 import { Container, Column, Row, Box } from "@/components/ui/layout";
 import { useAuth, toast } from "@/hooks";
-import type { Address, AppUser } from "@/models";
+import type { Address, AppUser } from "@/types";
 import { useState, useEffect } from "react";
 import {
   updateProfile,
@@ -50,24 +47,14 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import { profileSchema, addressSchema } from "@/schema";
-
-const passwordSchema = z
-  .object({
-    currentPassword: z.string().min(6, "Current password is required."),
-    newPassword: z
-      .string()
-      .min(6, "New password must be at least 6 characters."),
-    confirmPassword: z.string().min(6, "Please confirm your new password."),
-  })
-  .refine((data) => data.newPassword === data.confirmPassword, {
-    message: "New passwords don't match.",
-    path: ["confirmPassword"],
-  });
-
-type ProfileFormValues = z.infer<typeof profileSchema>;
-type AddressFormValues = z.infer<typeof addressSchema>;
-type PasswordFormValues = z.infer<typeof passwordSchema>;
+import {
+  profileSchema,
+  addressSchema,
+  passwordSchema,
+  type ProfileFormValues,
+  type AddressFormValues,
+  type PasswordFormValues,
+} from "@/schema";
 
 interface PasswordStrength {
   length: boolean;

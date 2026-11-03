@@ -1,4 +1,4 @@
-import type { AppUser } from '../models/user';
+import type { AppUser } from '../types/user';
 
 export interface LoginResponse {
   user?: AppUser;

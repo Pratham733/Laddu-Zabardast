@@ -1,9 +1,8 @@
 // src/components/product-card.tsx
-"use client";
 
 import Image from "next/image";
 import { useState, useMemo, useCallback } from "react";
-import type { Product } from "@/models";
+import type { Product } from "@/types";
 import {
   Card,
   CardContent,
@@ -37,8 +36,8 @@ export function ProductCard({ product }: ProductCardProps) {
   // Memoize wishlist check for performance
   const isProductInWishlist = useMemo(
     () =>
-      wishlist.some(
-        (item) => Boolean(item.id && product.id && item.id === product.id),
+      wishlist.some((item) =>
+        Boolean(item.id && product.id && item.id === product.id),
       ),
     [wishlist, product.id],
   );
@@ -99,9 +98,9 @@ export function ProductCard({ product }: ProductCardProps) {
             {product.name}
           </CardTitle>
           {product.description && (
-          <CardDescription className="text-sm text-muted-foreground mb-2 line-clamp-2">
-            {product.description}
-          </CardDescription>
+            <CardDescription className="text-sm text-muted-foreground mb-2 line-clamp-2">
+              {product.description}
+            </CardDescription>
           )}
           <p className="text-lg font-bold text-primary">
             ₹
@@ -138,7 +137,7 @@ export function ProductCard({ product }: ProductCardProps) {
           >
             <div className="flex items-center gap-2">
               <ShoppingCart className="h-4 w-4" />
-              <span>Add to Cart</span>
+              <span>Add</span>
             </div>
           </InteractiveHoverButton>
         </CardFooter>

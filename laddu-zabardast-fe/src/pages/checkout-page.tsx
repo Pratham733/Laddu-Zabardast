@@ -1,5 +1,3 @@
-"use client";
-
 import React, { useEffect, useState } from "react";
 import { Container, Column, Row, Box } from "@/components/ui/layout";
 import { Button } from "@mui/material";
@@ -32,7 +30,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { LoaderCircle, House, CreditCard, Landmark } from "lucide-react";
 import Image from "next/image";
 
-import type { Address } from "@/models";
+import type { Address } from "@/types";
 import { cn } from "@/lib/utils";
 import {
   Select,
@@ -43,21 +41,7 @@ import {
 } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { InteractiveHoverButton } from "@/components/magicui/interactive-hover-button";
-
-// import Image from "next/image"
-
-// Define form schema with Zod
-const formSchema = z.object({
-  email: z.string().email(),
-  name: z.string().min(1, "Name is required"),
-  address: z.string().min(1, "Address is required"),
-  phone: z.string().min(10, "Phone number must be at least 10 digits"),
-  city: z.string().min(1, "City is required"),
-  postalCode: z.string().min(1, "Postal code is required"),
-  country: z.string().min(1, "Country is required"),
-});
-
-type FormSchema = z.infer<typeof formSchema>;
+import { formSchema, type FormSchema } from "@/schema";
 
 // Extend JSX.IntrinsicElements
 declare global {

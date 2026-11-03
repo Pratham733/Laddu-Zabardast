@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect } from "react";
 import confetti from "canvas-confetti";
 
@@ -20,11 +18,20 @@ export function ConfettiFireworks() {
     canvas.height = window.innerHeight;
     document.body.appendChild(canvas);
 
-    const myConfetti = confetti.create(canvas, { resize: true, useWorker: true });
+    const myConfetti = confetti.create(canvas, {
+      resize: true,
+      useWorker: true,
+    });
     const duration = 5 * 1000;
     const animationEnd = Date.now() + duration;
-    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 2147483647 };
-    const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+    const defaults = {
+      startVelocity: 30,
+      spread: 360,
+      ticks: 60,
+      zIndex: 2147483647,
+    };
+    const randomInRange = (min: number, max: number) =>
+      Math.random() * (max - min) + min;
     const interval = window.setInterval(() => {
       const timeLeft = animationEnd - Date.now();
       if (timeLeft <= 0) {

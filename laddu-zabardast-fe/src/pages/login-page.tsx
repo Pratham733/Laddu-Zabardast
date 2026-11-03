@@ -1,5 +1,4 @@
 // /src/app/login/page.tsx
-"use client";
 
 import { useState, useEffect } from "react";
 import { Container, Column, Row, Box } from "@/components/ui/layout";
@@ -33,13 +32,7 @@ import { InteractiveHoverButton } from "@/components/magicui/interactive-hover-b
 import { motion } from "framer-motion";
 import { login } from "@/routes";
 import { getUser } from "@/queries";
-
-const loginSchema = z.object({
-  email: z.string().email({ message: "Please enter a valid email address." }),
-  password: z.string().min(1, { message: "Password is required." }),
-});
-
-type LoginFormValues = z.infer<typeof loginSchema>;
+import { loginSchema, type LoginFormValues } from "@/schema";
 
 // Impressive Lamp SVG component
 const ImpressiveLamp = () => (
@@ -344,7 +337,11 @@ export default function LoginPage() {
                             onClick={() => setShowPassword(!showPassword)}
                             tabIndex={-1}
                           >
-                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            {showPassword ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
                           </button>
                         </Box>
                       </FormControl>

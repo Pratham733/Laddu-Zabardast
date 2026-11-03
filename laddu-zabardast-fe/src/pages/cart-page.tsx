@@ -1,5 +1,3 @@
-"use client";
-
 import { useCart, toast } from "@/hooks";
 import Image from "next/image";
 import { Button } from "@mui/material";

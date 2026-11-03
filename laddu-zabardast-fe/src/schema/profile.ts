@@ -14,3 +14,5 @@ export const profileSchema = z.object({
     z.string().url().optional(),
   ),
 });
+
+export type ProfileFormValues = z.infer<typeof profileSchema>;

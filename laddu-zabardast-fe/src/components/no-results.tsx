@@ -1,9 +1,6 @@
-"use client";
-
 import { SearchX } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Box } from "@/components/ui/layout";
-
 
 interface NoResultsProps {
   query: string | null;

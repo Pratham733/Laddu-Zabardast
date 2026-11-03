@@ -1,5 +1,4 @@
 // src/context/wishlist-context.tsx
-"use client";
 
 import React, {
   createContext,

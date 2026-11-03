@@ -1,4 +1,3 @@
-"use client";
 import React from "react";
 
 import { useEffect, useState } from "react";
@@ -43,7 +42,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useAuth, toast } from "@/hooks";
-import type { Product, Order, OrderItem, BannerItem } from "@/models";
+import type { Product, Order, OrderItem, BannerItem } from "@/types";
 import { InteractiveHoverButton } from "@/components/magicui/interactive-hover-button";
 import {
   addProduct,
@@ -104,7 +103,7 @@ function DraggableBannerItem({
         "flex flex-col md:flex-row items-start md:items-center justify-between p-3.5 sm:p-4 rounded-xl border transition-all duration-200 gap-3 sm:gap-4 select-none",
         banner.isActive
           ? "bg-card hover:border-primary/50 shadow-sm"
-          : "bg-muted/30 border-dashed border-border/80 opacity-90"
+          : "bg-muted/30 border-dashed border-border/80 opacity-90",
       )}
     >
       {/* Left: Drag Handle, Order #, Thumbnail, and Content */}
@@ -176,7 +175,7 @@ function DraggableBannerItem({
                 "text-xs font-bold flex items-center gap-1",
                 banner.isActive
                   ? "text-emerald-500 dark:text-emerald-400"
-                  : "text-zinc-400 dark:text-zinc-500"
+                  : "text-zinc-400 dark:text-zinc-500",
               )}
             >
               {banner.isActive ? (
@@ -243,7 +242,9 @@ export default function AdminPage() {
 
   // Banner Management State
   const [banners, setBanners] = useState<BannerItem[]>([]);
-  const [bannerFilter, setBannerFilter] = useState<"all" | "active" | "disabled">("all");
+  const [bannerFilter, setBannerFilter] = useState<
+    "all" | "active" | "disabled"
+  >("all");
   const [isLoadingBanners, setIsLoadingBanners] = useState(true);
   const [isSubmittingBanner, setIsSubmittingBanner] = useState(false);
   const [editingBanner, setEditingBanner] = useState<BannerItem | null>(null);
@@ -345,14 +346,20 @@ export default function AdminPage() {
           ...bannerForm,
           order: Number(bannerForm.order) || 1,
         });
-        toast({ title: "Banner Updated", description: "Banner details updated successfully." });
+        toast({
+          title: "Banner Updated",
+          description: "Banner details updated successfully.",
+        });
         setEditingBanner(null);
       } else {
         await createBanner({
           ...bannerForm,
-          order: Number(bannerForm.order) || (banners.length + 1),
+          order: Number(bannerForm.order) || banners.length + 1,
         });
-        toast({ title: "Banner Created", description: "New sliding banner added successfully." });
+        toast({
+          title: "Banner Created",
+          description: "New sliding banner added successfully.",
+        });
       }
       setBannerForm({
         name: "",
@@ -411,10 +418,14 @@ export default function AdminPage() {
   };
 
   const handleDeleteBanner = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this sliding banner?")) return;
+    if (!window.confirm("Are you sure you want to delete this sliding banner?"))
+      return;
     try {
       await deleteBanner(id);
-      toast({ title: "Banner Deleted", description: "Sliding banner removed from database." });
+      toast({
+        title: "Banner Deleted",
+        description: "Sliding banner removed from database.",
+      });
       await fetchBanners();
     } catch (err: any) {
       console.error("Error deleting banner:", err);
@@ -435,7 +446,11 @@ export default function AdminPage() {
       });
       await fetchBanners();
     } catch (err: any) {
-      toast({ title: "Update Failed", description: err.message, variant: "destructive" });
+      toast({
+        title: "Update Failed",
+        description: err.message,
+        variant: "destructive",
+      });
     }
   };
 
@@ -461,8 +476,8 @@ export default function AdminPage() {
             buttonText: item.buttonText,
             order: item.order,
             isActive: item.isActive,
-          })
-        )
+          }),
+        ),
       );
       toast({
         title: "Order Saved",
@@ -600,7 +615,7 @@ export default function AdminPage() {
                   "flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg font-bold text-xs sm:text-sm transition-all duration-200 select-none",
                   adminTab === "product"
                     ? "bg-primary text-primary-foreground shadow-md ring-1 ring-primary/40"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60",
                 )}
               >
                 <PackagePlus className="h-4 w-4 shrink-0" />
@@ -613,7 +628,7 @@ export default function AdminPage() {
                   "flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg font-bold text-xs sm:text-sm transition-all duration-200 select-none",
                   adminTab === "banners"
                     ? "bg-primary text-primary-foreground shadow-md ring-1 ring-primary/40"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60",
                 )}
               >
                 <Sliders className="h-4 w-4 shrink-0" />
@@ -735,14 +750,23 @@ export default function AdminPage() {
                 </Button>
               </form>
             ) : (
-              <form onSubmit={handleBannerSubmit} className="space-y-4 sm:space-y-5">
+              <form
+                onSubmit={handleBannerSubmit}
+                className="space-y-4 sm:space-y-5"
+              >
                 <div className="flex items-center justify-between pb-2 border-b">
                   <h3 className="font-semibold text-base sm:text-lg flex items-center gap-2 text-primary">
                     <Sliders className="h-5 w-5" />
-                    {editingBanner ? `Edit Banner: ${editingBanner.name}` : "Add New Sliding Banner"}
+                    {editingBanner
+                      ? `Edit Banner: ${editingBanner.name}`
+                      : "Add New Sliding Banner"}
                   </h3>
                   {editingBanner && (
-                    <Button variant="outlined" size="small" onClick={handleCancelBannerEdit}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={handleCancelBannerEdit}
+                    >
                       Cancel Edit
                     </Button>
                   )}
@@ -750,26 +774,36 @@ export default function AdminPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="banner-name" className="flex items-center gap-1 mb-1 font-semibold text-primary">
+                    <Label
+                      htmlFor="banner-name"
+                      className="flex items-center gap-1 mb-1 font-semibold text-primary"
+                    >
                       <Sparkles className="h-4 w-4" /> Banner Title / Name
                     </Label>
                     <Input
                       id="banner-name"
                       value={bannerForm.name}
-                      onChange={(e) => setBannerForm({ ...bannerForm, name: e.target.value })}
+                      onChange={(e) =>
+                        setBannerForm({ ...bannerForm, name: e.target.value })
+                      }
                       required
                       placeholder="e.g., Authentic Indian Sweets"
                       disabled={isSubmittingBanner}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="banner-key" className="flex items-center gap-1 mb-1 font-semibold text-primary">
+                    <Label
+                      htmlFor="banner-key"
+                      className="flex items-center gap-1 mb-1 font-semibold text-primary"
+                    >
                       <Tag className="h-4 w-4" /> Key / Slug
                     </Label>
                     <Input
                       id="banner-key"
                       value={bannerForm.key}
-                      onChange={(e) => setBannerForm({ ...bannerForm, key: e.target.value })}
+                      onChange={(e) =>
+                        setBannerForm({ ...bannerForm, key: e.target.value })
+                      }
                       placeholder="e.g., sweets, pickles"
                       disabled={isSubmittingBanner}
                     />
@@ -777,13 +811,21 @@ export default function AdminPage() {
                 </div>
 
                 <div>
-                  <Label htmlFor="banner-desc" className="flex items-center gap-1 mb-1 font-semibold text-primary">
+                  <Label
+                    htmlFor="banner-desc"
+                    className="flex items-center gap-1 mb-1 font-semibold text-primary"
+                  >
                     <FileText className="h-4 w-4" /> Description
                   </Label>
                   <Textarea
                     id="banner-desc"
                     value={bannerForm.description}
-                    onChange={(e) => setBannerForm({ ...bannerForm, description: e.target.value })}
+                    onChange={(e) =>
+                      setBannerForm({
+                        ...bannerForm,
+                        description: e.target.value,
+                      })
+                    }
                     placeholder="Short promotional text displayed on the hero slide"
                     rows={2}
                     disabled={isSubmittingBanner}
@@ -792,26 +834,39 @@ export default function AdminPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="banner-img" className="flex items-center gap-1 mb-1 font-semibold text-primary">
+                    <Label
+                      htmlFor="banner-img"
+                      className="flex items-center gap-1 mb-1 font-semibold text-primary"
+                    >
                       <ImageIcon className="h-4 w-4" /> Image URL (Required)
                     </Label>
                     <Input
                       id="banner-img"
                       value={bannerForm.imageURL}
-                      onChange={(e) => setBannerForm({ ...bannerForm, imageURL: e.target.value })}
+                      onChange={(e) =>
+                        setBannerForm({
+                          ...bannerForm,
+                          imageURL: e.target.value,
+                        })
+                      }
                       required
                       placeholder="https://... or /images/..."
                       disabled={isSubmittingBanner}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="banner-alt" className="flex items-center gap-1 mb-1 font-semibold text-primary">
+                    <Label
+                      htmlFor="banner-alt"
+                      className="flex items-center gap-1 mb-1 font-semibold text-primary"
+                    >
                       <ImageIcon className="h-4 w-4" /> Fallback Alt URL
                     </Label>
                     <Input
                       id="banner-alt"
                       value={bannerForm.altURL}
-                      onChange={(e) => setBannerForm({ ...bannerForm, altURL: e.target.value })}
+                      onChange={(e) =>
+                        setBannerForm({ ...bannerForm, altURL: e.target.value })
+                      }
                       placeholder="/images/ban1.jpg"
                       disabled={isSubmittingBanner}
                     />
@@ -820,13 +875,16 @@ export default function AdminPage() {
 
                 {bannerForm.imageURL && (
                   <div className="p-2 border rounded-lg bg-muted/20 flex flex-col items-center">
-                    <span className="text-xs text-muted-foreground mb-1">Image Live Preview:</span>
+                    <span className="text-xs text-muted-foreground mb-1">
+                      Image Live Preview:
+                    </span>
                     <img
                       src={bannerForm.imageURL}
                       alt="Banner Preview"
                       className="h-24 w-full object-cover rounded shadow"
                       onError={(e) => {
-                        if (bannerForm.altURL) e.currentTarget.src = bannerForm.altURL;
+                        if (bannerForm.altURL)
+                          e.currentTarget.src = bannerForm.altURL;
                       }}
                     />
                   </div>
@@ -834,31 +892,50 @@ export default function AdminPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
-                    <Label htmlFor="banner-link" className="flex items-center gap-1 mb-1 font-semibold text-primary">
+                    <Label
+                      htmlFor="banner-link"
+                      className="flex items-center gap-1 mb-1 font-semibold text-primary"
+                    >
                       <LinkIcon className="h-4 w-4" /> Button Link
                     </Label>
                     <Input
                       id="banner-link"
                       value={bannerForm.buttonLink}
-                      onChange={(e) => setBannerForm({ ...bannerForm, buttonLink: e.target.value })}
+                      onChange={(e) =>
+                        setBannerForm({
+                          ...bannerForm,
+                          buttonLink: e.target.value,
+                        })
+                      }
                       placeholder="/shop"
                       disabled={isSubmittingBanner}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="banner-btn" className="flex items-center gap-1 mb-1 font-semibold text-primary">
+                    <Label
+                      htmlFor="banner-btn"
+                      className="flex items-center gap-1 mb-1 font-semibold text-primary"
+                    >
                       <FileText className="h-4 w-4" /> Button Text
                     </Label>
                     <Input
                       id="banner-btn"
                       value={bannerForm.buttonText}
-                      onChange={(e) => setBannerForm({ ...bannerForm, buttonText: e.target.value })}
+                      onChange={(e) =>
+                        setBannerForm({
+                          ...bannerForm,
+                          buttonText: e.target.value,
+                        })
+                      }
                       placeholder="Shop Laddus"
                       disabled={isSubmittingBanner}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="banner-order" className="flex items-center gap-1 mb-1 font-semibold text-primary">
+                    <Label
+                      htmlFor="banner-order"
+                      className="flex items-center gap-1 mb-1 font-semibold text-primary"
+                    >
                       <ArrowUpDown className="h-4 w-4" /> Display Order
                     </Label>
                     <Input
@@ -866,7 +943,12 @@ export default function AdminPage() {
                       type="number"
                       min={1}
                       value={bannerForm.order}
-                      onChange={(e) => setBannerForm({ ...bannerForm, order: parseInt(e.target.value, 10) || 1 })}
+                      onChange={(e) =>
+                        setBannerForm({
+                          ...bannerForm,
+                          order: parseInt(e.target.value, 10) || 1,
+                        })
+                      }
                       disabled={isSubmittingBanner}
                     />
                   </div>
@@ -874,7 +956,10 @@ export default function AdminPage() {
 
                 <div className="flex items-center justify-between p-3 rounded-xl border border-border/80 bg-muted/40 shadow-sm">
                   <div className="space-y-0.5">
-                    <Label htmlFor="banner-active" className="cursor-pointer font-bold text-sm flex items-center gap-1.5">
+                    <Label
+                      htmlFor="banner-active"
+                      className="cursor-pointer font-bold text-sm flex items-center gap-1.5"
+                    >
                       {bannerForm.isActive ? (
                         <>
                           <CheckCircle2 className="h-4 w-4 text-emerald-500" />
@@ -896,7 +981,9 @@ export default function AdminPage() {
                   <Switch
                     id="banner-active"
                     checked={bannerForm.isActive}
-                    onCheckedChange={(checked) => setBannerForm({ ...bannerForm, isActive: checked })}
+                    onCheckedChange={(checked) =>
+                      setBannerForm({ ...bannerForm, isActive: checked })
+                    }
                     disabled={isSubmittingBanner}
                   />
                 </div>
@@ -911,8 +998,8 @@ export default function AdminPage() {
                     {isSubmittingBanner
                       ? "Saving Banner..."
                       : editingBanner
-                      ? "Save Changes"
-                      : "Add Sliding Banner"}
+                        ? "Save Changes"
+                        : "Add Sliding Banner"}
                   </Button>
                   {editingBanner && (
                     <Button
@@ -1257,7 +1344,8 @@ export default function AdminPage() {
               Sliding Banners (Hero Carousel)
             </CardTitle>
             <CardDescription className="text-xs sm:text-base">
-              Drag to reorder sliding sequence, toggle enable/disable visibility, and manage banner content.
+              Drag to reorder sliding sequence, toggle enable/disable
+              visibility, and manage banner content.
             </CardDescription>
           </div>
           <Button
@@ -1284,7 +1372,7 @@ export default function AdminPage() {
                   "px-3 py-1.5 rounded-lg transition-all",
                   bannerFilter === "all"
                     ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 All Banners ({banners.length})
@@ -1296,7 +1384,7 @@ export default function AdminPage() {
                   "px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5",
                   bannerFilter === "active"
                     ? "bg-emerald-600 text-white shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 <CheckCircle2 className="h-3.5 w-3.5" />
@@ -1309,7 +1397,7 @@ export default function AdminPage() {
                   "px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5",
                   bannerFilter === "disabled"
                     ? "bg-zinc-700 text-white shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 <XCircle className="h-3.5 w-3.5" />
@@ -1330,7 +1418,9 @@ export default function AdminPage() {
           ) : banners.length === 0 ? (
             <div className="text-center py-12 border-2 border-dashed rounded-2xl bg-muted/20">
               <Sliders className="h-10 w-10 text-muted-foreground mx-auto mb-2 opacity-50" />
-              <p className="font-semibold text-foreground">No sliding banners in database</p>
+              <p className="font-semibold text-foreground">
+                No sliding banners in database
+              </p>
               <p className="text-muted-foreground text-xs mt-1 mb-4">
                 Add your first promotional banner using the form above.
               </p>
@@ -1350,7 +1440,13 @@ export default function AdminPage() {
               {bannerFilter !== "all" && (
                 <div className="text-xs px-3 py-1.5 rounded-lg bg-muted text-muted-foreground flex items-center justify-between">
                   <span>
-                    Showing {bannerFilter} banners ({banners.filter((b) => bannerFilter === "active" ? b.isActive : !b.isActive).length}).
+                    Showing {bannerFilter} banners (
+                    {
+                      banners.filter((b) =>
+                        bannerFilter === "active" ? b.isActive : !b.isActive,
+                      ).length
+                    }
+                    ).
                   </span>
                   <button
                     type="button"
@@ -1383,9 +1479,13 @@ export default function AdminPage() {
               ) : (
                 <div className="space-y-2.5">
                   {banners
-                    .filter((b) => (bannerFilter === "active" ? b.isActive : !b.isActive))
+                    .filter((b) =>
+                      bannerFilter === "active" ? b.isActive : !b.isActive,
+                    )
                     .map((b) => {
-                      const originalIndex = banners.findIndex((x) => x.id === b.id);
+                      const originalIndex = banners.findIndex(
+                        (x) => x.id === b.id,
+                      );
                       return (
                         <DraggableBannerItem
                           key={b.id}
@@ -1503,9 +1603,7 @@ export default function AdminPage() {
                                 )
                               ) {
                                 try {
-                                  const data = await deleteProduct(
-                                    prod.id!,
-                                  );
+                                  const data = await deleteProduct(prod.id!);
                                   toast({
                                     title: "Product Deleted",
                                     description: `'${prod.name}' has been deleted.`,

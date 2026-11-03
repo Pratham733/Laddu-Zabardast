@@ -1,8 +1,6 @@
-"use client";
-
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
-import type { Product, Review } from "@/models";
+import type { Product, Review } from "@/types";
 import { useAuth } from "@/hooks";
 import { ProductCard } from "@/components/product-card";
 import type { ChangeEvent, FormEvent } from "react";
@@ -207,8 +205,7 @@ export default function Page({ params }: PageProps) {
         const related = (data.products || [])
           .filter(
             (p: Product) =>
-              p.category === product.category &&
-              p.id !== product.id,
+              p.category === product.category && p.id !== product.id,
           )
           .slice(0, 4);
         setRelatedProducts(related);
@@ -243,7 +240,7 @@ export default function Page({ params }: PageProps) {
             <p>{product.description}</p>
           </Box>
           <button className="bg-primary text-primary-foreground px-6 py-3 rounded-lg w-full md:w-auto">
-            Add to Cart
+            Add
           </button>
         </Column>
       </Box>{" "}

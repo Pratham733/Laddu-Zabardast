@@ -1,5 +1,3 @@
-"use client";
-
 import type { Product, CartItem } from "@/models";
 import React, {
   createContext,
@@ -51,7 +49,9 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         return {
           ...item,
           price:
-            typeof item.price === "number" && !isNaN(item.price) ? item.price : 0,
+            typeof item.price === "number" && !isNaN(item.price)
+              ? item.price
+              : 0,
           quantity:
             typeof item.quantity === "number" && item.quantity > 0
               ? item.quantity
@@ -128,10 +128,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
             : item,
         );
       } else {
-        return [
-          ...prevCart,
-          { ...product, id: productId, quantity: 1 },
-        ];
+        return [...prevCart, { ...product, id: productId, quantity: 1 }];
       }
     });
   };

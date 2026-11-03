@@ -1,5 +1,3 @@
-"use client";
-
 import { cn } from "@/lib/utils";
 import React, { useEffect, useState } from "react";
 
@@ -13,7 +11,13 @@ interface MeteorsProps {
   className?: string;
 }
 
-function getMeteorStyle(angle: number, minDelay: number, maxDelay: number, minDuration: number, maxDuration: number) {
+function getMeteorStyle(
+  angle: number,
+  minDelay: number,
+  maxDelay: number,
+  minDuration: number,
+  maxDuration: number,
+) {
   // Diagonal movement: angle in degrees, negative for top-left to bottom-right
   const rad = (angle * Math.PI) / 180;
   const distance = 700; // px, how far the meteor travels
@@ -22,7 +26,7 @@ function getMeteorStyle(angle: number, minDelay: number, maxDelay: number, minDu
   return {
     "--angle": `${angle}deg`,
     top: "-5%",
-    left: `calc(0% + ${Math.floor(Math.random() * window.innerWidth)}px)` ,
+    left: `calc(0% + ${Math.floor(Math.random() * window.innerWidth)}px)`,
     animationDelay: Math.random() * (maxDelay - minDelay) + minDelay + "s",
     animationDuration:
       Math.floor(Math.random() * (maxDuration - minDuration) + minDuration) +
@@ -41,8 +45,18 @@ export const Meteors = ({
   angle = 215,
   className,
 }: MeteorsProps) => {
-  const [meteors, setMeteors] = useState(
-    () => Array.from({ length: number }, (_, i) => ({ id: i, style: getMeteorStyle(angle, minDelay, maxDelay, minDuration, maxDuration), key: Math.random() }))
+  const [meteors, setMeteors] = useState(() =>
+    Array.from({ length: number }, (_, i) => ({
+      id: i,
+      style: getMeteorStyle(
+        angle,
+        minDelay,
+        maxDelay,
+        minDuration,
+        maxDuration,
+      ),
+      key: Math.random(),
+    })),
   );
 
   // Respawn meteor after animation ends
@@ -51,7 +65,13 @@ export const Meteors = ({
       const newArr = [...prev];
       newArr[idx] = {
         id: prev[idx].id,
-        style: getMeteorStyle(angle, minDelay, maxDelay, minDuration, maxDuration),
+        style: getMeteorStyle(
+          angle,
+          minDelay,
+          maxDelay,
+          minDuration,
+          maxDuration,
+        ),
         key: Math.random(),
       };
       return newArr;
@@ -60,7 +80,19 @@ export const Meteors = ({
 
   useEffect(() => {
     // If number prop changes, update meteors
-    setMeteors(Array.from({ length: number }, (_, i) => ({ id: i, style: getMeteorStyle(angle, minDelay, maxDelay, minDuration, maxDuration), key: Math.random() })));
+    setMeteors(
+      Array.from({ length: number }, (_, i) => ({
+        id: i,
+        style: getMeteorStyle(
+          angle,
+          minDelay,
+          maxDelay,
+          minDuration,
+          maxDuration,
+        ),
+        key: Math.random(),
+      })),
+    );
     // eslint-disable-next-line
   }, [number, angle, minDelay, maxDelay, minDuration, maxDuration]);
 

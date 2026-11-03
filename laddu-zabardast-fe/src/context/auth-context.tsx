@@ -1,7 +1,5 @@
 //src/context/auth-context.tsx
 
-"use client";
-
 import React, {
   createContext,
   useContext,
@@ -32,11 +30,11 @@ const adminEmail = "spratham388@gmail.com"; // IMPORTANT: Replace with YOUR actu
 export const AuthContext = createContext<AuthContextType>({
   user: null,
   token: null,
-  setToken: () => { },
+  setToken: () => {},
   setUser: () => {},
   loading: true, // Start as true until check is complete
   isInitialised: false,
-  logout: () => { },
+  logout: () => {},
   isUserAdmin: () => false,
 });
 
@@ -47,10 +45,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isInitialised, setIsInitialised] = useState(false); // Added isInitialised state
 
   const isUserAdmin = (): boolean => {
-     const isAdminCheck = user?.email === adminEmail;
-     // Log the check for debugging
-     console.log(`[AuthContext] isUserAdmin check: user.email ("${user?.email}") === adminEmail ("${adminEmail}") => ${isAdminCheck}`);
-     return isAdminCheck;
+    const isAdminCheck = user?.email === adminEmail;
+    // Log the check for debugging
+    console.log(
+      `[AuthContext] isUserAdmin check: user.email ("${user?.email}") === adminEmail ("${adminEmail}") => ${isAdminCheck}`,
+    );
+    return isAdminCheck;
   };
 
   // Function to update token state (compatibility only)
@@ -93,8 +93,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             ...u,
             userId: u.userId,
             id: u.userId,
-            firstName: u.firstName ?? '',
-            lastName: u.lastName ?? '',
+            firstName: u.firstName ?? "",
+            lastName: u.lastName ?? "",
             isAdmin: Boolean(u.isAdmin || u.email === adminEmail),
           });
           console.log("[AuthContext] Session recovered:", data.user);
@@ -102,7 +102,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUser(null);
         }
       } catch (error) {
-        console.log("[AuthContext] Session check finished (no user logged in or error):", error);
+        console.log(
+          "[AuthContext] Session check finished (no user logged in or error):",
+          error,
+        );
         setUser(null);
       } finally {
         setLoading(false);
@@ -114,16 +117,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []); // Run once on mount
 
   // Memoize context value to prevent unnecessary re-renders
-  const contextValue = React.useMemo(() => ({
-    user,
-    token,
-    setToken,
-    setUser,
-    loading,
-    isInitialised,
-    logout,
-    isUserAdmin,
-  }), [user, token, loading, isInitialised]);
+  const contextValue = React.useMemo(
+    () => ({
+      user,
+      token,
+      setToken,
+      setUser,
+      loading,
+      isInitialised,
+      logout,
+      isUserAdmin,
+    }),
+    [user, token, loading, isInitialised],
+  );
 
   // Display loading indicator while checking auth state
   if (loading) {
@@ -136,8 +142,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     // Ensure the AuthContext.Provider is passing the correct values
-    <AuthContext.Provider value={contextValue}>
-      {children}
-    </AuthContext.Provider>
+    <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
   );
 };

@@ -11,3 +11,5 @@ export const addressSchema = z.object({
   country: z.string().min(2, "Country name is too short."),
   isDefault: z.boolean().optional(),
 });
+
+export type AddressFormValues = z.infer<typeof addressSchema>;

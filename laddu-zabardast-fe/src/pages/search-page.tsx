@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { SearchX, Loader2 } from "lucide-react";
@@ -172,8 +170,7 @@ export default function SearchPage() {
         if (data.products) {
           // Filter out any invalid products
           const validProducts = data.products.filter(
-            (p: Product) =>
-              p && p.name && p.price && p.category && p.id,
+            (p: Product) => p && p.name && p.price && p.category && p.id,
           );
           setProducts(validProducts);
           performSearch(validProducts, query);

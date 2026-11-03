@@ -28,6 +28,10 @@ func LoadConfig(path string) error {
 	candidatePaths := []string{
 		path,
 		path + ".json",
+		"env/local.local.json",
+		"env/local.json",
+		"env/dev.local.json",
+		"env/dev.json",
 	}
 
 	var file *os.File

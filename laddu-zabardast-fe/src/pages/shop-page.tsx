@@ -1,5 +1,3 @@
-"use client";
-
 import { useMemo, useState, useEffect } from "react";
 import { ProductCard } from "@/components/product-card";
 import type { Product } from "@/models";

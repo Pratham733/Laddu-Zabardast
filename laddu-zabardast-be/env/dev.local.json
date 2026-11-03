@@ -1,0 +1,12 @@
+{
+  "routes": [
+    "http://localhost:7000"
+  ],
+  "master_mongo": {
+    "host": "mongodb+srv://lz_admin:3y2ii1lgXPDBeTDm@ladduzabardast.4koynnb.mongodb.net/?appName=LadduZabardast",
+    "database": "laddu_zabardast"
+  },
+  "auth": {
+    "jwt_secret": "seQdPYk/vWPg9AgUrPm9mrNQ1t3cpvvRy0jPQy9TJLY="
+  }
+}

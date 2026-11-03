@@ -1,5 +1,5 @@
 // src/app/wishlist/page.tsx
-"use client";
+
 import React from "react";
 import { useWishlist } from "@/hooks";
 import { ProductCard } from "@/components/product-card";

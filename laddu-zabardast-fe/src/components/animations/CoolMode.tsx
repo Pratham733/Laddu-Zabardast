@@ -1,5 +1,5 @@
 // src/components/animations/CoolMode.tsx
-"use client";
+
 import React, { ReactNode, useEffect, useRef } from "react";
 
 export interface BaseParticle {
