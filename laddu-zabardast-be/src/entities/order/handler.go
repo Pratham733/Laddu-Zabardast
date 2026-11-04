@@ -3,20 +3,20 @@ package order
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	utils "github.com/Pratham733/laddu-zabardast-be/src"
-	"github.com/Pratham733/laddu-zabardast-be/src/db"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
-func GetOrders(w http.ResponseWriter, r *http.Request) {
-	collection := db.GetCollection(utils.LadduZabardast, CollectionOrders)
+func GetOrders(w http.ResponseWriter, r *http.Request) (*GetAllOrdersResponsePacket, error) {
+	collection := getCollection()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -28,31 +28,32 @@ func GetOrders(w http.ResponseWriter, r *http.Request) {
 	cursor, err := collection.Find(ctx, filter)
 	if err != nil {
 		http.Error(w, "Failed to fetch orders", http.StatusInternalServerError)
-		return
+		return nil, err
 	}
 	defer cursor.Close(ctx)
 
 	var orders []Order
 	if err := cursor.All(ctx, &orders); err != nil {
 		http.Error(w, "Failed to decode orders", http.StatusInternalServerError)
-		return
+		return nil, err
 	}
 
 	packets := OrdersToPacketList(orders)
-	utils.WriteJSON(w, http.StatusOK, map[string]any{
-		"orders": packets,
-	}, "Orders fetched successfully")
+	return &GetAllOrdersResponsePacket{
+		Orders:  packets,
+		Message: "Orders fetched successfully",
+	}, nil
 }
 
-func GetOrder(w http.ResponseWriter, r *http.Request) {
+func GetOrder(w http.ResponseWriter, r *http.Request) (*GetOrderResponsePacket, error) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 	if id == "" {
 		http.Error(w, "Order ID is required in URL path", http.StatusBadRequest)
-		return
+		return nil, errors.New("order ID required")
 	}
 
-	collection := db.GetCollection(utils.LadduZabardast, CollectionOrders)
+	collection := getCollection()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -60,38 +61,41 @@ func GetOrder(w http.ResponseWriter, r *http.Request) {
 	err := collection.FindOne(ctx, bson.M{"_id": id}).Decode(&ord)
 	if err != nil {
 		http.Error(w, "Order not found", http.StatusNotFound)
-		return
+		return nil, err
 	}
 
 	packet := OrderToPacket(ord)
-	utils.WriteJSON(w, http.StatusOK, map[string]any{
-		"order": packet,
-	}, "Order fetched successfully")
+	return &GetOrderResponsePacket{
+		Order:   packet,
+		Message: "Order fetched successfully",
+	}, nil
 }
 
-func CreateOrder(w http.ResponseWriter, r *http.Request, req CreateOrderRequest) {
+func CreateOrder(w http.ResponseWriter, r *http.Request, req CreateOrderRequest) (*CreateOrderResponsePacket, error) {
 	if len(req.Items) == 0 {
 		http.Error(w, "Order must contain at least one item", http.StatusBadRequest)
-		return
+		return nil, errors.New("empty items")
 	}
 
 	if req.TotalAmount <= 0 {
 		http.Error(w, "Order totalAmount must be greater than zero", http.StatusBadRequest)
-		return
+		return nil, errors.New("invalid total amount")
 	}
 
 	if strings.TrimSpace(req.ShippingDetails.Name) == "" ||
 		strings.TrimSpace(req.ShippingDetails.Email) == "" ||
 		strings.TrimSpace(req.ShippingDetails.City) == "" {
 		http.Error(w, "Shipping details (name, email, city) are required", http.StatusBadRequest)
-		return
+		return nil, errors.New("incomplete shipping details")
 	}
 
 	var userID, userEmail string
-	claims, err := utils.ParseClaims(r)
-	if err == nil && claims != nil {
-		userID = claims.UserID
-		userEmail = claims.Email
+	if uid, err := utils.GetUserID(r); err == nil {
+		userID = uid
+	}
+	email, err := utils.GetUserID(r)
+	if err == nil && email != "" {
+		userEmail = email
 	} else {
 		userEmail = strings.TrimSpace(req.ShippingDetails.Email)
 	}
@@ -117,11 +121,11 @@ func CreateOrder(w http.ResponseWriter, r *http.Request, req CreateOrderRequest)
 	for _, item := range req.Items {
 		if strings.TrimSpace(item.ProductID) == "" {
 			http.Error(w, "Each order item must have a valid productId", http.StatusBadRequest)
-			return
+			return nil, errors.New("invalid productId in order item")
 		}
 		if item.Quantity <= 0 {
 			http.Error(w, "Each order item must have a quantity greater than zero", http.StatusBadRequest)
-			return
+			return nil, errors.New("invalid quantity in order item")
 		}
 
 		orderItems = append(orderItems, OrderItem{
@@ -151,32 +155,33 @@ func CreateOrder(w http.ResponseWriter, r *http.Request, req CreateOrderRequest)
 		CreatedAt:       now,
 	}
 
-	collection := db.GetCollection(utils.LadduZabardast, CollectionOrders)
+	collection := getCollection()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	_, err = collection.InsertOne(ctx, newOrder)
 	if err != nil {
 		http.Error(w, "Failed to create order", http.StatusInternalServerError)
-		return
+		return nil, err
 	}
 
 	orderPacket := OrderToPacket(newOrder)
+	w.WriteHeader(http.StatusCreated)
 
-	utils.WriteJSON(w, http.StatusCreated, map[string]any{
-		"message": "Order placed successfully",
-		"orderId": newOrder.ID,
-		"order":   orderPacket,
-		"success": true,
-	}, "Order placed successfully")
+	return &CreateOrderResponsePacket{
+		Message: "Order placed successfully",
+		OrderID: newOrder.ID,
+		Order:   orderPacket,
+		Success: true,
+	}, nil
 }
 
-func UpdateOrder(w http.ResponseWriter, r *http.Request, req UpdateOrderStatusRequest) {
+func UpdateOrder(w http.ResponseWriter, r *http.Request, req UpdateOrderStatusRequest) (utils.SuccessResponsePacket, error) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 	if id == "" {
 		http.Error(w, "Order ID is required in URL path", http.StatusBadRequest)
-		return
+		return utils.SuccessResponsePacket{}, errors.New("order ID required")
 	}
 
 	updateFields := bson.M{}
@@ -191,29 +196,28 @@ func UpdateOrder(w http.ResponseWriter, r *http.Request, req UpdateOrderStatusRe
 
 	if len(updateFields) == 0 {
 		http.Error(w, "No orderStatus or paymentStatus provided to update", http.StatusBadRequest)
-		return
+		return utils.SuccessResponsePacket{}, errors.New("no fields to update")
 	}
 
-	collection := db.GetCollection(utils.LadduZabardast, CollectionOrders)
+	collection := getCollection()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	result, err := collection.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": updateFields})
 	if err != nil || result.MatchedCount == 0 {
 		http.Error(w, "Order not found", http.StatusNotFound)
-		return
+		return utils.SuccessResponsePacket{}, errors.New("order not found")
 	}
 
-	utils.WriteJSON(w, http.StatusOK, map[string]any{
-		"success": true,
-		"message": "Order updated successfully",
-	}, "Order updated successfully")
+	return utils.SuccessResponsePacket{
+		Message: "Order updated successfully",
+	}, nil
 }
 
-func PatchOrder(w http.ResponseWriter, r *http.Request, req UpdateOrderStatusRequest) {
+func PatchOrder(w http.ResponseWriter, r *http.Request, req UpdateOrderStatusRequest) (utils.SuccessResponsePacket, error) {
 	if strings.TrimSpace(req.OrderID) == "" {
 		http.Error(w, "orderId is required in request body", http.StatusBadRequest)
-		return
+		return utils.SuccessResponsePacket{}, errors.New("order ID required")
 	}
 
 	updateFields := bson.M{}
@@ -228,47 +232,45 @@ func PatchOrder(w http.ResponseWriter, r *http.Request, req UpdateOrderStatusReq
 
 	if len(updateFields) == 0 {
 		http.Error(w, "orderStatus or paymentStatus is required to update", http.StatusBadRequest)
-		return
+		return utils.SuccessResponsePacket{}, errors.New("no fields to update")
 	}
 
-	collection := db.GetCollection(utils.LadduZabardast, CollectionOrders)
+	collection := getCollection()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	result, err := collection.UpdateOne(ctx, bson.M{"_id": req.OrderID}, bson.M{"$set": updateFields})
 	if err != nil || result.MatchedCount == 0 {
 		http.Error(w, "Order not found", http.StatusNotFound)
-		return
+		return utils.SuccessResponsePacket{}, errors.New("order not found")
 	}
 
-	utils.WriteJSON(w, http.StatusOK, map[string]any{
-		"success": true,
-		"message": "Order updated successfully",
-	}, "Order updated successfully")
+	return utils.SuccessResponsePacket{
+		Message: "Order updated successfully",
+	}, nil
 }
 
-func DeleteOrder(w http.ResponseWriter, r *http.Request) {
+func DeleteOrder(w http.ResponseWriter, r *http.Request) (utils.SuccessResponsePacket, error) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 	if id == "" {
 		http.Error(w, "Order ID is required in URL path", http.StatusBadRequest)
-		return
+		return utils.SuccessResponsePacket{}, errors.New("order ID required")
 	}
 
-	collection := db.GetCollection(utils.LadduZabardast, CollectionOrders)
+	collection := getCollection()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	result, err := collection.DeleteOne(ctx, bson.M{"_id": id})
 	if err != nil || result.DeletedCount == 0 {
 		http.Error(w, "Order not found", http.StatusNotFound)
-		return
+		return utils.SuccessResponsePacket{}, errors.New("order not found")
 	}
 
-	utils.WriteJSON(w, http.StatusOK, map[string]any{
-		"success": true,
-		"message": "Order deleted successfully",
-	}, "Order deleted successfully")
+	return utils.SuccessResponsePacket{
+		Message: "Order deleted successfully",
+	}, nil
 }
 
 func sanitizePDFText(text string) string {
@@ -365,7 +367,7 @@ func GenerateInvoiceHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	collection := db.GetCollection(utils.LadduZabardast, CollectionOrders)
+	collection := getCollection()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 

@@ -2,85 +2,27 @@ package banner
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
 	utils "github.com/Pratham733/laddu-zabardast-be/src"
-	"github.com/Pratham733/laddu-zabardast-be/src/db"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-func seedInitialBanners(ctx context.Context) {
-	collection := db.GetCollection(utils.LadduZabardast, CollectionBanners)
-	_, _ = collection.DeleteMany(ctx, bson.M{"image_url": bson.M{"$in": []any{"", nil}}})
-	count, err := collection.CountDocuments(ctx, bson.M{})
-	if err != nil || count > 0 {
-		return
-	}
-
-	initialBanners := []Banner{
-		{
-			ID:          "ban_1",
-			Key:         "sweets",
-			Name:        "Authentic Indian Sweets",
-			Description: "Experience the taste of tradition with our handcrafted laddus, made with love and the finest ingredients.",
-			ImageURL:    "https://d.imgvision.net/laddu-zabardast/gond-laddu.jpeg",
-			AltURL:      "/images/ban1.jpg",
-			ButtonLink:  "/shop",
-			ButtonText:  "Shop Laddus",
-			Order:       1,
-			IsActive:    true,
-		},
-		{
-			ID:          "ban_2",
-			Key:         "pickles",
-			Name:        "Tangy Homemade Pickles",
-			Description: "Spice up your meals with our traditional homemade pickles, bursting with authentic flavors.",
-			ImageURL:    "https://d.imgvision.net/laddu-zabardast/besan-laddu.png",
-			AltURL:      "/images/ban2.jpg",
-			ButtonLink:  "/shop",
-			ButtonText:  "Explore Pickles",
-			Order:       2,
-			IsActive:    true,
-		},
-		{
-			ID:          "ban_3",
-			Key:         "delights",
-			Name:        "LADDU ZABARDAST Delights",
-			Description: "Freshly made daily, bringing the authentic taste of India right to your doorstep.",
-			ImageURL:    "https://d.imgvision.net/laddu-zabardast/motichoor-laddu.jpeg",
-			AltURL:      "/images/ban3.jpg",
-			ButtonLink:  "/shop",
-			ButtonText:  "View Our Shop",
-			Order:       3,
-			IsActive:    true,
-		},
-	}
-
-	var docs []any
-	for _, b := range initialBanners {
-		docs = append(docs, b)
-	}
-	_, _ = collection.InsertMany(ctx, docs)
-}
-
-// GetBanners returns active banners sorted by order as a JSON array.
-func GetBanners(w http.ResponseWriter, r *http.Request) {
-	collection := db.GetCollection(utils.LadduZabardast, CollectionBanners)
+func GetBanners(w http.ResponseWriter, r *http.Request) ([]BannerPacket, error) {
+	collection := getCollection()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
-	seedInitialBanners(ctx)
 
 	findOpts := options.Find().SetSort(bson.D{{Key: "order", Value: 1}})
 	cursor, err := collection.Find(ctx, bson.M{"is_active": true}, findOpts)
 	if err != nil {
 		http.Error(w, "Failed to fetch banners", http.StatusInternalServerError)
-		return
+		return nil, err
 	}
 	defer cursor.Close(ctx)
 
@@ -89,26 +31,19 @@ func GetBanners(w http.ResponseWriter, r *http.Request) {
 		banners = []Banner{}
 	}
 
-	packets := BannersToPacketList(banners)
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(packets)
+	return BannersToPacketList(banners), nil
 }
 
-// GetAllBannersAdmin returns all banners (including inactive) for admin management.
-func GetAllBannersAdmin(w http.ResponseWriter, r *http.Request) {
-	collection := db.GetCollection(utils.LadduZabardast, CollectionBanners)
+func GetAllBannersAdmin(w http.ResponseWriter, r *http.Request) ([]BannerPacket, error) {
+	collection := getCollection()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
-	seedInitialBanners(ctx)
 
 	findOpts := options.Find().SetSort(bson.D{{Key: "order", Value: 1}})
 	cursor, err := collection.Find(ctx, bson.M{}, findOpts)
 	if err != nil {
 		http.Error(w, "Failed to fetch banners", http.StatusInternalServerError)
-		return
+		return nil, err
 	}
 	defer cursor.Close(ctx)
 
@@ -117,22 +52,17 @@ func GetAllBannersAdmin(w http.ResponseWriter, r *http.Request) {
 		banners = []Banner{}
 	}
 
-	packets := BannersToPacketList(banners)
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(packets)
+	return BannersToPacketList(banners), nil
 }
 
-// CreateBanner handles creating a new banner item in DB.
-func CreateBanner(w http.ResponseWriter, r *http.Request, req CreateBannerRequest) {
+func CreateBanner(w http.ResponseWriter, r *http.Request, req CreateBannerRequest) (*BannerPacket, error) {
 	if req.Name == "" {
 		http.Error(w, "Banner name is required", http.StatusBadRequest)
-		return
+		return nil, errors.New("banner name required")
 	}
 	if req.ImageURL == "" {
 		http.Error(w, "Banner imageURL is required", http.StatusBadRequest)
-		return
+		return nil, errors.New("banner imageURL required")
 	}
 	if req.ButtonLink == "" {
 		req.ButtonLink = "/shop"
@@ -144,7 +74,7 @@ func CreateBanner(w http.ResponseWriter, r *http.Request, req CreateBannerReques
 		req.Key = "banner"
 	}
 
-	collection := db.GetCollection(utils.LadduZabardast, CollectionBanners)
+	collection := getCollection()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -169,33 +99,32 @@ func CreateBanner(w http.ResponseWriter, r *http.Request, req CreateBannerReques
 	_, err := collection.InsertOne(ctx, newBanner)
 	if err != nil {
 		http.Error(w, "Failed to create banner: "+err.Error(), http.StatusInternalServerError)
-		return
+		return nil, err
 	}
 
-	packet := BannerToPacket(newBanner)
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(packet)
+	packet := BannerToPacket(newBanner)
+	return &packet, nil
 }
 
 // UpdateBanner handles updating an existing banner item in DB.
-func UpdateBanner(w http.ResponseWriter, r *http.Request, req UpdateBannerRequest) {
+func UpdateBanner(w http.ResponseWriter, r *http.Request, req UpdateBannerRequest) (utils.SuccessResponsePacket, error) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 	if id == "" {
 		http.Error(w, "Banner ID is required", http.StatusBadRequest)
-		return
+		return utils.SuccessResponsePacket{}, errors.New("banner ID required")
 	}
 	if req.Name == "" {
 		http.Error(w, "Banner name is required", http.StatusBadRequest)
-		return
+		return utils.SuccessResponsePacket{}, errors.New("banner name required")
 	}
 	if req.ImageURL == "" {
 		http.Error(w, "Banner imageURL is required", http.StatusBadRequest)
-		return
+		return utils.SuccessResponsePacket{}, errors.New("banner imageURL required")
 	}
 
-	collection := db.GetCollection(utils.LadduZabardast, CollectionBanners)
+	collection := getCollection()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -216,48 +145,42 @@ func UpdateBanner(w http.ResponseWriter, r *http.Request, req UpdateBannerReques
 	result, err := collection.UpdateOne(ctx, bson.M{"id": id}, update)
 	if err != nil {
 		http.Error(w, "Failed to update banner: "+err.Error(), http.StatusInternalServerError)
-		return
+		return utils.SuccessResponsePacket{}, err
 	}
 	if result.MatchedCount == 0 {
 		http.Error(w, "Banner not found", http.StatusNotFound)
-		return
+		return utils.SuccessResponsePacket{}, errors.New("banner not found")
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"message": "Banner updated successfully",
-		"id":      id,
-	})
+	return utils.SuccessResponsePacket{
+		Message: "Banner updated successfully",
+	}, nil
 }
 
 // DeleteBanner handles deleting a banner item from DB.
-func DeleteBanner(w http.ResponseWriter, r *http.Request) {
+func DeleteBanner(w http.ResponseWriter, r *http.Request) (utils.SuccessResponsePacket, error) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 	if id == "" {
 		http.Error(w, "Banner ID is required", http.StatusBadRequest)
-		return
+		return utils.SuccessResponsePacket{}, errors.New("banner ID required")
 	}
 
-	collection := db.GetCollection(utils.LadduZabardast, CollectionBanners)
+	collection := getCollection()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	result, err := collection.DeleteOne(ctx, bson.M{"id": id})
 	if err != nil {
 		http.Error(w, "Failed to delete banner: "+err.Error(), http.StatusInternalServerError)
-		return
+		return utils.SuccessResponsePacket{}, err
 	}
 	if result.DeletedCount == 0 {
 		http.Error(w, "Banner not found", http.StatusNotFound)
-		return
+		return utils.SuccessResponsePacket{}, errors.New("banner not found")
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"message": "Banner deleted successfully",
-		"id":      id,
-	})
+	return utils.SuccessResponsePacket{
+		Message: "Banner deleted successfully",
+	}, nil
 }

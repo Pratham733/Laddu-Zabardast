@@ -71,27 +71,49 @@ func ParseClaims(r *http.Request) (*Claims, error) {
 	return claims, nil
 }
 
-func SetHeader(w http.ResponseWriter, statusCode int) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
+func GetUserID(r *http.Request) (string, error) {
+	claims, err := ParseClaims(r)
+	if err == nil && claims != nil && claims.UserID != "" {
+		return claims.UserID, nil
+	}
+
+	if err != nil {
+		return "", err
+	}
+	return "", errors.New("user ID not found in request")
 }
 
-// WriteJSON formats and writes a JSON response.
-// It merges the optional message parameter into the data map if provided.
-func WriteJSON(w http.ResponseWriter, statusCode int, data map[string]any, message string) {
-	SetHeader(w, statusCode)
+type SuccessResponsePacket struct {
+	Message string `json:"message"`
+}
 
-	// Initialize map if nil to prevent panics
-	if data == nil {
-		data = make(map[string]any)
+// WithResponse wraps a handler returning a typed response packet and an error.
+func WithResponse[Resp any](fn func(w http.ResponseWriter, r *http.Request) (Resp, error)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		resp, err := fn(w, r)
+		if err != nil {
+			return
+		}
+		_ = json.NewEncoder(w).Encode(resp)
 	}
+}
 
-	// Add message if it is not empty
-	if message != "" {
-		data["message"] = message
+// WithBodyAndResponse wraps a handler that accepts a request packet and returns a response packet.
+func WithBodyAndResponse[Req any, Resp any](fn func(w http.ResponseWriter, r *http.Request, req Req) (Resp, error)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		var req Req
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+		resp, err := fn(w, r, req)
+		if err != nil {
+			return
+		}
+		_ = json.NewEncoder(w).Encode(resp)
 	}
-
-	json.NewEncoder(w).Encode(data)
 }
 
 // WithBody decodes the JSON request body into req of type T and passes it into fn.

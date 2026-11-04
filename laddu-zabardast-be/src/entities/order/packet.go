@@ -89,7 +89,20 @@ func (o OrderPacket) MarshalJSON() ([]byte, error) {
 }
 
 type GetAllOrdersResponsePacket struct {
-	Orders []OrderPacket `json:"orders"`
+	Orders  []OrderPacket `json:"orders"`
+	Message string        `json:"message,omitempty"`
+}
+
+type GetOrderResponsePacket struct {
+	Order   OrderPacket `json:"order"`
+	Message string      `json:"message,omitempty"`
+}
+
+type CreateOrderResponsePacket struct {
+	Message string      `json:"message"`
+	OrderID string      `json:"orderId"`
+	Order   OrderPacket `json:"order"`
+	Success bool        `json:"success"`
 }
 
 // Conversion helpers

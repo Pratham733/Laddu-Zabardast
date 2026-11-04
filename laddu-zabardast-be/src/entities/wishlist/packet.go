@@ -13,3 +13,9 @@ type WishlistPayload struct {
 type GetWishlistResponse struct {
 	Wishlist []product.ProductPacket `json:"wishlist"`
 }
+
+type UpdateWishlistResponsePacket struct {
+	Wishlist []product.ProductPacket `json:"wishlist"`
+	Success  bool                    `json:"success"`
+	Message  string                  `json:"message,omitempty"`
+}

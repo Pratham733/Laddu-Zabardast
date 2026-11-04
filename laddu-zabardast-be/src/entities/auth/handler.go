@@ -2,13 +2,13 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
 	utils "github.com/Pratham733/laddu-zabardast-be/src"
-	"github.com/Pratham733/laddu-zabardast-be/src/db"
 	"github.com/Pratham733/laddu-zabardast-be/src/entities/user"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -16,32 +16,31 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func SignupHandler(w http.ResponseWriter, r *http.Request, req SignupRequest) {
+func SignupHandler(w http.ResponseWriter, r *http.Request, req SignupRequest) (*AuthResponsePacket, error) {
 	if strings.TrimSpace(req.Email) == "" || strings.TrimSpace(req.Password) == "" ||
 		strings.TrimSpace(req.FirstName) == "" || strings.TrimSpace(req.LastName) == "" {
 		http.Error(w, "First name, last name, email, and password are required", http.StatusBadRequest)
-		return
+		return nil, errors.New("missing required fields")
 	}
 
-	collection := db.GetCollection(utils.LadduZabardast, CollectionUsers)
+	collection := getCollection()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// Check if user already exists
 	count, err := collection.CountDocuments(ctx, bson.M{"email": strings.TrimSpace(req.Email)})
 	if err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
+		return nil, err
 	}
 	if count > 0 {
 		http.Error(w, "User with this email already exists", http.StatusConflict)
-		return
+		return nil, errors.New("user already exists")
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
+		return nil, err
 	}
 
 	userID := uuid.NewString()
@@ -59,31 +58,32 @@ func SignupHandler(w http.ResponseWriter, r *http.Request, req SignupRequest) {
 	_, err = collection.InsertOne(ctx, newUser)
 	if err != nil {
 		http.Error(w, "Failed to create user", http.StatusInternalServerError)
-		return
+		return nil, err
 	}
 
 	token, err := utils.GenerateToken(userID, newUser.Email)
 	if err != nil {
 		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
-		return
+		return nil, err
 	}
 
 	utils.SetTokenCookie(w, token)
+	w.WriteHeader(http.StatusCreated)
 
-	userResp := BuildUserResponse(newUser)
-	utils.WriteJSON(w, http.StatusCreated, map[string]any{
-		"token": token,
-		"user":  userResp,
-	}, "Account created successfully")
+	return &AuthResponsePacket{
+		Token:   token,
+		User:    BuildUserResponse(newUser),
+		Message: "Account created successfully",
+	}, nil
 }
 
-func LoginHandler(w http.ResponseWriter, r *http.Request, req LoginRequest) {
+func LoginHandler(w http.ResponseWriter, r *http.Request, req LoginRequest) (*AuthResponsePacket, error) {
 	if strings.TrimSpace(req.Email) == "" || strings.TrimSpace(req.Password) == "" {
 		http.Error(w, "Email and password are required", http.StatusBadRequest)
-		return
+		return nil, errors.New("missing email or password")
 	}
 
-	collection := db.GetCollection(utils.LadduZabardast, CollectionUsers)
+	collection := getCollection()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -91,30 +91,30 @@ func LoginHandler(w http.ResponseWriter, r *http.Request, req LoginRequest) {
 	err := collection.FindOne(ctx, bson.M{"email": strings.TrimSpace(req.Email)}).Decode(&u)
 	if err != nil {
 		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
-		return
+		return nil, errors.New("invalid credentials")
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(req.Password)); err != nil {
 		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
-		return
+		return nil, errors.New("invalid credentials")
 	}
 
 	token, err := utils.GenerateToken(u.ID, u.Email)
 	if err != nil {
 		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
-		return
+		return nil, err
 	}
 
 	utils.SetTokenCookie(w, token)
 
-	userResp := BuildUserResponse(u)
-	utils.WriteJSON(w, http.StatusOK, map[string]any{
-		"token": token,
-		"user":  userResp,
-	}, "Logged in successfully")
+	return &AuthResponsePacket{
+		Token:   token,
+		User:    BuildUserResponse(u),
+		Message: "Logged in successfully",
+	}, nil
 }
 
-func LogoutHandler(w http.ResponseWriter, r *http.Request) {
+func LogoutHandler(w http.ResponseWriter, r *http.Request) (utils.SuccessResponsePacket, error) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     utils.AuthToken,
 		Value:    "",
@@ -125,44 +125,39 @@ func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	utils.WriteJSON(w, http.StatusOK, map[string]any{
-		"success": true,
-	}, "Logged out successfully")
+	return utils.SuccessResponsePacket{
+		Message: "Logged out successfully",
+	}, nil
 }
 
-func GetProfileHandler(w http.ResponseWriter, r *http.Request) {
-	claims, err := utils.ParseClaims(r)
+func GetUserHandler(w http.ResponseWriter, r *http.Request) (*GetUserResponsePacket, error) {
+	userId, err := utils.GetUserID(r)
 	if err != nil {
 		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
-		return
+		return nil, err
 	}
 
-	collection := db.GetCollection(utils.LadduZabardast, CollectionUsers)
+	collection := getCollection()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	var u user.User
-	err = collection.FindOne(ctx, bson.M{"_id": claims.UserID}).Decode(&u)
+	err = collection.FindOne(ctx, bson.M{"_id": userId}).Decode(&u)
 	if err != nil {
 		http.Error(w, "User not found", http.StatusNotFound)
-		return
+		return nil, err
 	}
 
-	userResp := BuildUserResponse(u)
-	utils.WriteJSON(w, http.StatusOK, map[string]any{
-		"user": userResp,
-	}, "")
+	return &GetUserResponsePacket{
+		User: BuildUserResponse(u),
+	}, nil
 }
 
-func GetUserHandler(w http.ResponseWriter, r *http.Request) {
-	GetProfileHandler(w, r)
-}
-
-func UpdateProfileHandler(w http.ResponseWriter, r *http.Request, req UpdateProfileRequest) {
-	claims, err := utils.ParseClaims(r)
+func UpdateProfileHandler(w http.ResponseWriter, r *http.Request, req UpdateProfileRequest) (*UpdateProfileResponsePacket, error) {
+	userId, err := utils.GetUserID(r)
 	if err != nil {
 		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
-		return
+		return nil, err
 	}
 
 	updates := bson.M{}
@@ -178,118 +173,119 @@ func UpdateProfileHandler(w http.ResponseWriter, r *http.Request, req UpdateProf
 
 	if len(updates) == 0 {
 		http.Error(w, "No fields to update", http.StatusBadRequest)
-		return
+		return nil, errors.New("no fields to update")
 	}
 
-	collection := db.GetCollection(utils.LadduZabardast, CollectionUsers)
+	collection := getCollection()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	result, err := collection.UpdateOne(ctx, bson.M{"_id": claims.UserID}, bson.M{"$set": updates})
+	result, err := collection.UpdateOne(ctx, bson.M{"_id": userId}, bson.M{"$set": updates})
 	if err != nil || result.MatchedCount == 0 {
 		http.Error(w, "Failed to update profile", http.StatusInternalServerError)
-		return
+		return nil, errors.New("failed to update profile")
 	}
 
 	var updated user.User
-	_ = collection.FindOne(ctx, bson.M{"_id": claims.UserID}).Decode(&updated)
+	_ = collection.FindOne(ctx, bson.M{"_id": userId}).Decode(&updated)
 
-	userResp := BuildUserResponse(updated)
-	utils.WriteJSON(w, http.StatusOK, map[string]any{
-		"user": userResp,
-	}, "Profile updated successfully")
+	return &UpdateProfileResponsePacket{
+		User:    BuildUserResponse(updated),
+		Message: "Profile updated successfully",
+	}, nil
 }
 
-func ChangePasswordHandler(w http.ResponseWriter, r *http.Request, req ChangePasswordRequest) {
-	claims, err := utils.ParseClaims(r)
+func ChangePasswordHandler(w http.ResponseWriter, r *http.Request, req ChangePasswordRequest) (utils.SuccessResponsePacket, error) {
+	userId, err := utils.GetUserID(r)
 	if err != nil {
 		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
-		return
+		return utils.SuccessResponsePacket{}, err
 	}
 
 	if req.CurrentPassword == "" || req.NewPassword == "" {
 		http.Error(w, "Current password and new password are required", http.StatusBadRequest)
-		return
+		return utils.SuccessResponsePacket{}, errors.New("passwords required")
 	}
 
-	collection := db.GetCollection(utils.LadduZabardast, CollectionUsers)
+	collection := getCollection()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	var u user.User
-	err = collection.FindOne(ctx, bson.M{"_id": claims.UserID}).Decode(&u)
+	err = collection.FindOne(ctx, bson.M{"_id": userId}).Decode(&u)
 	if err != nil {
 		http.Error(w, "User not found", http.StatusNotFound)
-		return
+		return utils.SuccessResponsePacket{}, err
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(req.CurrentPassword)); err != nil {
 		http.Error(w, "Incorrect current password", http.StatusBadRequest)
-		return
+		return utils.SuccessResponsePacket{}, errors.New("incorrect password")
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
 	if err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
+		return utils.SuccessResponsePacket{}, err
 	}
 
-	_, err = collection.UpdateOne(ctx, bson.M{"_id": claims.UserID}, bson.M{"$set": bson.M{"password": string(hashedPassword)}})
+	_, err = collection.UpdateOne(ctx, bson.M{"_id": userId}, bson.M{"$set": bson.M{"password": string(hashedPassword)}})
 	if err != nil {
 		http.Error(w, "Failed to update password", http.StatusInternalServerError)
-		return
+		return utils.SuccessResponsePacket{}, err
 	}
 
-	utils.WriteJSON(w, http.StatusOK, map[string]any{
-		"success": true,
-	}, "Password changed successfully")
+	return utils.SuccessResponsePacket{
+		Message: "Password changed successfully",
+	}, nil
 }
 
-func GetAddressesHandler(w http.ResponseWriter, r *http.Request) {
-	claims, err := utils.ParseClaims(r)
+func GetAddressesHandler(w http.ResponseWriter, r *http.Request) (*GetAddressesResponsePacket, error) {
+	userId, err := utils.GetUserID(r)
 	if err != nil {
 		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
-		return
+		return nil, err
 	}
 
-	collection := db.GetCollection(utils.LadduZabardast, CollectionUsers)
+	collection := getCollection()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	var u user.User
-	err = collection.FindOne(ctx, bson.M{"_id": claims.UserID}).Decode(&u)
+	err = collection.FindOne(ctx, bson.M{"_id": userId}).Decode(&u)
 	if err != nil {
 		http.Error(w, "User not found", http.StatusNotFound)
-		return
+		return nil, err
 	}
 
-	resp := ModelAddressesToPacket(u.Addresses)
-	utils.WriteJSON(w, http.StatusOK, map[string]any{
-		"addresses": resp,
-	}, "")
+	addresses := ModelAddressesToPacket(u.Addresses)
+
+	return &GetAddressesResponsePacket{
+		Addresses: addresses,
+	}, nil
 }
 
-func SaveAddressHandler(w http.ResponseWriter, r *http.Request, req AddressRequest) {
-	claims, err := utils.ParseClaims(r)
+func SaveAddressHandler(w http.ResponseWriter, r *http.Request, req AddressRequest) (*utils.SuccessResponsePacket, error) {
+	userId, err := utils.GetUserID(r)
 	if err != nil {
 		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
-		return
+		return nil, err
 	}
 
 	if strings.TrimSpace(req.Street) == "" || strings.TrimSpace(req.City) == "" {
 		http.Error(w, "Street and city are required", http.StatusBadRequest)
-		return
+		return nil, errors.New("street and city required")
 	}
 
-	collection := db.GetCollection(utils.LadduZabardast, CollectionUsers)
+	collection := getCollection()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	var u user.User
-	err = collection.FindOne(ctx, bson.M{"_id": claims.UserID}).Decode(&u)
+	err = collection.FindOne(ctx, bson.M{"_id": userId}).Decode(&u)
 	if err != nil {
 		http.Error(w, "User not found", http.StatusNotFound)
-		return
+		return nil, err
 	}
 
 	addressID := req.ID
@@ -308,7 +304,6 @@ func SaveAddressHandler(w http.ResponseWriter, r *http.Request, req AddressReque
 		IsDefault:  req.IsDefault,
 	}
 
-	// Update existing or append new
 	var updatedAddresses []user.Address
 	found := false
 	for _, a := range u.Addresses {
@@ -333,42 +328,40 @@ func SaveAddressHandler(w http.ResponseWriter, r *http.Request, req AddressReque
 		updatedAddresses = append(updatedAddresses, newAddr)
 	}
 
-	_, err = collection.UpdateOne(ctx, bson.M{"_id": claims.UserID}, bson.M{"$set": bson.M{"addresses": updatedAddresses}})
+	_, err = collection.UpdateOne(ctx, bson.M{"_id": userId}, bson.M{"$set": bson.M{"addresses": updatedAddresses}})
 	if err != nil {
 		http.Error(w, "Failed to save address", http.StatusInternalServerError)
-		return
+		return nil, err
 	}
 
-	resp := ModelAddressesToPacket(updatedAddresses)
-	utils.WriteJSON(w, http.StatusOK, map[string]any{
-		"addresses": resp,
-		"address":   AddressResponse(req),
-	}, "Address saved successfully")
+	return &utils.SuccessResponsePacket{
+		Message: "Address saved successfully",
+	}, nil
 }
 
-func DeleteAddressHandler(w http.ResponseWriter, r *http.Request) {
-	claims, err := utils.ParseClaims(r)
+func DeleteAddressHandler(w http.ResponseWriter, r *http.Request) (*utils.SuccessResponsePacket, error) {
+	userId, err := utils.GetUserID(r)
 	if err != nil {
 		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
-		return
+		return nil, err
 	}
 
 	vars := mux.Vars(r)
 	idxStr := vars["idx"]
 	if idxStr == "" {
 		http.Error(w, "Address index or ID is required", http.StatusBadRequest)
-		return
+		return nil, errors.New("address index required")
 	}
 
-	collection := db.GetCollection(utils.LadduZabardast, CollectionUsers)
+	collection := getCollection()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	var u user.User
-	err = collection.FindOne(ctx, bson.M{"_id": claims.UserID}).Decode(&u)
+	err = collection.FindOne(ctx, bson.M{"_id": userId}).Decode(&u)
 	if err != nil {
 		http.Error(w, "User not found", http.StatusNotFound)
-		return
+		return nil, err
 	}
 
 	var updatedAddresses []user.Address
@@ -376,7 +369,6 @@ func DeleteAddressHandler(w http.ResponseWriter, r *http.Request) {
 	if err == nil && idx >= 0 && idx < len(u.Addresses) {
 		updatedAddresses = append(u.Addresses[:idx], u.Addresses[idx+1:]...)
 	} else {
-		// Try matching by ID
 		for _, a := range u.Addresses {
 			if a.ID != idxStr {
 				updatedAddresses = append(updatedAddresses, a)
@@ -384,14 +376,13 @@ func DeleteAddressHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	_, err = collection.UpdateOne(ctx, bson.M{"_id": claims.UserID}, bson.M{"$set": bson.M{"addresses": updatedAddresses}})
+	_, err = collection.UpdateOne(ctx, bson.M{"_id": userId}, bson.M{"$set": bson.M{"addresses": updatedAddresses}})
 	if err != nil {
 		http.Error(w, "Failed to delete address", http.StatusInternalServerError)
-		return
+		return nil, err
 	}
 
-	resp := ModelAddressesToPacket(updatedAddresses)
-	utils.WriteJSON(w, http.StatusOK, map[string]any{
-		"addresses": resp,
-	}, "Address deleted successfully")
+	return &utils.SuccessResponsePacket{
+		Message: "Address deleted successfully",
+	}, nil
 }

@@ -63,6 +63,26 @@ type UpdateUserRequest struct {
 	Role      string `json:"role,omitempty"`
 }
 
+type GetUsersResponsePacket struct {
+	Users   []UserPacket `json:"users"`
+	Message string       `json:"message,omitempty"`
+}
+
+type GetUserResponsePacket struct {
+	User    UserPacket `json:"user"`
+	Message string     `json:"message,omitempty"`
+}
+
+type CreateUserResponsePacket struct {
+	User    UserPacket `json:"user"`
+	Message string     `json:"message,omitempty"`
+}
+
+type UpdateUserResponsePacket struct {
+	User    UserPacket `json:"user"`
+	Message string     `json:"message,omitempty"`
+}
+
 // Conversion functions between Models and Packets
 
 func AddressModelToPacket(a Address) AddressPacket {

@@ -7,6 +7,6 @@ import (
 
 // RegisterRoutes registers all routes for the wishlist entity.
 func RegisterRoutes(r *mux.Router) {
-	r.HandleFunc("/wishlist/{userId}", GetWishlist).Methods("GET", "OPTIONS")
-	r.HandleFunc("/wishlist/{userId}", utils.WithBody(UpdateWishlist)).Methods("PUT", "OPTIONS")
+	r.HandleFunc("/wishlist/{userId}", utils.WithResponse(GetWishlist)).Methods("GET", "OPTIONS")
+	r.HandleFunc("/wishlist/{userId}", utils.WithBodyAndResponse(UpdateWishlist)).Methods("PUT", "OPTIONS")
 }

@@ -44,8 +44,9 @@ func Connect(uri string) (*mongo.Client, error) {
 	return client, nil
 }
 
-// GetCollection returns a handle to the specified collection in the database.
-func GetCollection(dbName, colName string) *mongo.Collection {
+const DefaultDB = "laddu_zabardast"
+
+func GetCollection(dbName string, colName string) *mongo.Collection {
 	if Client == nil {
 		log.Fatal("Database client is not initialized. Call Connect first.")
 	}

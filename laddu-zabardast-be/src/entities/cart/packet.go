@@ -17,6 +17,16 @@ type CartPayload struct {
 	Items []CartItemPacket `json:"items"`
 }
 
+type GetCartResponsePacket struct {
+	Items []CartItemPacket `json:"items"`
+}
+
+type UpdateCartResponsePacket struct {
+	Items   []CartItemPacket `json:"items"`
+	Success bool             `json:"success"`
+	Message string           `json:"message,omitempty"`
+}
+
 // Conversion helpers
 
 func CartItemModelToPacket(item CartItem) CartItemPacket {

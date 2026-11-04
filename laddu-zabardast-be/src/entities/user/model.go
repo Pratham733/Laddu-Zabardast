@@ -2,7 +2,6 @@ package user
 
 import "encoding/json"
 
-// Address represents a physical shipping or billing address in the database.
 type Address struct {
 	ID         string `bson:"_id,omitempty" json:"id,omitempty"`
 	Label      string `bson:"label,omitempty" json:"label,omitempty"`
@@ -47,7 +46,6 @@ func (a *Address) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// User represents the MongoDB user document stored in the database.
 type User struct {
 	ID        string    `bson:"_id,omitempty" json:"id"`
 	FirstName string    `bson:"firstName" json:"firstName"`

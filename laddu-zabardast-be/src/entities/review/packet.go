@@ -46,6 +46,22 @@ type PinReviewRequest struct {
 	Pinned bool `json:"pinned"`
 }
 
+type GetReviewsResponsePacket struct {
+	Reviews []ReviewPacket `json:"reviews"`
+}
+
+type CreateReviewResponsePacket struct {
+	Review  ReviewPacket `json:"review"`
+	Success bool         `json:"success"`
+	Message string       `json:"message,omitempty"`
+}
+
+type UpdateReviewResponsePacket struct {
+	Review  ReviewPacket `json:"review"`
+	Success bool         `json:"success"`
+	Message string       `json:"message,omitempty"`
+}
+
 // Conversion helpers
 
 func ReviewToPacket(r Review) ReviewPacket {

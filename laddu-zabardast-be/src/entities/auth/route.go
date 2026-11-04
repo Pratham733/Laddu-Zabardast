@@ -5,16 +5,14 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// RegisterRoutes registers all routes for authentication and profile management.
 func RegisterRoutes(r *mux.Router) {
-	r.HandleFunc("/signup", utils.WithBody(SignupHandler)).Methods("POST", "OPTIONS")
-	r.HandleFunc("/login", utils.WithBody(LoginHandler)).Methods("POST", "OPTIONS")
-	r.HandleFunc("/logout", LogoutHandler).Methods("POST", "OPTIONS")
-	r.HandleFunc("/profile", GetProfileHandler).Methods("GET", "OPTIONS")
-	r.HandleFunc("/user", GetUserHandler).Methods("GET", "OPTIONS")
-	r.HandleFunc("/update-profile", utils.WithBody(UpdateProfileHandler)).Methods("POST", "PUT", "OPTIONS")
-	r.HandleFunc("/change-password", utils.WithBody(ChangePasswordHandler)).Methods("POST", "OPTIONS")
-	r.HandleFunc("/addresses", GetAddressesHandler).Methods("GET", "OPTIONS")
-	r.HandleFunc("/addresses", utils.WithBody(SaveAddressHandler)).Methods("POST", "PUT", "OPTIONS")
-	r.HandleFunc("/addresses/{idx}", DeleteAddressHandler).Methods("DELETE", "OPTIONS")
+	r.HandleFunc("/signup", utils.WithBodyAndResponse(SignupHandler)).Methods("POST", "OPTIONS")
+	r.HandleFunc("/login", utils.WithBodyAndResponse(LoginHandler)).Methods("POST", "OPTIONS")
+	r.HandleFunc("/logout", utils.WithResponse(LogoutHandler)).Methods("POST", "OPTIONS")
+	r.HandleFunc("/user", utils.WithResponse(GetUserHandler)).Methods("GET", "OPTIONS")
+	r.HandleFunc("/update-profile", utils.WithBodyAndResponse(UpdateProfileHandler)).Methods("POST", "PUT", "OPTIONS")
+	r.HandleFunc("/change-password", utils.WithBodyAndResponse(ChangePasswordHandler)).Methods("POST", "OPTIONS")
+	r.HandleFunc("/addresses", utils.WithResponse(GetAddressesHandler)).Methods("GET", "OPTIONS")
+	r.HandleFunc("/addresses", utils.WithBodyAndResponse(SaveAddressHandler)).Methods("POST", "PUT", "OPTIONS")
+	r.HandleFunc("/addresses/{idx}", utils.WithResponse(DeleteAddressHandler)).Methods("DELETE", "OPTIONS")
 }

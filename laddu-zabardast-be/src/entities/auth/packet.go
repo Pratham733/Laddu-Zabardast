@@ -94,7 +94,24 @@ type ChangePasswordRequest struct {
 	NewPassword     string `json:"newPassword"`
 }
 
-// Helper conversions
+type AuthResponsePacket struct {
+	Token   string       `json:"token"`
+	User    UserResponse `json:"user"`
+	Message string       `json:"message,omitempty"`
+}
+
+type GetUserResponsePacket struct {
+	User UserResponse `json:"user"`
+}
+
+type UpdateProfileResponsePacket struct {
+	User    UserResponse `json:"user"`
+	Message string       `json:"message,omitempty"`
+}
+
+type GetAddressesResponsePacket struct {
+	Addresses []AddressResponse `json:"addresses"`
+}
 
 func ModelAddressesToPacket(addrs []user.Address) []AddressResponse {
 	if addrs == nil {

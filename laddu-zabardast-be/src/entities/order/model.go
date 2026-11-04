@@ -2,7 +2,6 @@ package order
 
 import "encoding/json"
 
-// OrderItem represents an individual line item in a saved order.
 type OrderItem struct {
 	ID        string  `bson:"id,omitempty" json:"id,omitempty"`
 	ProductID string  `bson:"productId" json:"productId"`
@@ -12,7 +11,6 @@ type OrderItem struct {
 	ImageUrl  string  `bson:"imageUrl,omitempty" json:"imageUrl,omitempty"`
 }
 
-// ShippingDetails represents the delivery details for an order in the database.
 type ShippingDetails struct {
 	Name       string `bson:"name" json:"name"`
 	Email      string `bson:"email" json:"email"`
@@ -26,7 +24,6 @@ type ShippingDetails struct {
 	Country    string `bson:"country" json:"country"`
 }
 
-// Order represents the database MongoDB document for an order.
 type Order struct {
 	ID              string          `bson:"_id,omitempty" json:"id"`
 	UserID          string          `bson:"userId" json:"userId"`

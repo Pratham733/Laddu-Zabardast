@@ -54,6 +54,28 @@ type UpdateProductRequest struct {
 	Weight      *string      `json:"weight,omitempty"`
 }
 
+type GetProductsResponsePacket struct {
+	Products []ProductPacket `json:"products"`
+}
+
+type GetProductResponsePacket struct {
+	Product ProductPacket `json:"product"`
+}
+
+type ProductActionResponsePacket struct {
+	Product  *ProductPacket  `json:"product,omitempty"`
+	Products []ProductPacket `json:"products,omitempty"`
+	Success  bool            `json:"success"`
+	Message  string          `json:"message,omitempty"`
+}
+
+type UploadImageResponsePacket struct {
+	ImageUrl string `json:"imageUrl"`
+	Filename string `json:"filename"`
+	Success  bool   `json:"success"`
+	Message  string `json:"message,omitempty"`
+}
+
 // Conversion functions
 
 func ProductToPacket(p Product) ProductPacket {
