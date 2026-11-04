@@ -398,7 +398,7 @@ export function Navbar() {
                         outline: "none",
                         border: "none",
                         height: "100%",
-                        minWidth: 0,
+                        minWidth: 400,
                         "&::placeholder": {
                           color: "rgba(255,255,255,0.75)",
                         },

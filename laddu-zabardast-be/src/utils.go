@@ -2,7 +2,9 @@ package utils
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/Pratham733/laddu-zabardast-be/src/config"
@@ -39,6 +41,34 @@ func SetTokenCookie(w http.ResponseWriter, token string) {
 		Secure:   false,
 		SameSite: http.SameSiteLaxMode,
 	})
+}
+
+// ParseClaims extracts and validates JWT claims from Bearer header or auth cookie
+func ParseClaims(r *http.Request) (*Claims, error) {
+	var tokenStr string
+	authHeader := r.Header.Get("Authorization")
+	if strings.HasPrefix(authHeader, "Bearer ") {
+		tokenStr = strings.TrimPrefix(authHeader, "Bearer ")
+	} else if cookie, err := r.Cookie(AuthToken); err == nil && cookie.Value != "" {
+		tokenStr = cookie.Value
+	} else if authHeader != "" {
+		tokenStr = authHeader
+	}
+
+	if tokenStr == "" {
+		return nil, errors.New("authorization required")
+	}
+
+	claims := &Claims{}
+	jwtSecret := []byte(config.AppConfig.Auth.JWTSecret)
+	token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (interface{}, error) {
+		return jwtSecret, nil
+	})
+	if err != nil || !token.Valid {
+		return nil, errors.New("invalid or expired token")
+	}
+
+	return claims, nil
 }
 
 func SetHeader(w http.ResponseWriter, statusCode int) {

@@ -10,7 +10,14 @@ import (
 	"github.com/Pratham733/laddu-zabardast-be/src/config"
 	"github.com/Pratham733/laddu-zabardast-be/src/cors"
 	"github.com/Pratham733/laddu-zabardast-be/src/db"
-	"github.com/Pratham733/laddu-zabardast-be/src/routes"
+	"github.com/Pratham733/laddu-zabardast-be/src/entities/auth"
+	"github.com/Pratham733/laddu-zabardast-be/src/entities/banner"
+	"github.com/Pratham733/laddu-zabardast-be/src/entities/cart"
+	"github.com/Pratham733/laddu-zabardast-be/src/entities/order"
+	"github.com/Pratham733/laddu-zabardast-be/src/entities/product"
+	"github.com/Pratham733/laddu-zabardast-be/src/entities/review"
+	"github.com/Pratham733/laddu-zabardast-be/src/entities/user"
+	"github.com/Pratham733/laddu-zabardast-be/src/entities/wishlist"
 	"github.com/gorilla/mux"
 )
 
@@ -44,14 +51,14 @@ func main() {
 	// Static file server for uploaded product images
 	r.PathPrefix("/uploads/").Handler(http.StripPrefix("/uploads/", http.FileServer(http.Dir("public/uploads"))))
 
-	routes.AuthRoutes(r)
-	routes.UserRoutes(r)
-	routes.ProductRoutes(r)
-	routes.OrderRoutes(r)
-	routes.CartRoutes(r)
-	routes.WishlistRoutes(r)
-	routes.ReviewRoutes(r)
-	routes.BannerRoutes(r)
+	auth.RegisterRoutes(r)
+	user.RegisterRoutes(r)
+	product.RegisterRoutes(r)
+	order.RegisterRoutes(r)
+	cart.RegisterRoutes(r)
+	wishlist.RegisterRoutes(r)
+	review.RegisterRoutes(r)
+	banner.RegisterRoutes(r)
 
 	corsHandler := cors.CORSHandler(r)
 
