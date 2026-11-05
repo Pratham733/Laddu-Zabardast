@@ -1,5 +1,3 @@
-//src/context/auth-context.tsx
-
 import React, {
   createContext,
   useContext,
@@ -9,30 +7,29 @@ import React, {
   ReactNode,
 } from "react";
 import { Loader2 } from "lucide-react";
-import type { AppUser } from "@/models"; // Import AppUser type from models
-import { logout as apiLogout } from "@/routes";
+import type { AppUser } from "@/models";
+import { logout as apiLogout } from "@/routes/auth";
 import { getUser } from "@/queries";
 
 interface AuthContextType {
-  // Ensure this interface is aligned with AppUser type, including isAdmin
-  user: AppUser | null; // Represents the currently logged-in user
-  token: string | null; // Stores the JWT (legacy compatibility, unused)
-  setToken: (token: string | null) => void; // Function to update the token
+  user: AppUser | null;
+  token: string | null;
+  setToken: (token: string | null) => void;
   setUser: (user: AppUser | null) => void;
-  loading: boolean; // Indicates if the initial auth state check is complete
-  isInitialised: boolean; // Indicates if the initial auth state check is complete (added)
-  logout: () => void; // Function to handle logout
-  isUserAdmin: () => boolean; // Function to check if user is admin
+  loading: boolean;
+  isInitialised: boolean;
+  logout: () => void;
+  isUserAdmin: () => boolean;
 }
 
-const adminEmail = "spratham388@gmail.com"; // IMPORTANT: Replace with YOUR actual admin email address
+const adminEmail = "spratham388@gmail.com"; 
 
 export const AuthContext = createContext<AuthContextType>({
   user: null,
   token: null,
   setToken: () => {},
   setUser: () => {},
-  loading: true, // Start as true until check is complete
+  loading: true,
   isInitialised: false,
   logout: () => {},
   isUserAdmin: () => false,
@@ -41,24 +38,21 @@ export const AuthContext = createContext<AuthContextType>({
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<AppUser | null>(null);
   const [token, setTokenState] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true); // Start loading
-  const [isInitialised, setIsInitialised] = useState(false); // Added isInitialised state
+  const [loading, setLoading] = useState(true);
+  const [isInitialised, setIsInitialised] = useState(false);
 
   const isUserAdmin = (): boolean => {
     const isAdminCheck = user?.email === adminEmail;
-    // Log the check for debugging
     console.log(
       `[AuthContext] isUserAdmin check: user.email ("${user?.email}") === adminEmail ("${adminEmail}") => ${isAdminCheck}`,
     );
     return isAdminCheck;
   };
 
-  // Function to update token state (compatibility only)
   const setToken = (newToken: string | null) => {
     setTokenState(newToken);
   };
 
-  // Logout function
   const logout = async () => {
     try {
       await apiLogout();
@@ -67,7 +61,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     setUser(null);
     setToken(null);
-    localStorage.removeItem("authToken"); // Clean up legacy token if any
+    localStorage.removeItem("authToken");
     console.log("[AuthContext] User logged out via logout function.");
     window.location.href = "/login";
   };
@@ -114,9 +108,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     initAuth();
-  }, []); // Run once on mount
+  }, []);
 
-  // Memoize context value to prevent unnecessary re-renders
   const contextValue = React.useMemo(
     () => ({
       user,
@@ -131,7 +124,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     [user, token, loading, isInitialised],
   );
 
-  // Display loading indicator while checking auth state
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -141,7 +133,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }
 
   return (
-    // Ensure the AuthContext.Provider is passing the correct values
     <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
   );
 };

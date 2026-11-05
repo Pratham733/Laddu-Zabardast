@@ -24,7 +24,7 @@ type ShippingDetailsPacket struct {
 	Country    string `json:"country"`
 }
 
-type CreateOrderRequest struct {
+type CreateOrderRequestPacket struct {
 	ShippingDetails ShippingDetailsPacket `json:"shippingDetails"`
 	Items           []OrderItemPacket     `json:"items"`
 	TotalAmount     float64               `json:"totalAmount"`
@@ -35,12 +35,16 @@ type CreateOrderRequest struct {
 	Address         string                `json:"address,omitempty"`
 }
 
-type UpdateOrderStatusRequest struct {
+type CreateOrderRequest = CreateOrderRequestPacket
+
+type UpdateOrderStatusRequestPacket struct {
 	OrderID       string `json:"orderId,omitempty"`
 	Status        string `json:"status,omitempty"`
 	OrderStatus   string `json:"orderStatus,omitempty"`
 	PaymentStatus string `json:"paymentStatus,omitempty"`
 }
+
+type UpdateOrderStatusRequest = UpdateOrderStatusRequestPacket
 
 type OrderPacket struct {
 	ID              string                `json:"id"`

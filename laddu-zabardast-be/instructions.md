@@ -1,0 +1,3 @@
+- do not create any test files
+- avoid large comments , only one liners if required
+- always flag dead code , i will review if it can be removed

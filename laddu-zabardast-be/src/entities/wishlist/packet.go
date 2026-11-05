@@ -4,15 +4,18 @@ import (
 	"github.com/Pratham733/laddu-zabardast-be/src/entities/product"
 )
 
-// WishlistPayload represents the incoming payload to update a user's wishlist.
-type WishlistPayload struct {
+type WishlistPayloadPacket struct {
 	Items []product.ProductPacket `json:"items"`
 }
 
+type WishlistPayload = WishlistPayloadPacket
+
 // GetWishlistResponse represents the wishlist response payload.
-type GetWishlistResponse struct {
+type GetWishlistResponsePacket struct {
 	Wishlist []product.ProductPacket `json:"wishlist"`
 }
+
+type GetWishlistResponse = GetWishlistResponsePacket
 
 type UpdateWishlistResponsePacket struct {
 	Wishlist []product.ProductPacket `json:"wishlist"`

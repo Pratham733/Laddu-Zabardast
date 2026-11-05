@@ -30,8 +30,8 @@ func (p ProductPacket) MarshalJSON() ([]byte, error) {
 	})
 }
 
-// CreateProductRequest represents the incoming request payload to create a product.
-type CreateProductRequest struct {
+// CreateProductRequestPacket represents the incoming request payload to create a product.
+type CreateProductRequestPacket struct {
 	Name        string      `json:"name"`
 	Description string      `json:"description"`
 	Price       float64     `json:"price"`
@@ -42,8 +42,10 @@ type CreateProductRequest struct {
 	Weight      string      `json:"weight,omitempty"`
 }
 
-// UpdateProductRequest represents the incoming request payload to update a product.
-type UpdateProductRequest struct {
+type CreateProductRequest = CreateProductRequestPacket
+
+// UpdateProductRequestPacket represents the incoming request payload to update a product.
+type UpdateProductRequestPacket struct {
 	Name        *string      `json:"name,omitempty"`
 	Description *string      `json:"description,omitempty"`
 	Price       *float64     `json:"price,omitempty"`
@@ -53,6 +55,8 @@ type UpdateProductRequest struct {
 	Available   *bool        `json:"available,omitempty"`
 	Weight      *string      `json:"weight,omitempty"`
 }
+
+type UpdateProductRequest = UpdateProductRequestPacket
 
 type GetProductsResponsePacket struct {
 	Products []ProductPacket `json:"products"`

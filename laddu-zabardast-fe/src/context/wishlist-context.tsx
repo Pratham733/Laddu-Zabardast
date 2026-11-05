@@ -1,5 +1,3 @@
-// src/context/wishlist-context.tsx
-
 import React, {
   createContext,
   useContext,
@@ -13,7 +11,7 @@ import React, {
 import type { Product } from "@/models";
 import { usePathname } from "next/navigation";
 
-import { getWishlist, updateWishlist } from "@/routes";
+import { getWishlist, updateWishlist } from "@/routes/wishlist";
 import { useAuth } from "@/hooks/use-auth";
 
 interface WishlistContextProps {
@@ -40,7 +38,6 @@ export const WishlistProvider = ({
   const prevWishlistRef = useRef<string>("");
   const pathname = usePathname();
 
-  // Helper to load wishlist - memoized with stable dependencies
   const loadWishlist = useCallback(async () => {
     if (!user?.userId) {
       console.log("[WishlistContext] No user available");
@@ -60,19 +57,16 @@ export const WishlistProvider = ({
     }
   }, [user?.userId, token]);
 
-  // Load wishlist on mount or user/token change
   useEffect(() => {
     loadWishlist();
   }, [loadWishlist]);
 
-  // Re-fetch wishlist when navigating to /wishlist
   useEffect(() => {
     if (pathname === "/wishlist") {
       loadWishlist();
     }
   }, [pathname, loadWishlist]);
 
-  // Save wishlist to localStorage or backend
   useEffect(() => {
     if (!isInitialised || typeof window === "undefined") return;
 

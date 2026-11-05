@@ -6,7 +6,7 @@ export async function getAddresses(token?: string): Promise<{ addresses: Address
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-  return apiClient('/addresses', {
+  return apiClient('/address', {
     method: 'GET',
     headers,
   });
@@ -17,19 +17,19 @@ export async function saveAddress(address: Address, token?: string, method: 'POS
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-  return apiClient('/addresses', {
+  return apiClient('/address', {
     method,
     headers,
     body: JSON.stringify(address),
   });
 }
 
-export async function deleteAddress(idx: number, token?: string): Promise<{ addresses: Address[] }> {
+export async function deleteAddress(id: string, token?: string): Promise<{ addresses: Address[] }> {
   const headers: Record<string, string> = {};
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-  return apiClient(`/addresses/${idx}`, {
+  return apiClient(`/address/${id}`, {
     method: 'DELETE',
     headers,
   });

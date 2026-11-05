@@ -6,9 +6,8 @@ import { useState, useEffect } from "react";
 import {
   updateProfile,
   changePassword,
-  saveAddress,
-  deleteAddress,
-} from "@/routes";
+} from "@/routes/auth";
+import { saveAddress, deleteAddress } from "@/routes/address";
 import { getProfile, getAddresses } from "@/queries";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@mui/material";
@@ -527,11 +526,11 @@ function AddressManager({
       setLoading(false);
     }
   };
-  const handleDelete = async (idx: number) => {
+  const handleDelete = async (id: string) => {
     if (!user) return;
     setLoading(true);
     try {
-      await deleteAddress(idx, token ?? undefined);
+      await deleteAddress(id, token ?? undefined);
       await fetchAddresses();
       toast({ title: "Address deleted!" });
     } catch (err: any) {
@@ -568,7 +567,7 @@ function AddressManager({
                 size="small"
                 variant="contained"
                 color="error"
-                onClick={() => handleDelete(idx)}
+                onClick={() => handleDelete(addr.id ?? "")} /// need to verify
               >
                 Delete
               </Button>

@@ -8,6 +8,8 @@ import React, {
   useMemo,
   useRef,
 } from "react";
+import { getCart, updateCart } from "@/routes/cart";
+import { useAuth } from "@/hooks/use-auth";
 
 interface CartContextType {
   cart: CartItem[];
@@ -24,13 +26,11 @@ export const CartContext = createContext<CartContextType | undefined>(
 
 const CART_STORAGE_KEY = "ladooExpressCart";
 
-import { getCart, updateCart } from "@/routes";
-import { useAuth } from "@/hooks/use-auth";
+
 
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const { user, token } = useAuth();
   const [cart, setCart] = useState<CartItem[]>(() => {
-    // Initialize state from localStorage only on client-side
     if (typeof window !== "undefined") {
       const savedCart = localStorage.getItem(CART_STORAGE_KEY);
       return savedCart ? JSON.parse(savedCart) : [];

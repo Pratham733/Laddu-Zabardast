@@ -1,14 +1,12 @@
 package review
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"strings"
 	"time"
 
 	utils "github.com/Pratham733/laddu-zabardast-be/src"
-	"github.com/Pratham733/laddu-zabardast-be/src/db"
 	"github.com/Pratham733/laddu-zabardast-be/src/entities/user"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -19,25 +17,20 @@ import (
 func GetProductReviews(w http.ResponseWriter, r *http.Request) (*GetReviewsResponsePacket, error) {
 	vars := mux.Vars(r)
 	productId := vars["productId"]
-	if productId == "" {
-		http.Error(w, "Product ID is required", http.StatusBadRequest)
-		return nil, errors.New("product ID required")
+	if err := validateProductId(productId); err != nil {
+		return nil, err
 	}
 
 	collection := getCollection()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 	findOpts := options.Find().SetSort(bson.D{{Key: "pinned", Value: -1}, {Key: "createdAt", Value: -1}})
-	cursor, err := collection.Find(ctx, bson.M{"productId": productId}, findOpts)
+	cursor, err := collection.Find(r.Context(), bson.M{"productId": productId}, findOpts)
 	if err != nil {
-		http.Error(w, "Failed to fetch reviews", http.StatusInternalServerError)
 		return nil, err
 	}
-	defer cursor.Close(ctx)
+	defer cursor.Close(r.Context())
 
 	var reviews []Review
-	if err := cursor.All(ctx, &reviews); err != nil || reviews == nil {
+	if err := cursor.All(r.Context(), &reviews); err != nil || reviews == nil {
 		reviews = []Review{}
 	}
 
@@ -47,39 +40,19 @@ func GetProductReviews(w http.ResponseWriter, r *http.Request) (*GetReviewsRespo
 	}, nil
 }
 
-func CreateReview(w http.ResponseWriter, r *http.Request, req CreateReviewRequest) (*CreateReviewResponsePacket, error) {
+func CreateReview(w http.ResponseWriter, r *http.Request, req CreateReviewRequestPacket) (*CreateReviewResponsePacket, error) {
 	userId, err := utils.GetUserID(r)
 	if err != nil {
-		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
 		return nil, err
 	}
 
 	vars := mux.Vars(r)
 	productId := vars["productId"]
-	if productId == "" {
-		http.Error(w, "Product ID is required", http.StatusBadRequest)
-		return nil, errors.New("product ID required")
+	if err := validateCreateReviewReq(productId, req); err != nil {
+		return nil, err
 	}
 
-	if req.Rating < 1 || req.Rating > 5 || strings.TrimSpace(req.Comment) == "" {
-		http.Error(w, "Valid rating (1-5) and non-empty comment are required", http.StatusBadRequest)
-		return nil, errors.New("invalid rating or comment")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	// Get user name for review display
-	userName := "Customer"
-	userCol := db.GetCollection(db.DefaultDB, user.CollectionUsers)
-	var u user.User
-	if err := userCol.FindOne(ctx, bson.M{"_id": userId}).Decode(&u); err == nil {
-		if u.FirstName != "" {
-			userName = strings.TrimSpace(u.FirstName + " " + u.LastName)
-		} else if u.Email != "" {
-			userName = strings.Split(u.Email, "@")[0]
-		}
-	}
+	userName := resolveReviewerName(r.Context(), userId)
 
 	now := time.Now().UTC().Format(time.RFC3339)
 	newReview := Review{
@@ -95,9 +68,8 @@ func CreateReview(w http.ResponseWriter, r *http.Request, req CreateReviewReques
 	}
 
 	reviewCol := getCollection()
-	_, err = reviewCol.InsertOne(ctx, newReview)
+	_, err = reviewCol.InsertOne(r.Context(), newReview)
 	if err != nil {
-		http.Error(w, "Failed to create review", http.StatusInternalServerError)
 		return nil, err
 	}
 
@@ -110,27 +82,17 @@ func CreateReview(w http.ResponseWriter, r *http.Request, req CreateReviewReques
 	}, nil
 }
 
-func UpdateReview(w http.ResponseWriter, r *http.Request, req UpdateReviewRequest) (*UpdateReviewResponsePacket, error) {
+func UpdateReview(w http.ResponseWriter, r *http.Request, req UpdateReviewRequestPacket) (*UpdateReviewResponsePacket, error) {
 	userId, err := utils.GetUserID(r)
 	if err != nil {
-		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
 		return nil, err
 	}
 
 	vars := mux.Vars(r)
 	reviewId := vars["reviewId"]
-	if reviewId == "" {
-		http.Error(w, "Review ID is required", http.StatusBadRequest)
-		return nil, errors.New("review ID required")
+	if err := validateUpdateReviewReq(reviewId, req); err != nil {
+		return nil, err
 	}
-
-	if req.Rating < 1 || req.Rating > 5 || strings.TrimSpace(req.Comment) == "" {
-		http.Error(w, "Valid rating (1-5) and non-empty comment are required", http.StatusBadRequest)
-		return nil, errors.New("invalid rating or comment")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
 
 	collection := getCollection()
 	now := time.Now().UTC().Format(time.RFC3339)
@@ -148,14 +110,16 @@ func UpdateReview(w http.ResponseWriter, r *http.Request, req UpdateReviewReques
 		},
 	}
 
-	result, err := collection.UpdateOne(ctx, filter, update)
-	if err != nil || result.MatchedCount == 0 {
-		http.Error(w, "Review not found or unauthorized", http.StatusNotFound)
-		return nil, errors.New("review not found")
+	result, err := collection.UpdateOne(r.Context(), filter, update)
+	if err != nil {
+		return nil, err
+	}
+	if result.MatchedCount == 0 {
+		return nil, errors.New("review not found or unauthorized")
 	}
 
 	var updated Review
-	_ = collection.FindOne(ctx, bson.M{"_id": reviewId}).Decode(&updated)
+	_ = collection.FindOne(r.Context(), bson.M{"_id": reviewId}).Decode(&updated)
 	packet := ReviewToPacket(updated)
 
 	return &UpdateReviewResponsePacket{
@@ -168,19 +132,14 @@ func UpdateReview(w http.ResponseWriter, r *http.Request, req UpdateReviewReques
 func DeleteReview(w http.ResponseWriter, r *http.Request) (utils.SuccessResponsePacket, error) {
 	userId, err := utils.GetUserID(r)
 	if err != nil {
-		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
 		return utils.SuccessResponsePacket{}, err
 	}
 
 	vars := mux.Vars(r)
 	reviewId := vars["reviewId"]
-	if reviewId == "" {
-		http.Error(w, "Review ID is required", http.StatusBadRequest)
-		return utils.SuccessResponsePacket{}, errors.New("review ID required")
+	if err := validateReviewId(reviewId); err != nil {
+		return utils.SuccessResponsePacket{}, err
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
 
 	collection := getCollection()
 	filter := bson.M{"_id": reviewId}
@@ -188,10 +147,12 @@ func DeleteReview(w http.ResponseWriter, r *http.Request) (utils.SuccessResponse
 		filter["userId"] = userId
 	}
 
-	result, err := collection.DeleteOne(ctx, filter)
-	if err != nil || result.DeletedCount == 0 {
-		http.Error(w, "Review not found or unauthorized", http.StatusNotFound)
-		return utils.SuccessResponsePacket{}, errors.New("review not found")
+	result, err := collection.DeleteOne(r.Context(), filter)
+	if err != nil {
+		return utils.SuccessResponsePacket{}, err
+	}
+	if result.DeletedCount == 0 {
+		return utils.SuccessResponsePacket{}, errors.New("review not found or unauthorized")
 	}
 
 	return utils.SuccessResponsePacket{
@@ -199,27 +160,24 @@ func DeleteReview(w http.ResponseWriter, r *http.Request) (utils.SuccessResponse
 	}, nil
 }
 
-func PinReview(w http.ResponseWriter, r *http.Request, req PinReviewRequest) (utils.SuccessResponsePacket, error) {
+func PinReview(w http.ResponseWriter, r *http.Request, req PinReviewRequestPacket) (utils.SuccessResponsePacket, error) {
 	_, err := utils.GetUserID(r)
 	if err != nil {
-		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
 		return utils.SuccessResponsePacket{}, err
 	}
 
 	vars := mux.Vars(r)
 	reviewId := vars["reviewId"]
-	if reviewId == "" {
-		http.Error(w, "Review ID is required", http.StatusBadRequest)
-		return utils.SuccessResponsePacket{}, errors.New("review ID required")
+	if err := validateReviewId(reviewId); err != nil {
+		return utils.SuccessResponsePacket{}, err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 	collection := getCollection()
-	result, err := collection.UpdateOne(ctx, bson.M{"_id": reviewId}, bson.M{"$set": bson.M{"pinned": req.Pinned}})
-	if err != nil || result.MatchedCount == 0 {
-		http.Error(w, "Review not found", http.StatusNotFound)
+	result, err := collection.UpdateOne(r.Context(), bson.M{"_id": reviewId}, bson.M{"$set": bson.M{"pinned": req.Pinned}})
+	if err != nil {
+		return utils.SuccessResponsePacket{}, err
+	}
+	if result.MatchedCount == 0 {
 		return utils.SuccessResponsePacket{}, errors.New("review not found")
 	}
 

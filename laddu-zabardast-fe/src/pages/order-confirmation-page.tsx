@@ -10,7 +10,7 @@ import { OrderSummary } from "@/components/order-summary";
 import { AnimatePresence, motion } from "framer-motion";
 import { InteractiveHoverButton } from "@/components/magicui/interactive-hover-button";
 import { ConfettiFireworks } from "@/components/magicui/confetti";
-import { generateInvoice } from "@/routes";
+import { generateInvoice } from "@/routes/orders";
 import { getOrderDetails } from "@/queries";
 import type { Order } from "@/models";
 import { Row, Column, Box } from "@/components/ui/layout";

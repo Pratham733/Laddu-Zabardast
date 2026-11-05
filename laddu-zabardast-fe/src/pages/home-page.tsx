@@ -7,7 +7,7 @@ import { PromoBanner } from "@/components/promo-banner";
 import { TrustBadges } from "@/components/trust-badges";
 import type { Product } from "@/types";
 import { useAuth } from "@/hooks";
-import { getProducts } from "@/routes";
+import { getProducts } from "@/routes/products";
 import { motion } from "framer-motion";
 import { Box, Typography, CircularProgress } from "@mui/material";
 

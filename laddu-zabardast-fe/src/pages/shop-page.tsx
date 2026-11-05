@@ -20,8 +20,9 @@ import {
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks";
 import { Container, Column, Row, Box } from "@/components/ui/layout";
+import { getProducts } from "@/routes/products";
 
-import { getProducts } from "@/routes";
+
 
 export default function ShopPage() {
   const [products, setProducts] = useState<Product[]>([]);

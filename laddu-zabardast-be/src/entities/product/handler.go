@@ -1,39 +1,18 @@
 package product
 
 import (
-	"context"
 	"errors"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
-
-func fetchAllProducts(ctx context.Context) []ProductPacket {
-	collection := getCollection()
-	cursor, err := collection.Find(ctx, bson.M{})
-	if err != nil {
-		return []ProductPacket{}
-	}
-	defer cursor.Close(ctx)
-
-	var products []Product
-	if err := cursor.All(ctx, &products); err != nil || products == nil {
-		return []ProductPacket{}
-	}
-	return ProductsToPacketList(products)
-}
-
-func GenerateProductKey(name string) string {
-	return strings.ToLower(strings.ReplaceAll(strings.TrimSpace(name), " ", "_"))
-}
 
 func GetProducts(w http.ResponseWriter, r *http.Request) (*GetProductsResponsePacket, error) {
 	category := r.URL.Query().Get("category")
@@ -43,19 +22,14 @@ func GetProducts(w http.ResponseWriter, r *http.Request) (*GetProductsResponsePa
 	}
 
 	collection := getCollection()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	cursor, err := collection.Find(ctx, filter)
+	cursor, err := collection.Find(r.Context(), filter)
 	if err != nil {
-		http.Error(w, "Failed to fetch products", http.StatusInternalServerError)
 		return nil, err
 	}
-	defer cursor.Close(ctx)
+	defer cursor.Close(r.Context())
 
 	var products []Product
-	if err := cursor.All(ctx, &products); err != nil {
-		http.Error(w, "Failed to decode products", http.StatusInternalServerError)
+	if err := cursor.All(r.Context(), &products); err != nil {
 		return nil, err
 	}
 
@@ -68,20 +42,15 @@ func GetProducts(w http.ResponseWriter, r *http.Request) (*GetProductsResponsePa
 func GetProduct(w http.ResponseWriter, r *http.Request) (*GetProductResponsePacket, error) {
 	vars := mux.Vars(r)
 	id := vars["id"]
-	if id == "" {
-		http.Error(w, "Product ID is required", http.StatusBadRequest)
-		return nil, errors.New("product ID required")
+	if err := validateProductId(id); err != nil {
+		return nil, err
 	}
 
 	collection := getCollection()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 	var prod Product
-	err := collection.FindOne(ctx, bson.M{"_id": id}).Decode(&prod)
+	err := collection.FindOne(r.Context(), bson.M{"_id": id}).Decode(&prod)
 	if err != nil {
-		http.Error(w, "Product not found", http.StatusNotFound)
-		return nil, err
+		return nil, errors.New("product not found")
 	}
 
 	packet := ProductToPacket(prod)
@@ -90,10 +59,9 @@ func GetProduct(w http.ResponseWriter, r *http.Request) (*GetProductResponsePack
 	}, nil
 }
 
-func CreateProduct(w http.ResponseWriter, r *http.Request, req CreateProductRequest) (*ProductActionResponsePacket, error) {
-	if strings.TrimSpace(req.Name) == "" || req.Price <= 0 || strings.TrimSpace(req.Category) == "" || strings.TrimSpace(req.ImageUrl) == "" {
-		http.Error(w, "Product name, positive price, category, and imageUrl are required", http.StatusBadRequest)
-		return nil, errors.New("missing required product fields")
+func CreateProduct(w http.ResponseWriter, r *http.Request, req CreateProductRequestPacket) (*ProductActionResponsePacket, error) {
+	if err := validateCreateProductReq(req); err != nil {
+		return nil, err
 	}
 
 	available := true
@@ -114,16 +82,12 @@ func CreateProduct(w http.ResponseWriter, r *http.Request, req CreateProductRequ
 	}
 
 	collection := getCollection()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	_, err := collection.InsertOne(ctx, newProduct)
+	_, err := collection.InsertOne(r.Context(), newProduct)
 	if err != nil {
-		http.Error(w, "Failed to create product", http.StatusInternalServerError)
 		return nil, err
 	}
 
-	allProducts := fetchAllProducts(ctx)
+	allProducts := fetchAllProducts(r.Context())
 	productPacket := ProductToPacket(newProduct)
 
 	w.WriteHeader(http.StatusCreated)
@@ -138,17 +102,8 @@ func CreateProduct(w http.ResponseWriter, r *http.Request, req CreateProductRequ
 func UpdateProduct(w http.ResponseWriter, r *http.Request, updates bson.M) (*ProductActionResponsePacket, error) {
 	vars := mux.Vars(r)
 	id := vars["id"]
-	if id == "" {
-		http.Error(w, "Product ID is required", http.StatusBadRequest)
-		return nil, errors.New("product ID required")
-	}
-
-	delete(updates, "_id")
-	delete(updates, "id")
-
-	if len(updates) == 0 {
-		http.Error(w, "No fields to update", http.StatusBadRequest)
-		return nil, errors.New("no fields to update")
+	if err := validateUpdateProductReq(id, updates); err != nil {
+		return nil, err
 	}
 
 	if name, ok := updates["name"].(string); ok && name != "" {
@@ -156,18 +111,17 @@ func UpdateProduct(w http.ResponseWriter, r *http.Request, updates bson.M) (*Pro
 	}
 
 	collection := getCollection()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	result, err := collection.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": updates})
-	if err != nil || result.MatchedCount == 0 {
-		http.Error(w, "Failed to update product or product not found", http.StatusNotFound)
+	result, err := collection.UpdateOne(r.Context(), bson.M{"_id": id}, bson.M{"$set": updates})
+	if err != nil {
+		return nil, err
+	}
+	if result.MatchedCount == 0 {
 		return nil, errors.New("product not found")
 	}
 
 	var updated Product
-	_ = collection.FindOne(ctx, bson.M{"_id": id}).Decode(&updated)
-	allProducts := fetchAllProducts(ctx)
+	_ = collection.FindOne(r.Context(), bson.M{"_id": id}).Decode(&updated)
+	allProducts := fetchAllProducts(r.Context())
 	productPacket := ProductToPacket(updated)
 
 	return &ProductActionResponsePacket{
@@ -181,22 +135,20 @@ func UpdateProduct(w http.ResponseWriter, r *http.Request, updates bson.M) (*Pro
 func DeleteProduct(w http.ResponseWriter, r *http.Request) (*ProductActionResponsePacket, error) {
 	vars := mux.Vars(r)
 	id := vars["id"]
-	if id == "" {
-		http.Error(w, "Product ID is required", http.StatusBadRequest)
-		return nil, errors.New("product ID required")
+	if err := validateProductId(id); err != nil {
+		return nil, err
 	}
 
 	collection := getCollection()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	result, err := collection.DeleteOne(ctx, bson.M{"_id": id})
-	if err != nil || result.DeletedCount == 0 {
-		http.Error(w, "Failed to delete product or product not found", http.StatusNotFound)
+	result, err := collection.DeleteOne(r.Context(), bson.M{"_id": id})
+	if err != nil {
+		return nil, err
+	}
+	if result.DeletedCount == 0 {
 		return nil, errors.New("product not found")
 	}
 
-	allProducts := fetchAllProducts(ctx)
+	allProducts := fetchAllProducts(r.Context())
 	return &ProductActionResponsePacket{
 		Products: allProducts,
 		Success:  true,
@@ -206,28 +158,22 @@ func DeleteProduct(w http.ResponseWriter, r *http.Request) (*ProductActionRespon
 
 func SearchProducts(w http.ResponseWriter, r *http.Request) (*GetProductsResponsePacket, error) {
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
-	if query == "" {
-		http.Error(w, "Query parameter 'q' is required", http.StatusBadRequest)
-		return nil, errors.New("query parameter required")
+	if err := validateSearchQuery(query); err != nil {
+		return nil, err
 	}
 
 	collection := getCollection()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 	filter := bson.M{"name": bson.M{"$regex": query, "$options": "i"}}
 	opts := options.Find().SetLimit(10)
 
-	cursor, err := collection.Find(ctx, filter, opts)
+	cursor, err := collection.Find(r.Context(), filter, opts)
 	if err != nil {
-		http.Error(w, "Failed to search products", http.StatusInternalServerError)
 		return nil, err
 	}
-	defer cursor.Close(ctx)
+	defer cursor.Close(r.Context())
 
 	var products []Product
-	if err := cursor.All(ctx, &products); err != nil {
-		http.Error(w, "Failed to decode products", http.StatusInternalServerError)
+	if err := cursor.All(r.Context(), &products); err != nil {
 		return nil, err
 	}
 
@@ -239,43 +185,37 @@ func SearchProducts(w http.ResponseWriter, r *http.Request) (*GetProductsRespons
 
 func UploadProductImage(w http.ResponseWriter, r *http.Request) (*UploadImageResponsePacket, error) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return nil, errors.New("method not allowed")
 	}
 
 	err := r.ParseMultipartForm(10 << 20) // 10MB max
 	if err != nil {
-		http.Error(w, "File too large or invalid multipart form", http.StatusBadRequest)
-		return nil, err
+		return nil, errors.New("file too large or invalid multipart form")
 	}
 
 	file, fileHeader, err := r.FormFile("image")
 	if err != nil {
-		http.Error(w, "Missing 'image' file field", http.StatusBadRequest)
-		return nil, err
+		return nil, errors.New("missing 'image' file field")
 	}
 	defer file.Close()
 
-	ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
-	if ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".webp" {
-		http.Error(w, "Invalid image type. Allowed: jpg, jpeg, png, webp", http.StatusBadRequest)
-		return nil, errors.New("invalid image type")
+	ext := filepath.Ext(fileHeader.Filename)
+	if err := validateImageExtension(ext); err != nil {
+		return nil, err
 	}
 
 	_ = os.MkdirAll(UploadDir, 0755)
 
-	filename := uuid.NewString() + ext
+	filename := uuid.NewString() + strings.ToLower(ext)
 	destPath := filepath.Join(UploadDir, filename)
 
 	dst, err := os.Create(destPath)
 	if err != nil {
-		http.Error(w, "Failed to save file", http.StatusInternalServerError)
 		return nil, err
 	}
 	defer dst.Close()
 
 	if _, err := io.Copy(dst, file); err != nil {
-		http.Error(w, "Failed to write file", http.StatusInternalServerError)
 		return nil, err
 	}
 

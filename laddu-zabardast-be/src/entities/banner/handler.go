@@ -1,10 +1,8 @@
 package banner
 
 import (
-	"context"
 	"errors"
 	"net/http"
-	"time"
 
 	utils "github.com/Pratham733/laddu-zabardast-be/src"
 	"github.com/google/uuid"
@@ -15,19 +13,16 @@ import (
 
 func GetBanners(w http.ResponseWriter, r *http.Request) ([]BannerPacket, error) {
 	collection := getCollection()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 	findOpts := options.Find().SetSort(bson.D{{Key: "order", Value: 1}})
-	cursor, err := collection.Find(ctx, bson.M{"is_active": true}, findOpts)
+	cursor, err := collection.Find(r.Context(), bson.M{"is_active": true}, findOpts)
 	if err != nil {
 		http.Error(w, "Failed to fetch banners", http.StatusInternalServerError)
 		return nil, err
 	}
-	defer cursor.Close(ctx)
+	defer cursor.Close(r.Context())
 
 	var banners []Banner
-	if err := cursor.All(ctx, &banners); err != nil || banners == nil {
+	if err := cursor.All(r.Context(), &banners); err != nil || banners == nil {
 		banners = []Banner{}
 	}
 
@@ -36,50 +31,30 @@ func GetBanners(w http.ResponseWriter, r *http.Request) ([]BannerPacket, error) 
 
 func GetAllBannersAdmin(w http.ResponseWriter, r *http.Request) ([]BannerPacket, error) {
 	collection := getCollection()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 	findOpts := options.Find().SetSort(bson.D{{Key: "order", Value: 1}})
-	cursor, err := collection.Find(ctx, bson.M{}, findOpts)
+	cursor, err := collection.Find(r.Context(), bson.M{}, findOpts)
 	if err != nil {
 		http.Error(w, "Failed to fetch banners", http.StatusInternalServerError)
 		return nil, err
 	}
-	defer cursor.Close(ctx)
+	defer cursor.Close(r.Context())
 
 	var banners []Banner
-	if err := cursor.All(ctx, &banners); err != nil || banners == nil {
+	if err := cursor.All(r.Context(), &banners); err != nil || banners == nil {
 		banners = []Banner{}
 	}
 
 	return BannersToPacketList(banners), nil
 }
 
-func CreateBanner(w http.ResponseWriter, r *http.Request, req CreateBannerRequest) (*BannerPacket, error) {
-	if req.Name == "" {
-		http.Error(w, "Banner name is required", http.StatusBadRequest)
-		return nil, errors.New("banner name required")
-	}
-	if req.ImageURL == "" {
-		http.Error(w, "Banner imageURL is required", http.StatusBadRequest)
-		return nil, errors.New("banner imageURL required")
-	}
-	if req.ButtonLink == "" {
-		req.ButtonLink = "/shop"
-	}
-	if req.ButtonText == "" {
-		req.ButtonText = "Shop Now"
-	}
-	if req.Key == "" {
-		req.Key = "banner"
+func CreateBanner(w http.ResponseWriter, r *http.Request, req CreateBannerRequestPacket) (*BannerPacket, error) {
+	if err := validateCreateBannerReq(&req); err != nil {
+		return nil, err
 	}
 
 	collection := getCollection()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 	if req.Order <= 0 {
-		count, _ := collection.CountDocuments(ctx, bson.M{})
+		count, _ := collection.CountDocuments(r.Context(), bson.M{})
 		req.Order = int(count) + 1
 	}
 
@@ -96,9 +71,8 @@ func CreateBanner(w http.ResponseWriter, r *http.Request, req CreateBannerReques
 		IsActive:    req.IsActive,
 	}
 
-	_, err := collection.InsertOne(ctx, newBanner)
+	_, err := collection.InsertOne(r.Context(), newBanner)
 	if err != nil {
-		http.Error(w, "Failed to create banner: "+err.Error(), http.StatusInternalServerError)
 		return nil, err
 	}
 
@@ -107,27 +81,14 @@ func CreateBanner(w http.ResponseWriter, r *http.Request, req CreateBannerReques
 	return &packet, nil
 }
 
-// UpdateBanner handles updating an existing banner item in DB.
-func UpdateBanner(w http.ResponseWriter, r *http.Request, req UpdateBannerRequest) (utils.SuccessResponsePacket, error) {
+func UpdateBanner(w http.ResponseWriter, r *http.Request, req UpdateBannerRequestPacket) (utils.SuccessResponsePacket, error) {
 	vars := mux.Vars(r)
 	id := vars["id"]
-	if id == "" {
-		http.Error(w, "Banner ID is required", http.StatusBadRequest)
-		return utils.SuccessResponsePacket{}, errors.New("banner ID required")
-	}
-	if req.Name == "" {
-		http.Error(w, "Banner name is required", http.StatusBadRequest)
-		return utils.SuccessResponsePacket{}, errors.New("banner name required")
-	}
-	if req.ImageURL == "" {
-		http.Error(w, "Banner imageURL is required", http.StatusBadRequest)
-		return utils.SuccessResponsePacket{}, errors.New("banner imageURL required")
+	if err := validateUpdateBannerReq(id, req); err != nil {
+		return utils.SuccessResponsePacket{}, err
 	}
 
 	collection := getCollection()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 	update := bson.M{
 		"$set": bson.M{
 			"key":         req.Key,
@@ -142,13 +103,11 @@ func UpdateBanner(w http.ResponseWriter, r *http.Request, req UpdateBannerReques
 		},
 	}
 
-	result, err := collection.UpdateOne(ctx, bson.M{"id": id}, update)
+	result, err := collection.UpdateOne(r.Context(), bson.M{"id": id}, update)
 	if err != nil {
-		http.Error(w, "Failed to update banner: "+err.Error(), http.StatusInternalServerError)
 		return utils.SuccessResponsePacket{}, err
 	}
 	if result.MatchedCount == 0 {
-		http.Error(w, "Banner not found", http.StatusNotFound)
 		return utils.SuccessResponsePacket{}, errors.New("banner not found")
 	}
 
@@ -157,26 +116,19 @@ func UpdateBanner(w http.ResponseWriter, r *http.Request, req UpdateBannerReques
 	}, nil
 }
 
-// DeleteBanner handles deleting a banner item from DB.
 func DeleteBanner(w http.ResponseWriter, r *http.Request) (utils.SuccessResponsePacket, error) {
 	vars := mux.Vars(r)
 	id := vars["id"]
-	if id == "" {
-		http.Error(w, "Banner ID is required", http.StatusBadRequest)
-		return utils.SuccessResponsePacket{}, errors.New("banner ID required")
+	if err := validateBannerId(id); err != nil {
+		return utils.SuccessResponsePacket{}, err
 	}
 
 	collection := getCollection()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	result, err := collection.DeleteOne(ctx, bson.M{"id": id})
+	result, err := collection.DeleteOne(r.Context(), bson.M{"id": id})
 	if err != nil {
-		http.Error(w, "Failed to delete banner: "+err.Error(), http.StatusInternalServerError)
 		return utils.SuccessResponsePacket{}, err
 	}
 	if result.DeletedCount == 0 {
-		http.Error(w, "Banner not found", http.StatusNotFound)
 		return utils.SuccessResponsePacket{}, errors.New("banner not found")
 	}
 

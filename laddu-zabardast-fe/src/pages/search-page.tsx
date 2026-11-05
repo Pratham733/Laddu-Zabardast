@@ -8,7 +8,7 @@ import { ProductCard } from "@/components/product-card";
 import { Container, Column, Row, Box } from "@/components/ui/layout";
 
 import type { Product } from "@/models";
-import { getProducts } from "@/routes";
+import { getProducts } from "@/routes/products";
 
 interface FilterAndSortProps {
   onCategoryChange: (category: string | null) => void;

@@ -27,7 +27,7 @@ import {
 import { useAuth, toast } from "@/hooks";
 import { UserPlus, Mail, Lock, LoaderCircle, Eye, EyeOff } from "lucide-react";
 import { InteractiveHoverButton } from "@/components/magicui/interactive-hover-button";
-import { signup } from "@/routes";
+import { signup } from "@/routes/auth";
 import { getUser } from "@/queries";
 import { Button } from "@mui/material";
 import { MailOpen } from "lucide-react";

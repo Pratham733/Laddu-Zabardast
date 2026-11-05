@@ -1,6 +1,6 @@
 import { apiClient } from './apiClient';
 import type { Product } from '@/models';
-import type { ProductsResponse } from '@/packets';
+import type { ProductsResponse } from '@/packets/product';
 
 export async function getProducts(category?: string): Promise<ProductsResponse> {
   return apiClient('/products', {

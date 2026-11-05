@@ -5,23 +5,11 @@ import { useAuth } from "@/hooks";
 import { ProductCard } from "@/components/product-card";
 import type { ChangeEvent, FormEvent } from "react";
 import {
-  getProductReviews,
-  submitReview,
-  updateReview,
-  getProductById as fetchProductById,
+  getProductById,
   getProducts,
-} from "@/routes";
+} from "@/routes/products";
 import { Container, Column, Row, Box, Section } from "@/components/ui/layout";
-
-const getProductById = async (id: string): Promise<Product | null> => {
-  try {
-    const data = await fetchProductById(id);
-    return data.product || data;
-  } catch (error) {
-    console.error("Error fetching product:", error);
-    return null;
-  }
-};
+import { getProductReviews, submitReview, updateReview } from "@/routes/reviews";
 
 interface ReviewFormState {
   rating: number;
@@ -194,7 +182,7 @@ export default function Page({ params }: PageProps) {
   const { user, isUserAdmin } = useAuth();
 
   useEffect(() => {
-    getProductById(productId).then(setProduct);
+    getProductById(productId).then((data) => setProduct(data.product));
   }, [productId]);
 
   // Fetch related products by category

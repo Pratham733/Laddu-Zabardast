@@ -30,7 +30,7 @@ import { useAuth, toast } from "@/hooks";
 import { Separator } from "@/components/ui/separator";
 import { InteractiveHoverButton } from "@/components/magicui/interactive-hover-button";
 import { motion } from "framer-motion";
-import { login } from "@/routes";
+import { login } from "@/routes/auth";
 import { getUser } from "@/queries";
 import { loginSchema, type LoginFormValues } from "@/schema";
 

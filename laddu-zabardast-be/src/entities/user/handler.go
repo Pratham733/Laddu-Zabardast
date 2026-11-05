@@ -1,7 +1,6 @@
 package user
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"time"
@@ -15,18 +14,15 @@ import (
 
 func GetAppUsers(w http.ResponseWriter, r *http.Request) (*GetUsersResponsePacket, error) {
 	collection := getCollection()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	cursor, err := collection.Find(ctx, bson.M{})
+	cursor, err := collection.Find(r.Context(), bson.M{})
 	if err != nil {
 		http.Error(w, "Failed to fetch users", http.StatusInternalServerError)
 		return nil, err
 	}
-	defer cursor.Close(ctx)
+	defer cursor.Close(r.Context())
 
 	var users []User
-	if err := cursor.All(ctx, &users); err != nil {
+	if err := cursor.All(r.Context(), &users); err != nil {
 		http.Error(w, "Failed to decode users", http.StatusInternalServerError)
 		return nil, err
 	}
@@ -41,20 +37,15 @@ func GetAppUsers(w http.ResponseWriter, r *http.Request) (*GetUsersResponsePacke
 func GetAppUser(w http.ResponseWriter, r *http.Request) (*GetUserResponsePacket, error) {
 	vars := mux.Vars(r)
 	id := vars["id"]
-	if id == "" {
-		http.Error(w, "User ID is required", http.StatusBadRequest)
-		return nil, errors.New("user ID required")
+	if err := validateUserId(id); err != nil {
+		return nil, err
 	}
 
 	collection := getCollection()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 	var u User
-	err := collection.FindOne(ctx, bson.M{"_id": id}).Decode(&u)
+	err := collection.FindOne(r.Context(), bson.M{"_id": id}).Decode(&u)
 	if err != nil {
-		http.Error(w, "User not found", http.StatusNotFound)
-		return nil, err
+		return nil, errors.New("user not found")
 	}
 
 	userPacket := UserToPacket(u)
@@ -64,29 +55,22 @@ func GetAppUser(w http.ResponseWriter, r *http.Request) (*GetUserResponsePacket,
 	}, nil
 }
 
-func CreateAppUser(w http.ResponseWriter, r *http.Request, req CreateUserRequest) (*CreateUserResponsePacket, error) {
-	if req.Email == "" || req.Password == "" || req.FirstName == "" || req.LastName == "" {
-		http.Error(w, "First name, last name, email, and password are required", http.StatusBadRequest)
-		return nil, errors.New("missing required fields")
+func CreateAppUser(w http.ResponseWriter, r *http.Request, req CreateUserRequestPacket) (*CreateUserResponsePacket, error) {
+	if err := validateCreateAppUserReq(req); err != nil {
+		return nil, err
 	}
 
 	collection := getCollection()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	count, err := collection.CountDocuments(ctx, bson.M{"email": req.Email})
+	count, err := collection.CountDocuments(r.Context(), bson.M{"email": req.Email})
 	if err != nil {
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return nil, err
 	}
 	if count > 0 {
-		http.Error(w, "User with this email already exists", http.StatusConflict)
 		return nil, errors.New("user already exists")
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return nil, err
 	}
 
@@ -107,9 +91,8 @@ func CreateAppUser(w http.ResponseWriter, r *http.Request, req CreateUserRequest
 		CreatedAt: time.Now().UTC().Format(time.RFC3339),
 	}
 
-	_, err = collection.InsertOne(ctx, newUser)
+	_, err = collection.InsertOne(r.Context(), newUser)
 	if err != nil {
-		http.Error(w, "Failed to create user", http.StatusInternalServerError)
 		return nil, err
 	}
 
@@ -121,48 +104,22 @@ func CreateAppUser(w http.ResponseWriter, r *http.Request, req CreateUserRequest
 	}, nil
 }
 
-func UpdateAppUser(w http.ResponseWriter, r *http.Request, req UpdateUserRequest) (*UpdateUserResponsePacket, error) {
+func UpdateAppUser(w http.ResponseWriter, r *http.Request, req UpdateUserRequestPacket) (*UpdateUserResponsePacket, error) {
 	vars := mux.Vars(r)
 	id := vars["id"]
-	if id == "" {
-		http.Error(w, "User ID is required", http.StatusBadRequest)
-		return nil, errors.New("user ID required")
+	updates, err := validateUpdateAppUserReq(id, req)
+	if err != nil {
+		return nil, err
 	}
 
 	collection := getCollection()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	updates := bson.M{}
-	if req.FirstName != "" {
-		updates["firstName"] = req.FirstName
-	}
-	if req.LastName != "" {
-		updates["lastName"] = req.LastName
-	}
-	if req.Email != "" {
-		updates["email"] = req.Email
-	}
-	if req.Phone != "" {
-		updates["phone"] = req.Phone
-	}
-	if req.Role != "" {
-		updates["role"] = req.Role
-	}
-
-	if len(updates) == 0 {
-		http.Error(w, "No fields to update", http.StatusBadRequest)
-		return nil, errors.New("no fields to update")
-	}
-
-	result, err := collection.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": updates})
+	result, err := collection.UpdateOne(r.Context(), bson.M{"_id": id}, bson.M{"$set": updates})
 	if err != nil || result.MatchedCount == 0 {
-		http.Error(w, "Failed to update user or user not found", http.StatusNotFound)
 		return nil, errors.New("user not found")
 	}
 
 	var updated User
-	_ = collection.FindOne(ctx, bson.M{"_id": id}).Decode(&updated)
+	_ = collection.FindOne(r.Context(), bson.M{"_id": id}).Decode(&updated)
 
 	userPacket := UserToPacket(updated)
 	return &UpdateUserResponsePacket{
@@ -174,18 +131,13 @@ func UpdateAppUser(w http.ResponseWriter, r *http.Request, req UpdateUserRequest
 func DeleteAppUser(w http.ResponseWriter, r *http.Request) (utils.SuccessResponsePacket, error) {
 	vars := mux.Vars(r)
 	id := vars["id"]
-	if id == "" {
-		http.Error(w, "User ID is required", http.StatusBadRequest)
-		return utils.SuccessResponsePacket{}, errors.New("user ID required")
+	if err := validateUserId(id); err != nil {
+		return utils.SuccessResponsePacket{}, err
 	}
 
 	collection := getCollection()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	result, err := collection.DeleteOne(ctx, bson.M{"_id": id})
+	result, err := collection.DeleteOne(r.Context(), bson.M{"_id": id})
 	if err != nil || result.DeletedCount == 0 {
-		http.Error(w, "Failed to delete user or user not found", http.StatusNotFound)
 		return utils.SuccessResponsePacket{}, errors.New("user not found")
 	}
 

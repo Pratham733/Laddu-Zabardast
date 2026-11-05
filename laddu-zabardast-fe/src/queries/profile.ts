@@ -10,5 +10,5 @@ export const getUser = async (): Promise<any> => {
 };
 
 export const getAddresses = async (token?: string): Promise<{ addresses: Address[] }> => {
-  return apiClient("/addresses", { method: "GET" });
+  return apiClient("/address", { method: "GET" });
 };

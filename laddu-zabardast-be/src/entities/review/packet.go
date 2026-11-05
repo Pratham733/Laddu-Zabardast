@@ -29,22 +29,27 @@ func (r ReviewPacket) MarshalJSON() ([]byte, error) {
 	})
 }
 
-// CreateReviewRequest represents the incoming payload to submit a product review.
-type CreateReviewRequest struct {
+type CreateReviewRequestPacket struct {
 	Rating  int    `json:"rating"`
 	Comment string `json:"comment"`
 }
+
+type CreateReviewRequest = CreateReviewRequestPacket
 
 // UpdateReviewRequest represents the incoming payload to update an existing review.
-type UpdateReviewRequest struct {
+type UpdateReviewRequestPacket struct {
 	Rating  int    `json:"rating"`
 	Comment string `json:"comment"`
 }
 
+type UpdateReviewRequest = UpdateReviewRequestPacket
+
 // PinReviewRequest represents the incoming payload to toggle pin status on a review.
-type PinReviewRequest struct {
+type PinReviewRequestPacket struct {
 	Pinned bool `json:"pinned"`
 }
+
+type PinReviewRequest = PinReviewRequestPacket
 
 type GetReviewsResponsePacket struct {
 	Reviews []ReviewPacket `json:"reviews"`

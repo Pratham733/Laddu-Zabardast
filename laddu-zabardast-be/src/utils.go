@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -17,7 +18,6 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-// GenerateToken helper signs a new JWT session token
 func GenerateToken(ID, email string) (string, error) {
 	claims := &Claims{
 		UserID: ID,
@@ -43,7 +43,6 @@ func SetTokenCookie(w http.ResponseWriter, token string) {
 	})
 }
 
-// ParseClaims extracts and validates JWT claims from Bearer header or auth cookie
 func ParseClaims(r *http.Request) (*Claims, error) {
 	var tokenStr string
 	authHeader := r.Header.Get("Authorization")
@@ -87,21 +86,30 @@ type SuccessResponsePacket struct {
 	Message string `json:"message"`
 }
 
-// WithResponse wraps a handler returning a typed response packet and an error.
+const DefaultTimeout = 5 * time.Second
+
 func WithResponse[Resp any](fn func(w http.ResponseWriter, r *http.Request) (Resp, error)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), DefaultTimeout)
+		defer cancel()
+		r = r.WithContext(ctx)
+
 		w.Header().Set("Content-Type", "application/json")
 		resp, err := fn(w, r)
 		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		_ = json.NewEncoder(w).Encode(resp)
 	}
 }
 
-// WithBodyAndResponse wraps a handler that accepts a request packet and returns a response packet.
 func WithBodyAndResponse[Req any, Resp any](fn func(w http.ResponseWriter, r *http.Request, req Req) (Resp, error)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), DefaultTimeout)
+		defer cancel()
+		r = r.WithContext(ctx)
+
 		w.Header().Set("Content-Type", "application/json")
 		var req Req
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -110,14 +118,13 @@ func WithBodyAndResponse[Req any, Resp any](fn func(w http.ResponseWriter, r *ht
 		}
 		resp, err := fn(w, r, req)
 		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		_ = json.NewEncoder(w).Encode(resp)
 	}
 }
 
-// WithBody decodes the JSON request body into req of type T and passes it into fn.
-// If decoding fails, it returns 400 Bad Request immediately.
 func WithBody[T any](fn func(w http.ResponseWriter, r *http.Request, req T)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req T

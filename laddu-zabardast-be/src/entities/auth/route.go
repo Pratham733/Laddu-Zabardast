@@ -12,7 +12,7 @@ func RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/user", utils.WithResponse(GetUserHandler)).Methods("GET", "OPTIONS")
 	r.HandleFunc("/update-profile", utils.WithBodyAndResponse(UpdateProfileHandler)).Methods("POST", "PUT", "OPTIONS")
 	r.HandleFunc("/change-password", utils.WithBodyAndResponse(ChangePasswordHandler)).Methods("POST", "OPTIONS")
-	r.HandleFunc("/addresses", utils.WithResponse(GetAddressesHandler)).Methods("GET", "OPTIONS")
-	r.HandleFunc("/addresses", utils.WithBodyAndResponse(SaveAddressHandler)).Methods("POST", "PUT", "OPTIONS")
-	r.HandleFunc("/addresses/{idx}", utils.WithResponse(DeleteAddressHandler)).Methods("DELETE", "OPTIONS")
+	r.HandleFunc("/address", utils.WithResponse(GetAddressesHandler)).Methods("GET", "OPTIONS")
+	r.HandleFunc("/address", utils.WithBodyAndResponse(SaveAddressHandler)).Methods("POST", "PUT", "OPTIONS")
+	r.HandleFunc("/address/{id}", utils.WithResponse(DeleteAddressHandler)).Methods("DELETE", "OPTIONS")
 }

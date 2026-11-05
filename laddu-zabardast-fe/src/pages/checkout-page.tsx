@@ -14,7 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { createOrder } from "@/routes";
+import { createOrder } from "@/routes/orders";
 import { getAddresses } from "@/queries";
 
 import {

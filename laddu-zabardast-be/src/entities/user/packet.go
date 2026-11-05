@@ -44,8 +44,7 @@ type UserPacket struct {
 	CreatedAt string          `json:"createdAt,omitempty"`
 }
 
-// CreateUserRequest represents the incoming payload to create a new user.
-type CreateUserRequest struct {
+type CreateUserRequestPacket struct {
 	FirstName string `json:"firstName"`
 	LastName  string `json:"lastName"`
 	Email     string `json:"email"`
@@ -54,14 +53,18 @@ type CreateUserRequest struct {
 	Role      string `json:"role,omitempty"`
 }
 
+type CreateUserRequest = CreateUserRequestPacket
+
 // UpdateUserRequest represents the incoming payload to update a user.
-type UpdateUserRequest struct {
+type UpdateUserRequestPacket struct {
 	FirstName string `json:"firstName,omitempty"`
 	LastName  string `json:"lastName,omitempty"`
 	Email     string `json:"email,omitempty"`
 	Phone     string `json:"phone,omitempty"`
 	Role      string `json:"role,omitempty"`
 }
+
+type UpdateUserRequest = UpdateUserRequestPacket
 
 type GetUsersResponsePacket struct {
 	Users   []UserPacket `json:"users"`

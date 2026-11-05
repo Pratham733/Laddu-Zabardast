@@ -45,23 +45,19 @@ import { useAuth, toast } from "@/hooks";
 import type { Product, Order, OrderItem, BannerItem } from "@/types";
 import { InteractiveHoverButton } from "@/components/magicui/interactive-hover-button";
 import {
-  addProduct,
-  updateOrderStatus,
-  updatePaymentStatus,
-  deleteProduct,
-  updateProduct,
-  getProducts,
   getAllBannersAdmin,
   createBanner,
   updateBanner,
   deleteBanner,
-} from "@/routes";
+} from "@/routes/banner";
 import { getOrders } from "@/queries";
 import MultilineTextFields from "@/components/multiline-text-field";
 import Button from "@mui/material/Button";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { Reorder, useDragControls } from "framer-motion";
+import { addProduct, deleteProduct, getProducts, updateProduct } from "@/routes/products";
+import { updateOrderStatus, updatePaymentStatus } from "@/routes/orders";
 
 interface ProductFormState {
   name: string;
@@ -581,7 +577,6 @@ export default function AdminPage() {
 
   return (
     <div className="container mx-auto px-2 sm:px-4 py-6 md:px-6 md:py-12">
-      {/* Add a beautiful Hello message at the top of the Admin Dashboard */}
       <div className="relative flex flex-col items-center justify-center mb-6 sm:mb-8 animate-fade-in">
         <div className="absolute -top-6 left-1/2 -translate-x-1/2 z-0 blur-xl opacity-40 w-40 sm:w-60 h-16 sm:h-24 bg-gradient-to-r from-primary to-secondary rounded-full" />
         <div className="bg-gradient-to-r from-primary to-secondary rounded-full p-0.5 sm:p-1 shadow-2xl mb-2 z-10 border-2 sm:border-4 border-white dark:border-zinc-900">

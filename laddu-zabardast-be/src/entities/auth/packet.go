@@ -6,19 +6,19 @@ import (
 	"github.com/Pratham733/laddu-zabardast-be/src/entities/user"
 )
 
-type SignupRequest struct {
+type SignupRequestPacket struct {
 	FirstName string `json:"firstName"`
 	LastName  string `json:"lastName"`
 	Email     string `json:"email"`
 	Password  string `json:"password"`
 }
 
-type LoginRequest struct {
+type LoginRequestPacket struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
-type AddressResponse struct {
+type AddressResponsePacket struct {
 	ID         string `json:"id,omitempty"`
 	Label      string `json:"label,omitempty"`
 	Street     string `json:"street"`
@@ -29,8 +29,8 @@ type AddressResponse struct {
 	IsDefault  bool   `json:"isDefault"`
 }
 
-func (a AddressResponse) MarshalJSON() ([]byte, error) {
-	type Alias AddressResponse
+func (a AddressResponsePacket) MarshalJSON() ([]byte, error) {
+	type Alias AddressResponsePacket
 	return json.Marshal(&struct {
 		Alias
 		ID      string `json:"id,omitempty"`
@@ -42,7 +42,7 @@ func (a AddressResponse) MarshalJSON() ([]byte, error) {
 	})
 }
 
-type AddressRequest struct {
+type AddressRequestPacket struct {
 	ID         string `json:"id,omitempty"`
 	Label      string `json:"label,omitempty"`
 	Street     string `json:"street"`
@@ -53,23 +53,23 @@ type AddressRequest struct {
 	IsDefault  bool   `json:"isDefault"`
 }
 
-type UserResponse struct {
-	ID        string            `json:"id"`
-	UserID    string            `json:"userId"`
-	FirstName string            `json:"firstName"`
-	LastName  string            `json:"lastName"`
-	Email     string            `json:"email"`
-	Phone     *string           `json:"phone"`
-	Role      *string           `json:"role"`
-	IsAdmin   bool              `json:"isAdmin"`
-	PhotoURL  *string           `json:"photoURL"`
-	Picture   *string           `json:"picture"`
-	Addresses []AddressResponse `json:"addresses"`
-	CreatedAt string            `json:"createdAt,omitempty"`
+type UserResponsePacket struct {
+	ID        string                  `json:"id"`
+	UserID    string                  `json:"userId"`
+	FirstName string                  `json:"firstName"`
+	LastName  string                  `json:"lastName"`
+	Email     string                  `json:"email"`
+	Phone     *string                 `json:"phone"`
+	Role      *string                 `json:"role"`
+	IsAdmin   bool                    `json:"isAdmin"`
+	PhotoURL  *string                 `json:"photoURL"`
+	Picture   *string                 `json:"picture"`
+	Addresses []AddressResponsePacket `json:"addresses"`
+	CreatedAt string                  `json:"createdAt,omitempty"`
 }
 
-func (u UserResponse) MarshalJSON() ([]byte, error) {
-	type Alias UserResponse
+func (u UserResponsePacket) MarshalJSON() ([]byte, error) {
+	type Alias UserResponsePacket
 	return json.Marshal(&struct {
 		Alias
 		ID      string `json:"id"`
@@ -83,43 +83,47 @@ func (u UserResponse) MarshalJSON() ([]byte, error) {
 	})
 }
 
-type UpdateProfileRequest struct {
+type UpdateProfileRequestPacket struct {
 	FirstName string `json:"firstName,omitempty"`
 	LastName  string `json:"lastName,omitempty"`
 	Phone     string `json:"phone,omitempty"`
 }
 
-type ChangePasswordRequest struct {
+type UpdateProfileRequest = UpdateProfileRequestPacket
+
+type ChangePasswordRequestPacket struct {
 	CurrentPassword string `json:"currentPassword"`
 	NewPassword     string `json:"newPassword"`
 }
 
+type ChangePasswordRequest = ChangePasswordRequestPacket
+
 type AuthResponsePacket struct {
-	Token   string       `json:"token"`
-	User    UserResponse `json:"user"`
-	Message string       `json:"message,omitempty"`
+	Token   string             `json:"token"`
+	User    UserResponsePacket `json:"user"`
+	Message string             `json:"message,omitempty"`
 }
 
 type GetUserResponsePacket struct {
-	User UserResponse `json:"user"`
+	User UserResponsePacket `json:"user"`
 }
 
 type UpdateProfileResponsePacket struct {
-	User    UserResponse `json:"user"`
-	Message string       `json:"message,omitempty"`
+	User    UserResponsePacket `json:"user"`
+	Message string             `json:"message,omitempty"`
 }
 
 type GetAddressesResponsePacket struct {
-	Addresses []AddressResponse `json:"addresses"`
+	Addresses []AddressResponsePacket `json:"addresses"`
 }
 
-func ModelAddressesToPacket(addrs []user.Address) []AddressResponse {
+func ModelAddressesToPacket(addrs []user.Address) []AddressResponsePacket {
 	if addrs == nil {
-		return []AddressResponse{}
+		return []AddressResponsePacket{}
 	}
-	result := make([]AddressResponse, 0, len(addrs))
+	result := make([]AddressResponsePacket, 0, len(addrs))
 	for _, a := range addrs {
-		result = append(result, AddressResponse{
+		result = append(result, AddressResponsePacket{
 			ID:         a.ID,
 			Label:      a.Label,
 			Street:     a.Street,
@@ -133,7 +137,7 @@ func ModelAddressesToPacket(addrs []user.Address) []AddressResponse {
 	return result
 }
 
-func BuildUserResponse(u user.User) UserResponse {
+func BuildUserResponse(u user.User) UserResponsePacket {
 	var phone *string
 	if u.Phone != "" {
 		phone = &u.Phone
@@ -152,7 +156,7 @@ func BuildUserResponse(u user.User) UserResponse {
 	}
 	isAdmin := u.Role == RoleAdmin || u.Email == AdminEmail
 
-	return UserResponse{
+	return UserResponsePacket{
 		ID:        u.ID,
 		UserID:    u.ID,
 		FirstName: u.FirstName,

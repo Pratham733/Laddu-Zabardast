@@ -12,10 +12,11 @@ type CartItemPacket struct {
 	Quantity    int     `json:"quantity"`
 }
 
-// CartPayload represents the incoming request payload to update cart items.
-type CartPayload struct {
+type CartPayloadPacket struct {
 	Items []CartItemPacket `json:"items"`
 }
+
+type CartPayload = CartPayloadPacket
 
 type GetCartResponsePacket struct {
 	Items []CartItemPacket `json:"items"`

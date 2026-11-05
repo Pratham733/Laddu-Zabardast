@@ -14,8 +14,7 @@ type BannerPacket struct {
 	IsActive    bool   `json:"isActive"`
 }
 
-// CreateBannerRequest represents the incoming payload to create a new banner.
-type CreateBannerRequest struct {
+type CreateBannerRequestPacket struct {
 	Key         string `json:"key"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
@@ -27,8 +26,10 @@ type CreateBannerRequest struct {
 	IsActive    bool   `json:"isActive"`
 }
 
+type CreateBannerRequest = CreateBannerRequestPacket
+
 // UpdateBannerRequest represents the incoming payload to update an existing banner.
-type UpdateBannerRequest struct {
+type UpdateBannerRequestPacket struct {
 	Key         string `json:"key"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
@@ -39,6 +40,8 @@ type UpdateBannerRequest struct {
 	Order       int    `json:"order"`
 	IsActive    bool   `json:"isActive"`
 }
+
+type UpdateBannerRequest = UpdateBannerRequestPacket
 
 // Conversion helpers
 

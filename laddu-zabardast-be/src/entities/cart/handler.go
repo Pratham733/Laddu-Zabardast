@@ -1,8 +1,6 @@
 package cart
 
 import (
-	"context"
-	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -17,16 +15,12 @@ import (
 func GetCart(w http.ResponseWriter, r *http.Request) (*GetCartResponsePacket, error) {
 	userId, err := utils.GetUserID(r)
 	if err != nil {
-		http.Error(w, "User ID is required: "+err.Error(), http.StatusBadRequest)
 		return nil, err
 	}
 
 	collection := getCollection()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 	var userCart UserCart
-	err = collection.FindOne(ctx, bson.M{"_id": userId}).Decode(&userCart)
+	err = collection.FindOne(r.Context(), bson.M{"_id": userId}).Decode(&userCart)
 	if err != nil || userCart.Items == nil {
 		return &GetCartResponsePacket{
 			Items: []CartItemPacket{},
@@ -39,46 +33,26 @@ func GetCart(w http.ResponseWriter, r *http.Request) (*GetCartResponsePacket, er
 	}, nil
 }
 
-func UpdateCart(w http.ResponseWriter, r *http.Request, payload CartPayload) (*UpdateCartResponsePacket, error) {
+func UpdateCart(w http.ResponseWriter, r *http.Request, payload CartPayloadPacket) (*UpdateCartResponsePacket, error) {
 	userId, err := utils.GetUserID(r)
 	if err != nil {
-		http.Error(w, "User ID is required: "+err.Error(), http.StatusBadRequest)
 		return nil, err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	if err := validateCartPayload(payload); err != nil {
+		return nil, err
+	}
 
 	prodCol := db.GetCollection(db.DefaultDB, product.CollectionProducts)
 	itemsToSave := make([]CartItem, 0, len(payload.Items))
 
 	for _, itemPacket := range payload.Items {
 		pID := strings.TrimSpace(itemPacket.ProductID)
-		if pID == "" {
-			http.Error(w, "Each cart item must have a non-empty productId", http.StatusBadRequest)
-			return nil, errors.New("empty productId")
-		}
-		if itemPacket.Quantity <= 0 {
-			http.Error(w, "Each cart item must have a quantity greater than zero", http.StatusBadRequest)
-			return nil, errors.New("invalid quantity")
-		}
-
 		itemModel := CartItemPacketToModel(itemPacket)
 		itemModel.ID = pID
 		itemModel.ProductID = pID
 
-		// If name or price is missing, enrich from products database
-		if itemModel.Name == "" || itemModel.Price <= 0 {
-			var prod product.Product
-			if err := prodCol.FindOne(ctx, bson.M{"_id": pID}).Decode(&prod); err == nil {
-				itemModel.Name = prod.Name
-				itemModel.Price = prod.Price
-				itemModel.ImageUrl = prod.ImageUrl
-				itemModel.Category = prod.Category
-				itemModel.Description = prod.Description
-			}
-		}
-
+		enrichCartItem(r.Context(), &itemModel, prodCol)
 		itemsToSave = append(itemsToSave, itemModel)
 	}
 
@@ -91,13 +65,12 @@ func UpdateCart(w http.ResponseWriter, r *http.Request, payload CartPayload) (*U
 	cartCol := getCollection()
 	opts := options.UpdateOne().SetUpsert(true)
 	_, err = cartCol.UpdateOne(
-		ctx,
+		r.Context(),
 		bson.M{"_id": userId},
 		bson.M{"$set": cartRecord},
 		opts,
 	)
 	if err != nil {
-		http.Error(w, "Failed to update cart", http.StatusInternalServerError)
 		return nil, err
 	}
 
