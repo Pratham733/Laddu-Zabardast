@@ -50,3 +50,43 @@ func validateUpdateAppUserReq(id string, req UpdateUserRequestPacket) (bson.M, e
 
 	return updates, nil
 }
+
+func validateUpdateProfileReq(req UpdateProfileRequestPacket) (bson.M, error) {
+	updates := bson.M{}
+	if strings.TrimSpace(req.FirstName) != "" {
+		updates["firstName"] = strings.TrimSpace(req.FirstName)
+	}
+	if strings.TrimSpace(req.LastName) != "" {
+		updates["lastName"] = strings.TrimSpace(req.LastName)
+	}
+	if strings.TrimSpace(req.Phone) != "" {
+		updates["phone"] = strings.TrimSpace(req.Phone)
+	}
+
+	if len(updates) == 0 {
+		return nil, errors.New("no fields to update")
+	}
+
+	return updates, nil
+}
+
+func validateChangePasswordReq(req ChangePasswordRequestPacket) error {
+	if strings.TrimSpace(req.CurrentPassword) == "" || strings.TrimSpace(req.NewPassword) == "" {
+		return errors.New("passwords required")
+	}
+	return nil
+}
+
+func validateSaveAddressReq(req AddressRequestPacket) error {
+	if strings.TrimSpace(req.Street) == "" || strings.TrimSpace(req.City) == "" {
+		return errors.New("street and city required")
+	}
+	return nil
+}
+
+func validateAddressId(id string) error {
+	if strings.TrimSpace(id) == "" {
+		return errors.New("address ID required")
+	}
+	return nil
+}

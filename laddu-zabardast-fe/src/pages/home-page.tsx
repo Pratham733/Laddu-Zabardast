@@ -20,7 +20,6 @@ export default function Home() {
   const [productLoading, setProductLoading] = useState(true);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
 
-  // Fetch products
   useEffect(() => {
     const fetchProducts = async () => {
       try {
@@ -31,13 +30,10 @@ export default function Home() {
           id: item.id,
         }));
 
-        // Remove duplicates by id
         const uniqueProducts = Array.from(
           new Map(products.map((p) => [p.id, p])).values(),
         );
-        // For 'Laddus', show only products with category 'laddu' (not 'all')
         const laddusOnly = uniqueProducts.filter((p) => p.category === "laddu");
-        // For 'Pickles', show only products with category 'pickle' (not 'all')
         const picklesOnly = uniqueProducts.filter(
           (p) => p.category === "pickle",
         );
@@ -55,26 +51,15 @@ export default function Home() {
     fetchProducts();
   }, [user]);
 
-  // Don't render anything during auth check
   if (loading) {
     return null;
   }
 
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
-      {/* ═══════════════════════════════════════════════
-          1. HERO BANNER — Flipkart-style multi-visible cards
-          ═══════════════════════════════════════════════ */}
       <HeroCarousel />
-
-      {/* ═══════════════════════════════════════════════
-          2. CATEGORY QUICK-LINKS STRIP
-          ═══════════════════════════════════════════════ */}
       <CategoryStrip />
 
-      {/* ═══════════════════════════════════════════════
-          3. PRODUCT SECTIONS — each category in its own row
-          ═══════════════════════════════════════════════ */}
       {productLoading ? (
         <Box
           component="section"
@@ -109,7 +94,6 @@ export default function Home() {
         </Box>
       ) : (
         <>
-          {/* Best Sellers — top picks from all products */}
           {allProducts.length > 0 && (
             <Box
               id="bestsellers"
@@ -123,52 +107,6 @@ export default function Home() {
             </Box>
           )}
 
-          {/* Promotional Banner — mid-page CTA */}
-          <PromoBanner />
-
-          {/* All Products */}
-          {allProducts.length > 0 && (
-            <Box
-              id="all"
-              sx={{ scrollMarginTop: { xs: "130px", md: "150px" } }}
-            >
-              <ProductStrip
-                title="🛍️ All Products"
-                products={allProducts}
-                viewAllLink="/shop"
-              />
-            </Box>
-          )}
-
-          {/* Laddus Section */}
-          {laddus.length > 0 && (
-            <Box
-              id="laddu"
-              sx={{ scrollMarginTop: { xs: "130px", md: "150px" } }}
-            >
-              <ProductStrip
-                title="🍯 Our Delicious Laddus"
-                products={laddus}
-                viewAllLink="/shop?category=laddu"
-              />
-            </Box>
-          )}
-
-          {/* Pickles Section */}
-          {pickles.length > 0 && (
-            <Box
-              id="pickle"
-              sx={{ scrollMarginTop: { xs: "130px", md: "150px" } }}
-            >
-              <ProductStrip
-                title="🌶️ Tangy Homemade Pickles"
-                products={pickles}
-                viewAllLink="/shop?category=pickle"
-              />
-            </Box>
-          )}
-
-          {/* New Arrivals — placeholder using latest products */}
           {allProducts.length > 0 && (
             <Box
               id="new"
@@ -182,7 +120,47 @@ export default function Home() {
             </Box>
           )}
 
-          {/* Gift Boxes — placeholder using curated selection */}
+          {/* <PromoBanner /> */}
+
+          {allProducts.length > 0 && (
+            <Box
+              id="all"
+              sx={{ scrollMarginTop: { xs: "130px", md: "150px" } }}
+            >
+              <ProductStrip
+                title="🛍️ All Products"
+                products={allProducts}
+                viewAllLink="/shop"
+              />
+            </Box>
+          )}
+
+          {laddus.length > 0 && (
+            <Box
+              id="laddu"
+              sx={{ scrollMarginTop: { xs: "130px", md: "150px" } }}
+            >
+              <ProductStrip
+                title="🍯 Our Delicious Laddus"
+                products={laddus}
+                viewAllLink="/shop?category=laddu"
+              />
+            </Box>
+          )}
+
+          {pickles.length > 0 && (
+            <Box
+              id="pickle"
+              sx={{ scrollMarginTop: { xs: "130px", md: "150px" } }}
+            >
+              <ProductStrip
+                title="🌶️ Tangy Homemade Pickles"
+                products={pickles}
+                viewAllLink="/shop?category=pickle"
+              />
+            </Box>
+          )}
+
           {allProducts.length > 0 && (
             <Box
               id="gifts"
@@ -198,9 +176,6 @@ export default function Home() {
         </>
       )}
 
-      {/* ═══════════════════════════════════════════════
-          4. TRUST BADGES / WHY CHOOSE US
-          ═══════════════════════════════════════════════ */}
       <TrustBadges />
     </Box>
   );

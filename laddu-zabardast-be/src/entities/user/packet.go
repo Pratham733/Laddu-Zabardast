@@ -2,7 +2,6 @@ package user
 
 import "encoding/json"
 
-// AddressPacket represents an address in request and response payloads.
 type AddressPacket struct {
 	ID         string `json:"id,omitempty"`
 	Label      string `json:"label,omitempty"`
@@ -27,7 +26,44 @@ func (a AddressPacket) MarshalJSON() ([]byte, error) {
 	})
 }
 
-// UserPacket represents a sanitized user returned in API responses.
+type AddressResponsePacket struct {
+	ID         string `json:"id,omitempty"`
+	Label      string `json:"label,omitempty"`
+	Street     string `json:"street"`
+	City       string `json:"city"`
+	State      string `json:"state"`
+	Country    string `json:"country"`
+	PostalCode string `json:"postalCode"`
+	IsDefault  bool   `json:"isDefault"`
+}
+
+func (a AddressResponsePacket) MarshalJSON() ([]byte, error) {
+	type Alias AddressResponsePacket
+	return json.Marshal(&struct {
+		Alias
+		ID      string `json:"id,omitempty"`
+		MongoID string `json:"_id,omitempty"`
+	}{
+		Alias:   (Alias)(a),
+		ID:      a.ID,
+		MongoID: a.ID,
+	})
+}
+
+type AddressRequestPacket struct {
+	ID         string `json:"id,omitempty"`
+	Label      string `json:"label,omitempty"`
+	Street     string `json:"street"`
+	City       string `json:"city"`
+	State      string `json:"state"`
+	Country    string `json:"country"`
+	PostalCode string `json:"postalCode"`
+	IsDefault  bool   `json:"isDefault"`
+}
+
+type AddressRequest = AddressRequestPacket
+type AddressResponse = AddressResponsePacket
+
 type UserPacket struct {
 	ID        string          `json:"id"`
 	UserID    string          `json:"userId"`
@@ -44,6 +80,51 @@ type UserPacket struct {
 	CreatedAt string          `json:"createdAt,omitempty"`
 }
 
+type UserResponsePacket struct {
+	ID        string                  `json:"id"`
+	UserID    string                  `json:"userId"`
+	FirstName string                  `json:"firstName"`
+	LastName  string                  `json:"lastName"`
+	Email     string                  `json:"email"`
+	Phone     *string                 `json:"phone"`
+	Role      *string                 `json:"role"`
+	IsAdmin   bool                    `json:"isAdmin"`
+	PhotoURL  *string                 `json:"photoURL"`
+	Picture   *string                 `json:"picture"`
+	Addresses []AddressResponsePacket `json:"addresses"`
+	CreatedAt string                  `json:"createdAt,omitempty"`
+}
+
+func (u UserResponsePacket) MarshalJSON() ([]byte, error) {
+	type Alias UserResponsePacket
+	return json.Marshal(&struct {
+		Alias
+		ID      string `json:"id"`
+		UserID  string `json:"userId"`
+		MongoID string `json:"_id"`
+	}{
+		Alias:   (Alias)(u),
+		ID:      u.ID,
+		UserID:  u.ID,
+		MongoID: u.ID,
+	})
+}
+
+type UpdateProfileRequestPacket struct {
+	FirstName string `json:"firstName,omitempty" bson:"firstName,omitempty"`
+	LastName  string `json:"lastName,omitempty" bson:"lastName,omitempty"`
+	Phone     string `json:"phone,omitempty" bson:"phone,omitempty"`
+}
+
+type UpdateProfileRequest = UpdateProfileRequestPacket
+
+type ChangePasswordRequestPacket struct {
+	CurrentPassword string `json:"currentPassword"`
+	NewPassword     string `json:"newPassword"`
+}
+
+type ChangePasswordRequest = ChangePasswordRequestPacket
+
 type CreateUserRequestPacket struct {
 	FirstName string `json:"firstName"`
 	LastName  string `json:"lastName"`
@@ -55,7 +136,6 @@ type CreateUserRequestPacket struct {
 
 type CreateUserRequest = CreateUserRequestPacket
 
-// UpdateUserRequest represents the incoming payload to update a user.
 type UpdateUserRequestPacket struct {
 	FirstName string `json:"firstName,omitempty"`
 	LastName  string `json:"lastName,omitempty"`
@@ -72,8 +152,8 @@ type GetUsersResponsePacket struct {
 }
 
 type GetUserResponsePacket struct {
-	User    UserPacket `json:"user"`
-	Message string     `json:"message,omitempty"`
+	User    UserResponsePacket `json:"user"`
+	Message string             `json:"message,omitempty"`
 }
 
 type CreateUserResponsePacket struct {
@@ -84,6 +164,15 @@ type CreateUserResponsePacket struct {
 type UpdateUserResponsePacket struct {
 	User    UserPacket `json:"user"`
 	Message string     `json:"message,omitempty"`
+}
+
+type UpdateProfileResponsePacket struct {
+	User    UserResponsePacket `json:"user"`
+	Message string             `json:"message,omitempty"`
+}
+
+type GetAddressesResponsePacket struct {
+	Addresses []AddressResponsePacket `json:"addresses"`
 }
 
 // Conversion functions between Models and Packets
@@ -112,6 +201,26 @@ func AddressPacketToModel(a AddressPacket) Address {
 		PostalCode: a.PostalCode,
 		IsDefault:  a.IsDefault,
 	}
+}
+
+func ModelAddressesToPacket(addrs []Address) []AddressResponsePacket {
+	if addrs == nil {
+		return []AddressResponsePacket{}
+	}
+	result := make([]AddressResponsePacket, 0, len(addrs))
+	for _, a := range addrs {
+		result = append(result, AddressResponsePacket{
+			ID:         a.ID,
+			Label:      a.Label,
+			Street:     a.Street,
+			City:       a.City,
+			State:      a.State,
+			Country:    a.Country,
+			PostalCode: a.PostalCode,
+			IsDefault:  a.IsDefault,
+		})
+	}
+	return result
 }
 
 func UserToPacket(u User) UserPacket {

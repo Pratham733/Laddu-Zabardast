@@ -52,7 +52,7 @@ func main() {
 	r.PathPrefix("/uploads/").Handler(http.StripPrefix("/uploads/", http.FileServer(http.Dir("public/uploads"))))
 
 	auth.RegisterRoutes(r)
-	user.RegisterRoutes(r)
+	user.RegisterRoutes(r) // TODO: Add these routes
 	product.RegisterRoutes(r)
 	order.RegisterRoutes(r)
 	cart.RegisterRoutes(r)

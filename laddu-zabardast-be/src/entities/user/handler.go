@@ -3,7 +3,6 @@ package user
 import (
 	"errors"
 	"net/http"
-	"time"
 
 	utils "github.com/Pratham733/laddu-zabardast-be/src"
 	"github.com/google/uuid"
@@ -12,18 +11,277 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+func GetUserHandler(w http.ResponseWriter, r *http.Request) (*GetUserResponsePacket, error) {
+	userId, err := utils.GetUserID(r)
+	if err != nil {
+		return nil, err
+	}
+
+	collection := getCollection()
+	var u User
+	err = collection.FindOne(r.Context(), bson.M{"_id": userId}).Decode(&u)
+	if err != nil {
+		return nil, err
+	}
+
+	return &GetUserResponsePacket{
+		User: BuildUserResponse(u),
+	}, nil
+}
+
+func UpdateProfileHandler(w http.ResponseWriter, r *http.Request, req UpdateProfileRequestPacket) (*UpdateProfileResponsePacket, error) {
+	userId, err := utils.GetUserID(r)
+	if err != nil {
+		return nil, err
+	}
+
+	updates, err := validateUpdateProfileReq(req)
+	if err != nil {
+		return nil, err
+	}
+
+	collection := getCollection()
+	result, err := collection.UpdateOne(r.Context(), bson.M{"_id": userId}, bson.M{"$set": updates})
+	if err != nil || result.MatchedCount == 0 {
+		return nil, errors.New("failed to update profile")
+	}
+
+	var updated User
+	err = collection.FindOne(r.Context(), bson.M{"_id": userId}).Decode(&updated)
+	if err != nil {
+		return nil, err
+	}
+
+	return &UpdateProfileResponsePacket{
+		User:    BuildUserResponse(updated),
+		Message: "Profile updated successfully",
+	}, nil
+}
+
+func ChangePasswordHandler(w http.ResponseWriter, r *http.Request, req ChangePasswordRequestPacket) (utils.SuccessResponsePacket, error) {
+	userId, err := utils.GetUserID(r)
+	if err != nil {
+		return utils.SuccessResponsePacket{}, err
+	}
+
+	if err := validateChangePasswordReq(req); err != nil {
+		return utils.SuccessResponsePacket{}, err
+	}
+
+	collection := getCollection()
+	var u User
+	err = collection.FindOne(r.Context(), bson.M{"_id": userId}).Decode(&u)
+	if err != nil {
+		return utils.SuccessResponsePacket{}, err
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(req.CurrentPassword)); err != nil {
+		return utils.SuccessResponsePacket{}, errors.New("incorrect password")
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return utils.SuccessResponsePacket{}, err
+	}
+
+	_, err = collection.UpdateOne(r.Context(), bson.M{"_id": userId}, bson.M{"$set": bson.M{"password": string(hashedPassword)}})
+	if err != nil {
+		return utils.SuccessResponsePacket{}, err
+	}
+
+	return utils.SuccessResponsePacket{
+		Message: "Password changed successfully",
+	}, nil
+}
+
+func GetAddressesHandler(w http.ResponseWriter, r *http.Request) (*GetAddressesResponsePacket, error) {
+	userId, err := utils.GetUserID(r)
+	if err != nil {
+		return nil, err
+	}
+
+	collection := getCollection()
+	var u User
+	err = collection.FindOne(r.Context(), bson.M{"_id": userId}).Decode(&u)
+	if err != nil {
+		return nil, err
+	}
+
+	addresses := ModelAddressesToPacket(u.Addresses)
+
+	return &GetAddressesResponsePacket{
+		Addresses: addresses,
+	}, nil
+}
+
+func SaveAddressHandler(w http.ResponseWriter, r *http.Request, req AddressRequestPacket) (*utils.SuccessResponsePacket, error) {
+	userId, err := utils.GetUserID(r)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := validateSaveAddressReq(req); err != nil {
+		return nil, err
+	}
+
+	collection := getCollection()
+	var u User
+	err = collection.FindOne(r.Context(), bson.M{"_id": userId}).Decode(&u)
+	if err != nil {
+		return nil, err
+	}
+
+	addressID := req.ID
+	if addressID == "" {
+		addressID = uuid.NewString()
+	}
+
+	newAddr := Address{
+		ID:         addressID,
+		Label:      req.Label,
+		Street:     req.Street,
+		City:       req.City,
+		State:      req.State,
+		Country:    req.Country,
+		PostalCode: req.PostalCode,
+		IsDefault:  req.IsDefault,
+	}
+
+	var updatedAddresses []Address
+	found := false
+	for _, a := range u.Addresses {
+		if a.ID == addressID {
+			updatedAddresses = append(updatedAddresses, newAddr)
+			found = true
+		} else {
+			if newAddr.IsDefault {
+				a.IsDefault = false
+			}
+			updatedAddresses = append(updatedAddresses, a)
+		}
+	}
+	if !found {
+		if newAddr.IsDefault {
+			for i := range updatedAddresses {
+				updatedAddresses[i].IsDefault = false
+			}
+		} else if len(updatedAddresses) == 0 {
+			newAddr.IsDefault = true
+		}
+		updatedAddresses = append(updatedAddresses, newAddr)
+	}
+
+	_, err = collection.UpdateOne(r.Context(), bson.M{"_id": userId}, bson.M{"$set": bson.M{"addresses": updatedAddresses}})
+	if err != nil {
+		return nil, err
+	}
+
+	return &utils.SuccessResponsePacket{
+		Message: "Address created successfully",
+	}, nil
+}
+
+func UpdateAddressHandler(w http.ResponseWriter, r *http.Request, req AddressRequestPacket) (*utils.SuccessResponsePacket, error) {
+	userId, err := utils.GetUserID(r)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := validateSaveAddressReq(req); err != nil {
+		return nil, err
+	}
+
+	addressId := mux.Vars(r)["id"]
+	if addressId != "" {
+		req.ID = addressId
+	}
+
+	collection := getCollection()
+	var u User
+	err = collection.FindOne(r.Context(), bson.M{"_id": userId}).Decode(&u)
+	if err != nil {
+		return nil, err
+	}
+
+	var updatedAddresses []Address
+	found := false
+	for _, a := range u.Addresses {
+		if a.ID == req.ID {
+			newAddr := Address{
+				ID:         req.ID,
+				Label:      req.Label,
+				Street:     req.Street,
+				City:       req.City,
+				State:      req.State,
+				Country:    req.Country,
+				PostalCode: req.PostalCode,
+				IsDefault:  req.IsDefault,
+			}
+			if newAddr.IsDefault {
+				for i := range updatedAddresses {
+					updatedAddresses[i].IsDefault = false
+				}
+			}
+			updatedAddresses = append(updatedAddresses, newAddr)
+			found = true
+		} else {
+			if req.IsDefault {
+				a.IsDefault = false
+			}
+			updatedAddresses = append(updatedAddresses, a)
+		}
+	}
+
+	if !found {
+		return nil, errors.New("address not found")
+	}
+
+	_, err = collection.UpdateOne(r.Context(), bson.M{"_id": userId}, bson.M{"$set": bson.M{"addresses": updatedAddresses}})
+	if err != nil {
+		return nil, err
+	}
+
+	return &utils.SuccessResponsePacket{
+		Message: "Address updated successfully",
+	}, nil
+}
+
+func DeleteAddressHandler(w http.ResponseWriter, r *http.Request) (*utils.SuccessResponsePacket, error) {
+	userId, err := utils.GetUserID(r)
+	if err != nil {
+		return nil, err
+	}
+
+	addressId := mux.Vars(r)["id"]
+	if err := validateAddressId(addressId); err != nil {
+		return nil, err
+	}
+
+	err = validateDeleteAddress(r.Context(), userId, addressId)
+	if err != nil {
+		return nil, err
+	}
+
+	err = deleteAddress(r.Context(), userId, addressId)
+	if err != nil {
+		return nil, err
+	}
+
+	return &utils.SuccessResponsePacket{
+		Message: "Address deleted successfully",
+	}, nil
+}
+
 func GetAppUsers(w http.ResponseWriter, r *http.Request) (*GetUsersResponsePacket, error) {
 	collection := getCollection()
 	cursor, err := collection.Find(r.Context(), bson.M{})
 	if err != nil {
-		http.Error(w, "Failed to fetch users", http.StatusInternalServerError)
 		return nil, err
 	}
 	defer cursor.Close(r.Context())
 
 	var users []User
 	if err := cursor.All(r.Context(), &users); err != nil {
-		http.Error(w, "Failed to decode users", http.StatusInternalServerError)
 		return nil, err
 	}
 
@@ -50,81 +308,21 @@ func GetAppUser(w http.ResponseWriter, r *http.Request) (*GetUserResponsePacket,
 
 	userPacket := UserToPacket(u)
 	return &GetUserResponsePacket{
-		User:    userPacket,
+		User: UserResponsePacket{
+			ID:        userPacket.ID,
+			UserID:    userPacket.UserID,
+			FirstName: userPacket.FirstName,
+			LastName:  userPacket.LastName,
+			Email:     userPacket.Email,
+			Phone:     &userPacket.Phone,
+			Role:      &userPacket.Role,
+			IsAdmin:   userPacket.IsAdmin,
+			PhotoURL:  &userPacket.PhotoURL,
+			Picture:   &userPacket.Picture,
+			Addresses: ModelAddressesToPacket(u.Addresses),
+			CreatedAt: userPacket.CreatedAt,
+		},
 		Message: "User fetched successfully",
-	}, nil
-}
-
-func CreateAppUser(w http.ResponseWriter, r *http.Request, req CreateUserRequestPacket) (*CreateUserResponsePacket, error) {
-	if err := validateCreateAppUserReq(req); err != nil {
-		return nil, err
-	}
-
-	collection := getCollection()
-	count, err := collection.CountDocuments(r.Context(), bson.M{"email": req.Email})
-	if err != nil {
-		return nil, err
-	}
-	if count > 0 {
-		return nil, errors.New("user already exists")
-	}
-
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-	if err != nil {
-		return nil, err
-	}
-
-	role := req.Role
-	if role == "" {
-		role = RoleCustomer
-	}
-
-	newUser := User{
-		ID:        uuid.NewString(),
-		FirstName: req.FirstName,
-		LastName:  req.LastName,
-		Email:     req.Email,
-		Password:  string(hashedPassword),
-		Phone:     req.Phone,
-		Role:      role,
-		Addresses: []Address{},
-		CreatedAt: time.Now().UTC().Format(time.RFC3339),
-	}
-
-	_, err = collection.InsertOne(r.Context(), newUser)
-	if err != nil {
-		return nil, err
-	}
-
-	w.WriteHeader(http.StatusCreated)
-	userPacket := UserToPacket(newUser)
-	return &CreateUserResponsePacket{
-		User:    userPacket,
-		Message: "User created successfully",
-	}, nil
-}
-
-func UpdateAppUser(w http.ResponseWriter, r *http.Request, req UpdateUserRequestPacket) (*UpdateUserResponsePacket, error) {
-	vars := mux.Vars(r)
-	id := vars["id"]
-	updates, err := validateUpdateAppUserReq(id, req)
-	if err != nil {
-		return nil, err
-	}
-
-	collection := getCollection()
-	result, err := collection.UpdateOne(r.Context(), bson.M{"_id": id}, bson.M{"$set": updates})
-	if err != nil || result.MatchedCount == 0 {
-		return nil, errors.New("user not found")
-	}
-
-	var updated User
-	_ = collection.FindOne(r.Context(), bson.M{"_id": id}).Decode(&updated)
-
-	userPacket := UserToPacket(updated)
-	return &UpdateUserResponsePacket{
-		User:    userPacket,
-		Message: "User updated successfully",
 	}, nil
 }
 
@@ -137,7 +335,10 @@ func DeleteAppUser(w http.ResponseWriter, r *http.Request) (utils.SuccessRespons
 
 	collection := getCollection()
 	result, err := collection.DeleteOne(r.Context(), bson.M{"_id": id})
-	if err != nil || result.DeletedCount == 0 {
+	if err != nil {
+		return utils.SuccessResponsePacket{}, err
+	}
+	if result.DeletedCount == 0 {
 		return utils.SuccessResponsePacket{}, errors.New("user not found")
 	}
 

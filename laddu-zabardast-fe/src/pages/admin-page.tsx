@@ -56,8 +56,21 @@ import Button from "@mui/material/Button";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { Reorder, useDragControls } from "framer-motion";
-import { addProduct, deleteProduct, getProducts, updateProduct } from "@/routes/products";
+import {
+  addProduct,
+  deleteProduct,
+  getProducts,
+  updateProduct,
+} from "@/routes/products";
 import { updateOrderStatus, updatePaymentStatus } from "@/routes/orders";
+import {
+  Box,
+  FormControlLabel,
+  IconButton,
+  Paper,
+  Stack,
+  Typography,
+} from "@mui/material";
 
 interface ProductFormState {
   name: string;
@@ -95,124 +108,163 @@ function DraggableBannerItem({
         boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.4)",
         zIndex: 50,
       }}
-      className={cn(
-        "flex flex-col md:flex-row items-start md:items-center justify-between p-3.5 sm:p-4 rounded-xl border transition-all duration-200 gap-3 sm:gap-4 select-none",
-        banner.isActive
-          ? "bg-card hover:border-primary/50 shadow-sm"
-          : "bg-muted/30 border-dashed border-border/80 opacity-90",
-      )}
+      style={{ listStyle: "none" }}
     >
-      {/* Left: Drag Handle, Order #, Thumbnail, and Content */}
-      <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0 w-full md:w-auto">
-        {/* Drag Grip Handle */}
-        <div
-          onPointerDown={(e) => controls.start(e)}
-          className="cursor-grab active:cursor-grabbing p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors flex items-center justify-center shrink-0 touch-none"
-          title="Click and drag to reorder sliding order"
+      <Paper
+        elevation={banner.isActive ? 2 : 0}
+        sx={{
+          display: "flex",
+          flexDirection: { xs: "column", md: "row" },
+          alignItems: { xs: "flex-start", md: "center" },
+          justifyContent: "space-between",
+          p: 2,
+          borderRadius: 3,
+          border: 1,
+          borderColor: banner.isActive ? "primary.main" : "divider",
+          borderStyle: banner.isActive ? "solid" : "dashed",
+          bgcolor: banner.isActive ? "background.paper" : "action.hover",
+          gap: 2,
+          mb: 1.5,
+          transition: "all 0.2s ease",
+        }}
+      >
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 2,
+            flex: 1,
+            minWidth: 0,
+            width: "100%",
+          }}
         >
-          <GripVertical className="h-5 w-5" />
-        </div>
-
-        {/* Position badge */}
-        <div className="h-8 w-8 rounded-full bg-primary/10 border border-primary/30 text-primary font-black text-xs flex items-center justify-center shrink-0">
-          #{index + 1}
-        </div>
-
-        {/* Banner Thumbnail */}
-        <div className="w-20 h-14 sm:w-24 sm:h-16 rounded-lg overflow-hidden border border-border/60 bg-muted shrink-0 shadow-inner relative group">
-          <img
-            src={banner.imageURL}
-            alt={banner.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            onError={(e) => {
-              if (banner.altURL) e.currentTarget.src = banner.altURL;
+          <IconButton
+            onPointerDown={(e) => controls.start(e)}
+            sx={{
+              cursor: "grab",
+              "&:active": { cursor: "grabbing" },
+              color: "text.secondary",
+              "&:hover": { color: "primary.main" },
+              touchAction: "none",
             }}
-          />
-        </div>
-
-        {/* Banner Info */}
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h4 className="font-bold text-sm sm:text-base text-foreground truncate">
-              {banner.name}
-            </h4>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary/20 text-secondary-foreground font-mono font-medium">
-              key: {banner.key}
-            </span>
-          </div>
-          <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
-            {banner.description || "No description provided"}
-          </p>
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-1">
-            <span className="font-semibold text-foreground/80">
-              Btn: &ldquo;{banner.buttonText || "Shop Now"}&rdquo;
-            </span>
-            <span>&rarr;</span>
-            <span className="text-primary truncate">{banner.buttonLink}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Right: Enable/Disable Switch Section & Action Buttons */}
-      <div className="flex items-center justify-between md:justify-end gap-3 w-full md:w-auto pt-2 md:pt-0 border-t md:border-t-0 border-border/50 shrink-0">
-        {/* Enable / Disable Button Section */}
-        <div className="flex items-center gap-2.5 bg-muted/50 px-3 py-1.5 rounded-xl border border-border/70 shadow-sm">
-          <Switch
-            id={`switch-${banner.id}`}
-            checked={banner.isActive}
-            onCheckedChange={() => onToggleActive(banner)}
-          />
-          <label
-            htmlFor={`switch-${banner.id}`}
-            className="cursor-pointer select-none text-left"
+            title="Click and drag to reorder sliding order"
           >
-            <div
-              className={cn(
-                "text-xs font-bold flex items-center gap-1",
-                banner.isActive
-                  ? "text-emerald-500 dark:text-emerald-400"
-                  : "text-zinc-400 dark:text-zinc-500",
-              )}
+            <GripVertical size={20} />
+          </IconButton>
+
+          <Box
+            sx={{
+              width: 32,
+              height: 32,
+              borderRadius: "50%",
+              bgcolor: "primary.light",
+              color: "primary.main",
+              fontWeight: 800,
+              fontSize: "0.75rem",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            #{index + 1}
+          </Box>
+
+          <Box
+            sx={{
+              width: { xs: 80, sm: 96 },
+              height: { xs: 56, sm: 64 },
+              borderRadius: 2,
+              overflow: "hidden",
+              border: 1,
+              borderColor: "divider",
+              bgcolor: "action.hover",
+              flexShrink: 0,
+            }}
+          >
+            <Box
+              component="img"
+              src={banner.imageURL}
+              alt={banner.name}
+              onError={(e: any) => {
+                if (banner.altURL) e.currentTarget.src = banner.altURL;
+              }}
+              sx={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            />
+          </Box>
+
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{ alignItems: "center", flexWrap: "wrap" }}
             >
-              {banner.isActive ? (
-                <>
-                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                  <span>Enabled</span>
-                </>
-              ) : (
-                <>
-                  <XCircle className="h-3.5 w-3.5 shrink-0" />
-                  <span>Disabled</span>
-                </>
-              )}
-            </div>
-            <div className="text-[10px] text-muted-foreground">
-              {banner.isActive ? "Shown on Home" : "Hidden"}
-            </div>
-          </label>
-        </div>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }} noWrap>
+                {banner.name}
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{
+                  px: 1,
+                  py: 0.25,
+                  borderRadius: 4,
+                  bgcolor: "action.selected",
+                  fontFamily: "monospace",
+                }}
+              >
+                key: {banner.key}
+              </Typography>
+            </Stack>
+            <Typography variant="caption" color="text.secondary" noWrap>
+              {banner.description || "No description provided"}
+            </Typography>
+          </Box>
+        </Box>
 
-        {/* Edit & Delete Action Buttons */}
-        <div className="flex items-center gap-1.5">
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={() => onEdit(banner)}
-            className="text-xs"
-          >
-            <Edit3 className="h-3.5 w-3.5 mr-1" /> Edit
-          </Button>
-          <Button
-            size="small"
-            variant="outlined"
-            color="error"
-            onClick={() => onDelete(banner.id)}
-            className="text-xs"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      </div>
+        {/* Right: Enable/Disable Switch Section & Action Buttons */}
+        <Stack
+          direction="row"
+          spacing={2}
+          sx={{
+            alignItems: "center",
+            justifyContent: "space-between",
+            width: { xs: "100%", md: "auto" },
+          }}
+        >
+          <FormControlLabel
+            control={
+              <Switch
+                checked={banner.isActive}
+                onChange={() => onToggleActive(banner)}
+              />
+            }
+            label={banner.isActive ? "Enabled" : "Disabled"}
+          />
+
+          <Stack direction="row" spacing={1}>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => onEdit(banner)}
+              startIcon={<Edit3 size={14} />}
+            >
+              Edit
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              color="error"
+              onClick={() => onDelete(banner.id)}
+            >
+              <Trash2 size={14} />
+            </Button>
+          </Stack>
+        </Stack>
+      </Paper>
     </Reorder.Item>
   );
 }
@@ -236,7 +288,6 @@ export default function AdminPage() {
   const [category, setCategory] = useState<"laddu" | "pickle" | "all">("laddu");
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
-  // Banner Management State
   const [banners, setBanners] = useState<BannerItem[]>([]);
   const [bannerFilter, setBannerFilter] = useState<
     "all" | "active" | "disabled"

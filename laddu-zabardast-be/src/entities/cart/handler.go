@@ -39,7 +39,8 @@ func UpdateCart(w http.ResponseWriter, r *http.Request, payload CartPayloadPacke
 		return nil, err
 	}
 
-	if err := validateCartPayload(payload); err != nil {
+	err = validateCartPayload(payload)
+	if err != nil {
 		return nil, err
 	}
 

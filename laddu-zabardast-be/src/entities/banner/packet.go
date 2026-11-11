@@ -1,6 +1,5 @@
 package banner
 
-// BannerPacket represents a banner in API responses.
 type BannerPacket struct {
 	ID          string `json:"id"`
 	Key         string `json:"key"`
@@ -28,7 +27,6 @@ type CreateBannerRequestPacket struct {
 
 type CreateBannerRequest = CreateBannerRequestPacket
 
-// UpdateBannerRequest represents the incoming payload to update an existing banner.
 type UpdateBannerRequestPacket struct {
 	Key         string `json:"key"`
 	Name        string `json:"name"`
@@ -42,8 +40,6 @@ type UpdateBannerRequestPacket struct {
 }
 
 type UpdateBannerRequest = UpdateBannerRequestPacket
-
-// Conversion helpers
 
 func BannerToPacket(b Banner) BannerPacket {
 	return BannerPacket{

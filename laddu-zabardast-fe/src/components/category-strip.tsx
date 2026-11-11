@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import {
   Cookie,
@@ -24,20 +24,23 @@ interface CategoryItem {
 }
 
 const categories: CategoryItem[] = [
+  { label: "Best Sellers", icon: <Star size={22} />, href: "#bestsellers" },
+  { label: "New Arrivals", icon: <Sparkles size={22} />, href: "#new" },
   { label: "All Products", icon: <ShoppingBag size={22} />, href: "#all" },
   { label: "Laddus", icon: <Cookie size={22} />, href: "#laddu" },
   { label: "Pickles", icon: <Droplets size={22} />, href: "#pickle" },
-  { label: "Best Sellers", icon: <Star size={22} />, href: "#bestsellers" },
-  { label: "New Arrivals", icon: <Sparkles size={22} />, href: "#new" },
   { label: "Gift Boxes", icon: <Gift size={22} />, href: "#gifts" },
 ];
 
 export function CategoryStrip() {
   const [activeCategory, setActiveCategory] = useState<string>("");
+  const isClickScrollingRef = useRef<boolean>(false);
+  const clickTimeoutRef = useRef<NodeJS.Timeout>();
 
-  // Optional scroll spy: update active category indicator as user scrolls
   useEffect(() => {
     const handleScrollSpy = () => {
+      if (isClickScrollingRef.current) return;
+
       const nav = document.querySelector("header");
       const navHeight = nav ? nav.offsetHeight : 64;
       const strip = document.getElementById("category-strip-container");
@@ -60,7 +63,10 @@ export function CategoryStrip() {
     };
 
     window.addEventListener("scroll", handleScrollSpy, { passive: true });
-    return () => window.removeEventListener("scroll", handleScrollSpy);
+    return () => {
+      window.removeEventListener("scroll", handleScrollSpy);
+      if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
+    };
   }, []);
 
   const handleClick = (
@@ -68,8 +74,12 @@ export function CategoryStrip() {
     href: string,
   ) => {
     setActiveCategory(href);
+    isClickScrollingRef.current = true;
+    if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
+    clickTimeoutRef.current = setTimeout(() => {
+      isClickScrollingRef.current = false;
+    }, 1000);
 
-    // Center the clicked button horizontally in the category strip
     e.currentTarget.scrollIntoView({
       behavior: "smooth",
       block: "nearest",
@@ -80,7 +90,6 @@ export function CategoryStrip() {
       const targetId = href.substring(1);
       const el = document.getElementById(targetId);
       if (el) {
-        // Measure sticky headers (Navbar + CategoryStrip)
         const nav = document.querySelector("header");
         const navHeight = nav ? nav.offsetHeight : 64;
         const strip = document.getElementById("category-strip-container");
@@ -124,6 +133,7 @@ export function CategoryStrip() {
         top: 64,
         zIndex: 30,
         boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
+        borderRadius: 2,
       }}
     >
       <Container maxWidth="xl" sx={{ px: { xs: 2, md: 3 } }}>
