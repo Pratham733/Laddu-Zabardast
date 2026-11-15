@@ -83,7 +83,7 @@ func CreateReview(w http.ResponseWriter, r *http.Request, req CreateReviewReques
 }
 
 func UpdateReview(w http.ResponseWriter, r *http.Request, req UpdateReviewRequestPacket) (*UpdateReviewResponsePacket, error) {
-	userId, err := utils.GetUserID(r)
+	account, err := user.AuthenticatedUser(r)
 	if err != nil {
 		return nil, err
 	}
@@ -98,8 +98,8 @@ func UpdateReview(w http.ResponseWriter, r *http.Request, req UpdateReviewReques
 	now := time.Now().UTC().Format(time.RFC3339)
 
 	filter := bson.M{"_id": reviewId}
-	if userId != user.AdminEmail {
-		filter["userId"] = userId
+	if !account.IsAdmin() {
+		filter["userId"] = account.ID
 	}
 
 	update := bson.M{
@@ -130,7 +130,7 @@ func UpdateReview(w http.ResponseWriter, r *http.Request, req UpdateReviewReques
 }
 
 func DeleteReview(w http.ResponseWriter, r *http.Request) (utils.SuccessResponsePacket, error) {
-	userId, err := utils.GetUserID(r)
+	account, err := user.AuthenticatedUser(r)
 	if err != nil {
 		return utils.SuccessResponsePacket{}, err
 	}
@@ -143,8 +143,8 @@ func DeleteReview(w http.ResponseWriter, r *http.Request) (utils.SuccessResponse
 
 	collection := getCollection()
 	filter := bson.M{"_id": reviewId}
-	if userId != user.AdminEmail {
-		filter["userId"] = userId
+	if !account.IsAdmin() {
+		filter["userId"] = account.ID
 	}
 
 	result, err := collection.DeleteOne(r.Context(), filter)
@@ -161,11 +161,6 @@ func DeleteReview(w http.ResponseWriter, r *http.Request) (utils.SuccessResponse
 }
 
 func PinReview(w http.ResponseWriter, r *http.Request, req PinReviewRequestPacket) (utils.SuccessResponsePacket, error) {
-	_, err := utils.GetUserID(r)
-	if err != nil {
-		return utils.SuccessResponsePacket{}, err
-	}
-
 	vars := mux.Vars(r)
 	reviewId := vars["reviewId"]
 	if err := validateReviewId(reviewId); err != nil {

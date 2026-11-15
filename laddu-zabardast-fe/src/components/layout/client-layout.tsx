@@ -11,6 +11,7 @@ import {
   ThemeProvider as MuiThemeProvider,
 } from "@mui/material/styles";
 import { useTheme } from "next-themes";
+import { useLocation } from "react-router-dom";
 import { THEMES } from "@/utils/constants";
 
 interface ClientLayoutProps {
@@ -106,6 +107,9 @@ function MuiThemeAppWrapper({ children }: { children: React.ReactNode }) {
 }
 
 export function ClientLayout({ children }: ClientLayoutProps) {
+  const { pathname } = useLocation();
+  const route = pathname.replace(/\/+$/, "");
+  const isAccountPage = route === "/login" || route === "/signup";
   return (
     <ThemeProvider
       attribute="class"
@@ -119,7 +123,7 @@ export function ClientLayout({ children }: ClientLayoutProps) {
             <WishlistProvider>
               <div className="relative min-h-screen flex flex-col">
                 <BackgroundLaddu />
-                <Navbar />
+                {!isAccountPage && <Navbar />}
                 <main className="flex-1 container mx-auto px-4 py-8 relative z-10">
                   {children}
                 </main>

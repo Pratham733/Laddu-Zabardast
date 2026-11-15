@@ -45,7 +45,6 @@ import { ScrollProgress } from "@/components/layout/ScrollProgress";
 import { ShimmerButton } from "@/components/magicui/shimmer-button";
 import { Meteors } from "@/components/magicui/meteors";
 import { SparklesText } from "@/components/magicui/sparkles-text";
-import { AuroraText } from "../magicui/aurora-text";
 
 const POPULAR_SEARCHES = [
   "Motichoor Laddu",
@@ -60,6 +59,7 @@ const QUICK_CATEGORIES = [
   { label: "Pickles", href: "/shop?category=pickle" },
   { label: "Best Sellers", href: "/#bestsellers" },
   { label: "Gift Boxes", href: "/#gifts" },
+  { label: "Create Your Box", href: "/build-a-box" },
 ];
 
 // Animation for hover/tap on interactive elements
@@ -86,7 +86,7 @@ export function Navbar() {
 
   const { resolvedTheme } = useTheme();
   const isDark = isClient && resolvedTheme === "dark";
-  const searchBorderColor = isDark ? "#000000" : "#ffffff";
+  const searchBorderColor = "rgba(255, 255, 255, 0.72)";
 
   // Handle outside click to close suggestions dropdown
   useEffect(() => {
@@ -226,10 +226,10 @@ export function Navbar() {
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.4, ease: "easeOut" }} // Slightly faster
         // Apply gradient background from footer
-        className="sticky top-0 z-50 w-full border-b bg-orange-600 text-primary-foreground"
+        className="sticky top-0 z-50 w-full border-b border-white/10 bg-orange-600 text-white"
       >
-        <div className="container flex h-16 items-center px-4 md:px-6 justify-between">
-          <div className="flex items-center gap-4 md:gap-6">
+        <div className="container flex h-16 items-center justify-between gap-2 px-4 md:px-6">
+          <div className="flex shrink-0 items-center gap-4 md:gap-6">
             <div className="flex items-center gap-4">
               <motion.div
                 variants={interactiveVariants}
@@ -244,7 +244,7 @@ export function Navbar() {
                       ? "/"
                       : "/login"
                   }
-                  className="flex items-center gap-2 flex-shrink-0 mr-4"
+                  className="flex shrink-0 items-center gap-2.5 md:mr-2"
                 >
                   <div className="h-12 w-12 rounded-full bg-white flex items-center justify-center overflow-hidden">
                     <Image
@@ -255,12 +255,6 @@ export function Navbar() {
                       className="object-cover"
                     />
                   </div>
-                  <AuroraText className="text-2xl sm:text-3xl font-semibold px-2 py-1 leading-tight text-white/90">
-                    LADDU ZABARDAST
-                  </AuroraText>
-                  <span className="text-lg font-semibold tracking-tight text-white sm:hidden">
-                    LZ
-                  </span>
                 </Link>
               </motion.div>
 
@@ -275,7 +269,7 @@ export function Navbar() {
                   >
                     <Link
                       href="/"
-                      className="group relative px-2 py-1 transition-all duration-300 text-primary-foreground/90 hover:text-primary-foreground flex items-center gap-2"
+                      className="group relative px-2 py-1 transition-all duration-300 text-white/90 hover:text-white flex items-center gap-2"
                     >
                       <span className="absolute inset-x-0 -bottom-0.5 h-0.5 bg-white transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left rounded-full"></span>
                       <HomeIcon className="h-4 w-4 group-hover:rotate-12 transition-transform" />
@@ -292,7 +286,7 @@ export function Navbar() {
                   >
                     <Link
                       href="/shop"
-                      className="group relative px-2 py-1 transition-all duration-300 text-primary-foreground/90 hover:text-primary-foreground flex items-center gap-2"
+                      className="group relative px-2 py-1 transition-all duration-300 text-white/90 hover:text-white flex items-center gap-2"
                     >
                       <span className="absolute inset-x-0 -bottom-0.5 h-0.5 bg-white transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left rounded-full"></span>
                       <Store className="h-4 w-4 group-hover:rotate-12 transition-transform" />
@@ -307,20 +301,18 @@ export function Navbar() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-1 items-center justify-end gap-2 sm:gap-4">
             {Boolean(
               user && pathname !== "/login" && pathname !== "/signup",
             ) && (
               <>
                 <Box
-                  component={motion.div}
-                  initial={{ width: 0, opacity: 0 }}
-                  animate={{ width: "auto", opacity: 1 }}
-                  transition={{ delay: 0.2, duration: 0.4 }}
                   ref={searchContainerRef}
                   sx={{
                     display: { xs: "none", sm: "block" },
-                    width: { sm: 320, md: 420, lg: 500, xl: 580 },
+                    flex: 1,
+                    minWidth: 0,
+                    maxWidth: 580,
                     overflow: "visible",
                     position: "relative",
                     zIndex: 50,
@@ -339,13 +331,11 @@ export function Navbar() {
                       alignItems: "center",
                       backgroundColor: "#ea580c",
                       border: `2px solid ${searchBorderColor}`,
-                      borderRadius: isPopoverOpen ? "22px 22px 0 0" : "9999px",
+                      borderRadius: isPopoverOpen ? "8px 8px 0 0" : "8px",
                       borderBottomColor: isPopoverOpen
                         ? "transparent"
                         : searchBorderColor,
-                      boxShadow: isPopoverOpen
-                        ? "0 4px 12px rgba(0, 0, 0, 0.15)"
-                        : "0 2px 8px rgba(0, 0, 0, 0.15)",
+
                       transition:
                         "border-radius 0.15s ease, border-color 0.15s ease",
                       height: 44,
@@ -398,7 +388,7 @@ export function Navbar() {
                         outline: "none",
                         border: "none",
                         height: "100%",
-                        minWidth: 400,
+                        minWidth: 0,
                         "&::placeholder": {
                           color: "rgba(255,255,255,0.75)",
                         },
@@ -450,7 +440,7 @@ export function Navbar() {
                         borderRight: `2px solid ${searchBorderColor}`,
                         borderBottom: `2px solid ${searchBorderColor}`,
                         borderTop: `1px solid ${isDark ? "rgba(0,0,0,0.15)" : "rgba(255,255,255,0.25)"}`,
-                        borderRadius: "0 0 22px 22px",
+                        borderRadius: "0 0 8px 8px",
                         boxShadow: "0 20px 35px -5px rgba(0,0,0,0.35)",
                         overflow: "hidden",
                         zIndex: 60,
@@ -872,13 +862,8 @@ export function Navbar() {
                   <Button
                     variant="text"
                     size="small"
-                    sx={{
-                      color: (theme) =>
-                        theme.palette.mode === "dark"
-                          ? "black !important"
-                          : "white !important",
-                    }}
-                    className="relative group text-primary-foreground hover:bg-white/10 hover:text-primary-foreground"
+                    sx={{ color: "white" }}
+                    className="relative group text-white hover:bg-white/10 hover:text-white"
                     onClick={() => router.push("/cart")}
                   >
                     <div className="absolute inset-0 rounded-full bg-white/5 scale-0 group-hover:scale-100 transition-transform duration-200" />
@@ -927,13 +912,8 @@ export function Navbar() {
                       <Button
                         variant="text"
                         size="small"
-                        sx={{
-                          color: (theme) =>
-                            theme.palette.mode === "dark"
-                              ? "black !important"
-                              : "white !important",
-                        }}
-                        className="relative group hover:bg-white/10 hover:text-primary-foreground overflow-hidden"
+                        sx={{ color: "white" }}
+                        className="relative group hover:bg-white/10 hover:text-white overflow-hidden"
                       >
                         <div className="absolute inset-0 bg-gradient-to-r from-white/5 to-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-full" />
                         <Menu className="h-5 w-5 transform group-hover:rotate-180 transition-transform duration-500" />

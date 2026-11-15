@@ -1,5 +1,6 @@
 import { apiClient } from './apiClient';
-import type { WishlistResponse } from '@/packets';
+import type { Product } from '@/models';
+import type { WishlistResponse } from '@/packets/wishlist';
 
 export async function getWishlist(userId: string, token?: string): Promise<WishlistResponse> {
   if (!userId || !userId.trim()) {
@@ -15,7 +16,7 @@ export async function getWishlist(userId: string, token?: string): Promise<Wishl
   });
 }
 
-export async function updateWishlist(userId: string, wishlist: any[], token?: string): Promise<any> {
+export async function updateWishlist(userId: string, wishlist: Product[], token?: string): Promise<WishlistResponse> {
   if (!userId || !userId.trim()) {
     throw new Error('User ID is required');
   }

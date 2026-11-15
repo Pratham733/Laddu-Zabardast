@@ -37,6 +37,7 @@ go.work.sum
 
 # Configuration files containing credentials
 env/*.toml
+env/order-email.local.json
 
 # System files
 .DS_Store

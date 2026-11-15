@@ -1,5 +1,7 @@
 import { apiClient } from './apiClient';
-import type { GetOrdersResponse } from '@/packets';
+import type { CartLineInput } from "@/packets/cart";
+import type { FormSchema } from "@/schema";
+import type { GetOrdersResponse, OrderCreateResponse, OrderDetailsResponse, OrderUpdateResponse } from '@/packets/order';
 
 export async function getOrders(email?: string): Promise<GetOrdersResponse> {
   const params: Record<string, string> = {};
@@ -12,7 +14,7 @@ export async function getOrders(email?: string): Promise<GetOrdersResponse> {
   });
 }
 
-export async function getOrderById(orderId: string): Promise<any> {
+export async function getOrderById(orderId: string): Promise<OrderDetailsResponse> {
   if (!orderId || !orderId.trim()) {
     throw new Error('Order ID is required');
   }
@@ -21,7 +23,7 @@ export async function getOrderById(orderId: string): Promise<any> {
   });
 }
 
-export async function createOrder(orderData: any): Promise<{ orderId: string }> {
+export async function createOrder(orderData: { shippingDetails: Omit<FormSchema, "instructions">; instructions?: string; items: CartLineInput[]; totalAmount: number; paymentMethod: "cod" | "upi" }): Promise<OrderCreateResponse> {
   if (!orderData) {
     throw new Error('Order data is required');
   }
@@ -31,7 +33,7 @@ export async function createOrder(orderData: any): Promise<{ orderId: string }> 
   });
 }
 
-export async function updateOrderStatus(orderId: string, status: string): Promise<any> {
+export async function updateOrderStatus(orderId: string, status: string): Promise<OrderUpdateResponse> {
   if (!orderId || !orderId.trim()) {
     throw new Error('Order ID is required');
   }
@@ -44,7 +46,7 @@ export async function updateOrderStatus(orderId: string, status: string): Promis
   });
 }
 
-export async function updatePaymentStatus(orderId: string, paymentStatus: 'completed' | 'paid'): Promise<any> {
+export async function updatePaymentStatus(orderId: string, paymentStatus: 'completed' | 'paid'): Promise<OrderUpdateResponse> {
   if (!orderId || !orderId.trim()) {
     throw new Error('Order ID is required');
   }

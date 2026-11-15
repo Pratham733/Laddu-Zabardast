@@ -1,14 +1,19 @@
 package order
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/Pratham733/laddu-zabardast-be/src/entities/box"
+)
 
 type OrderItemPacket struct {
-	ID        string  `json:"id,omitempty"`
-	ProductID string  `json:"productId"`
-	Name      string  `json:"name"`
-	Quantity  int     `json:"quantity"`
-	Price     float64 `json:"price"`
-	ImageUrl  string  `json:"imageUrl,omitempty"`
+	Box       *box.Selection `json:"box,omitempty"`
+	ID        string         `json:"id,omitempty"`
+	ProductID string         `json:"productId,omitempty"`
+	Name      string         `json:"name"`
+	Quantity  int            `json:"quantity"`
+	Price     float64        `json:"price"`
+	ImageUrl  string         `json:"imageUrl,omitempty"`
 }
 
 type ShippingDetailsPacket struct {
@@ -25,6 +30,7 @@ type ShippingDetailsPacket struct {
 }
 
 type CreateOrderRequestPacket struct {
+	Instructions    string                `json:"instructions,omitempty"`
 	ShippingDetails ShippingDetailsPacket `json:"shippingDetails"`
 	Items           []OrderItemPacket     `json:"items"`
 	TotalAmount     float64               `json:"totalAmount"`
@@ -47,6 +53,7 @@ type UpdateOrderStatusRequestPacket struct {
 type UpdateOrderStatusRequest = UpdateOrderStatusRequestPacket
 
 type OrderPacket struct {
+	Instructions    string                `json:"instructions,omitempty"`
 	ID              string                `json:"id"`
 	MongoID         string                `json:"_id,omitempty"`
 	UserID          string                `json:"userId"`
@@ -118,6 +125,7 @@ func OrderItemModelToPacket(item OrderItem) OrderItemPacket {
 		Name:      item.Name,
 		Quantity:  item.Quantity,
 		Price:     item.Price,
+		Box:       item.Box,
 		ImageUrl:  item.ImageUrl,
 	}
 }
@@ -129,6 +137,7 @@ func OrderItemPacketToModel(p OrderItemPacket) OrderItem {
 		Name:      p.Name,
 		Quantity:  p.Quantity,
 		Price:     p.Price,
+		Box:       p.Box,
 		ImageUrl:  p.ImageUrl,
 	}
 }
@@ -184,6 +193,7 @@ func OrderToPacket(o Order) OrderPacket {
 		UserID:          o.UserID,
 		Email:           o.Email,
 		ShippingDetails: ShippingDetailsModelToPacket(o.ShippingDetails),
+		Instructions:    o.Instructions,
 		Items:           items,
 		TotalAmount:     o.TotalAmount,
 		OrderStatus:     status,

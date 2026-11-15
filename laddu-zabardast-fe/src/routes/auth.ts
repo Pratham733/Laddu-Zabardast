@@ -1,5 +1,6 @@
 import { apiClient } from './apiClient';
-import type { LoginResponse, SignupResponse } from '@/packets';
+import type { AppUser } from '@/models';
+import type { LoginResponse, SignupResponse } from '@/packets/auth';
 
 export async function login(data: any, signal?: AbortSignal): Promise<LoginResponse> {
   return apiClient('/login', {
@@ -20,19 +21,19 @@ export async function logout(): Promise<any> {
   return apiClient('/logout', { method: 'POST' });
 }
 
-export async function getProfile(): Promise<any> {
+export async function getProfile(): Promise<{ user: AppUser }> {
   return apiClient('/profile', {
     method: 'GET',
   });
 }
 
-export async function getUser(): Promise<any> {
+export async function getUser(): Promise<{ user: AppUser }> {
   return apiClient('/user', {
     method: 'GET',
   });
 }
 
-export async function updateProfile(data: any): Promise<any> {
+export async function updateProfile(data: Partial<Pick<AppUser, "firstName" | "lastName"> & { phone: string }>): Promise<{ user: AppUser; message: string }> {
   return apiClient('/update-profile', {
     method: 'POST',
     body: JSON.stringify(data),

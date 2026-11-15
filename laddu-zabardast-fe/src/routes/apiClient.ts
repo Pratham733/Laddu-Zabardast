@@ -5,12 +5,13 @@ export interface RequestOptions extends RequestInit {
   responseType?: 'json' | 'text' | 'blob' | 'response';
 }
 
+export const backendURL = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080').replace(/\/$/, '');
+
 export async function apiClient<T = any>(
   endpoint: string,
   options: RequestOptions = {}
 ): Promise<T> {
   const { params, headers, responseType, ...restOptions } = options;
-  const backendURL = ((import.meta as any).env?.VITE_BACKEND_URL as string) || 'http://localhost:8080';
   let url = `${backendURL}${endpoint}`;
   if (params) {
     const searchParams = new URLSearchParams();

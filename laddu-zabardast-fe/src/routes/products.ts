@@ -13,8 +13,9 @@ export async function getProductById(id: string): Promise<{ product: Product }> 
   if (!id || !id.trim()) {
     throw new Error('Product ID is required');
   }
-  return apiClient(`/products/${id.trim()}`, {
+  return apiClient('/products/get-product', {
     method: 'GET',
+    params: { productId: id.trim() },
   });
 }
 
@@ -47,3 +48,9 @@ export async function deleteProduct(id: string): Promise<ProductsResponse> {
   });
 }
 
+
+export async function uploadProductImage(file: File): Promise<{ imageUrl: string }> {
+  const form = new FormData();
+  form.append('image', file);
+  return apiClient('/upload-product-image', { method: 'POST', body: form });
+}

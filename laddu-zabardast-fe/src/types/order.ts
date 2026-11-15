@@ -1,11 +1,5 @@
-export interface OrderItem {
-  id?: string; 
-  productId: string;
-  name: string;
-  price: number;
-  quantity: number;
-  imageUrl?: string;
-}
+import type { OrderItem } from "@/models/order";
+export type { OrderItem } from "@/models/order";
 
 export interface ShippingDetails {
   name: string;
@@ -25,6 +19,7 @@ export interface Order {
   _id?: string;
   userId?: string;
   email?: string;
+  instructions?: string;
   items: OrderItem[];
   shippingDetails: ShippingDetails;
   totalAmount: number;

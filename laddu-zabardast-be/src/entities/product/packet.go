@@ -38,7 +38,7 @@ type CreateProductRequestPacket struct {
 	ImageUrl    string      `json:"imageUrl"`
 	Category    string      `json:"category"`
 	ProductType ProductType `json:"productType,omitempty"`
-	Available   bool        `json:"available"`
+	Available   *bool       `json:"available,omitempty"`
 	Weight      string      `json:"weight,omitempty"`
 }
 

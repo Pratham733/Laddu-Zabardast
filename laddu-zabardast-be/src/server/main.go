@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	constants "github.com/Pratham733/laddu-zabardast-be/src"
 	"github.com/Pratham733/laddu-zabardast-be/src/config"
@@ -22,23 +25,28 @@ import (
 )
 
 func main() {
-	_ = os.MkdirAll("public/uploads", 0755)
-
-	envPath := constants.LocalEnv
-	if os.Getenv("APP_ENV") == "dev" {
-		envPath = constants.DevEnv
+	envPath := os.Getenv("CONFIG_PATH")
+	if envPath == "" {
+		envPath = constants.LocalEnv
+		if os.Getenv("APP_ENV") == "dev" {
+			envPath = constants.DevEnv
+		}
+		if _, err := os.Stat(envPath); errors.Is(err, os.ErrNotExist) {
+			envPath = strings.TrimSuffix(envPath, ".local.json") + ".json"
+		}
 	}
-	if p := os.Getenv("CONFIG_PATH"); p != "" {
-		envPath = p
+	if err := config.LoadConfig(envPath); err != nil {
+		log.Fatal(err)
 	}
-
-	err := config.LoadConfig(envPath)
-	if err != nil {
+	if err := os.MkdirAll("public/uploads", 0755); err != nil {
 		log.Fatal(err)
 	}
 
-	_, err = db.Connect(config.AppConfig.MasterMongo.Host)
-	if err != nil {
+	if _, err := db.Connect(config.AppConfig.MasterMongo.Host); err != nil {
+		log.Fatal(err)
+	}
+
+	if err := order.StartConfirmationEmails(context.Background()); err != nil {
 		log.Fatal(err)
 	}
 
@@ -52,7 +60,7 @@ func main() {
 	r.PathPrefix("/uploads/").Handler(http.StripPrefix("/uploads/", http.FileServer(http.Dir("public/uploads"))))
 
 	auth.RegisterRoutes(r)
-	user.RegisterRoutes(r) // TODO: Add these routes
+	user.RegisterRoutes(r)
 	product.RegisterRoutes(r)
 	order.RegisterRoutes(r)
 	cart.RegisterRoutes(r)
@@ -62,8 +70,12 @@ func main() {
 
 	corsHandler := cors.CORSHandler(r)
 
-	fmt.Println("Server running on :8080")
-	if err := http.ListenAndServe(":8080", corsHandler); err != nil {
+	addr := os.Getenv("HTTP_ADDR")
+	if addr == "" {
+		addr = ":8080"
+	}
+	fmt.Printf("Server running on %s\n", addr)
+	if err := http.ListenAndServe(addr, corsHandler); err != nil {
 		log.Fatal(err)
 	}
 }

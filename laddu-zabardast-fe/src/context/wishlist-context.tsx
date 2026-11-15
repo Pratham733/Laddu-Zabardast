@@ -1,6 +1,5 @@
 import React, {
   createContext,
-  useContext,
   useState,
   ReactNode,
   useEffect,
@@ -9,7 +8,6 @@ import React, {
   useCallback,
 } from "react";
 import type { Product } from "@/models";
-import { usePathname } from "next/navigation";
 
 import { getWishlist, updateWishlist } from "@/routes/wishlist";
 import { useAuth } from "@/hooks/use-auth";
@@ -34,55 +32,40 @@ export const WishlistProvider = ({
 }: WishlistProviderProps): JSX.Element => {
   const { user, token } = useAuth();
   const [wishlist, setWishlist] = useState<Product[]>([]);
-  const [isInitialised, setIsInitialised] = useState(false);
-  const prevWishlistRef = useRef<string>("");
-  const pathname = usePathname();
-
-  const loadWishlist = useCallback(async () => {
-    if (!user?.userId) {
-      console.log("[WishlistContext] No user available");
-      setWishlist([]);
-      setIsInitialised(true);
-      return;
-    }
-
-    try {
-      const data = await getWishlist(user.userId, token ?? undefined);
-      setWishlist(data.wishlist || []);
-    } catch (error) {
-      console.error("[WishlistContext] Error fetching wishlist:", error);
-      setWishlist([]);
-    } finally {
-      setIsInitialised(true);
-    }
-  }, [user?.userId, token]);
+  const userId = user?.userId;
+  const [loadedOwner, setLoadedOwner] = useState<string | null>(null);
+  const owner = userId ?? "";
+  const isInitialised = owner === loadedOwner;
+  const persistedWishlist = useRef("");
+  const pendingSave = useRef(Promise.resolve());
 
   useEffect(() => {
-    loadWishlist();
-  }, [loadWishlist]);
+    let active = true;
+    const load = async () => {
+      try {
+        const items = userId ? (await getWishlist(userId, token ?? undefined)).wishlist : [];
+        if (!active) return;
+        persistedWishlist.current = JSON.stringify(items);
+        setWishlist(items);
+        setLoadedOwner(owner);
+      } catch (error) {
+        if (active) console.error("Could not load wishlist:", error);
+      }
+    };
+    void load();
+    return () => { active = false; };
+  }, [owner, userId, token]);
 
   useEffect(() => {
-    if (pathname === "/wishlist") {
-      loadWishlist();
-    }
-  }, [pathname, loadWishlist]);
+    if (!isInitialised || !userId) return;
+    const serialized = JSON.stringify(wishlist);
+    if (serialized === persistedWishlist.current) return;
+    persistedWishlist.current = serialized;
 
-  useEffect(() => {
-    if (!isInitialised || typeof window === "undefined") return;
-
-    const wishlistString = JSON.stringify(wishlist);
-    if (prevWishlistRef.current === wishlistString) return;
-    prevWishlistRef.current = wishlistString;
-
-    if (!user?.userId) {
-      localStorage.setItem("ladooExpressWishlist", wishlistString);
-      return;
-    }
-
-    updateWishlist(user.userId, wishlist, token ?? undefined).catch((err) => {
-      console.error("[WishlistContext] PUT fetch error:", err);
-    });
-  }, [wishlist, user?.userId, token, isInitialised]);
+    pendingSave.current = pendingSave.current
+      .then(async () => { await updateWishlist(userId, wishlist, token ?? undefined); })
+      .catch((error) => { console.error("Could not save wishlist:", error); });
+  }, [wishlist, userId, token, isInitialised]);
 
   const addToWishlist = useCallback((product: Product) => {
     setWishlist((prevWishlist) => {
@@ -108,7 +91,7 @@ export const WishlistProvider = ({
 
   const contextValue = useMemo(
     () => ({
-      wishlist,
+      wishlist: isInitialised ? wishlist : [],
       addToWishlist,
       removeFromWishlist,
       isInitialised,

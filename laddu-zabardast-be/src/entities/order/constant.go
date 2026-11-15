@@ -3,13 +3,13 @@ package order
 const (
 	CollectionOrders = "orders"
 
-	OrderStatusPending    = "Pending"
-	OrderStatusProcessing = "Processing"
-	OrderStatusShipped    = "Shipped"
-	OrderStatusDelivered  = "Delivered"
-	OrderStatusCancelled  = "Cancelled"
+	OrderStatusPending    = "pending"
+	OrderStatusProcessing = "processing"
+	OrderStatusShipped    = "shipped"
+	OrderStatusDelivered  = "delivered"
+	OrderStatusCancelled  = "cancelled"
 
-	PaymentStatusPending = "Pending"
-	PaymentStatusPaid    = "Paid"
-	PaymentStatusFailed  = "Failed"
+	PaymentStatusPending = "pending"
+	PaymentStatusPaid    = "paid"
+	PaymentStatusFailed  = "failed"
 )

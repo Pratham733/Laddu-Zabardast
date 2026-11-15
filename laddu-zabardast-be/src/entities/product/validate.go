@@ -21,16 +21,40 @@ func validateCreateProductReq(req CreateProductRequestPacket) error {
 	return nil
 }
 
-func validateUpdateProductReq(id string, updates bson.M) error {
+func validateUpdateProductReq(id string, req UpdateProductRequestPacket) (bson.M, error) {
 	if err := validateProductId(id); err != nil {
-		return err
+		return nil, err
 	}
-	delete(updates, "_id")
-	delete(updates, "id")
+	updates := bson.M{}
+	for key, value := range map[string]*string{
+		"name": req.Name, "description": req.Description, "category": req.Category,
+		"imageUrl": req.ImageUrl, "weight": req.Weight,
+	} {
+		if value == nil {
+			continue
+		}
+		field := strings.TrimSpace(*value)
+		if field == "" && (key == "name" || key == "category" || key == "imageUrl") {
+			return nil, errors.New(key + " cannot be empty")
+		}
+		updates[key] = field
+	}
+	if name, ok := updates["name"].(string); ok {
+		updates["key"] = GenerateProductKey(name)
+	}
+	if req.Price != nil {
+		if *req.Price <= 0 {
+			return nil, errors.New("price must be positive")
+		}
+		updates["price"] = *req.Price
+	}
+	if req.Available != nil {
+		updates["available"] = *req.Available
+	}
 	if len(updates) == 0 {
-		return errors.New("no fields to update")
+		return nil, errors.New("no fields to update")
 	}
-	return nil
+	return updates, nil
 }
 
 func validateSearchQuery(query string) error {
@@ -46,4 +70,17 @@ func validateImageExtension(ext string) error {
 		return errors.New("invalid image type. Allowed: jpg, jpeg, png, webp")
 	}
 	return nil
+}
+
+func imageMatchesExtension(ext, contentType string) bool {
+	switch strings.ToLower(ext) {
+	case ".jpg", ".jpeg":
+		return contentType == "image/jpeg"
+	case ".png":
+		return contentType == "image/png"
+	case ".webp":
+		return contentType == "image/webp"
+	default:
+		return false
+	}
 }

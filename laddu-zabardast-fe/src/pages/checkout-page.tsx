@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Container, Column, Row, Box } from "@/components/ui/layout";
 import { Button } from "@mui/material";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Card,
@@ -14,23 +15,27 @@ import { Separator } from "@/components/ui/separator";
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { cartLineInput } from "@/packets/cart";
+import { BoxContents } from "@/components/box-contents";
 import { createOrder } from "@/routes/orders";
-import { getAddresses } from "@/queries";
+import { getAddresses, saveAddress } from "@/routes/address";
+import { getProductById } from "@/routes/products";
 
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
 import { useCart, useAuth, toast } from "@/hooks";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { LoaderCircle, House, CreditCard, Landmark } from "lucide-react";
 import Image from "next/image";
 
-import type { Address } from "@/types";
+import type { Address, CartItem } from "@/models";
 import { cn } from "@/lib/utils";
 import {
   Select,
@@ -41,7 +46,7 @@ import {
 } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { InteractiveHoverButton } from "@/components/magicui/interactive-hover-button";
-import { formSchema, type FormSchema } from "@/schema";
+import { addressSchema, formSchema, ORDER_INSTRUCTIONS_LIMIT, type FormSchema } from "@/schema";
 
 // Extend JSX.IntrinsicElements
 declare global {
@@ -67,71 +72,83 @@ declare global {
   }
 }
 
+const addressLabel = (address: Address) =>
+  [address.label, address.street, address.city, address.postalCode].filter(Boolean).join(", ") +
+  (address.isDefault ? " (Default)" : "");
+
+const upiQrUrl = import.meta.env.VITE_UPI_QR_URL?.trim();
+
 export default function CheckoutPage() {
-  const { cart, getCartTotal, clearCart } = useCart();
-  const { user, token } = useAuth(); // Get user and token from auth context
+  const { cart, clearCart, isInitialised } = useCart();
+  const buyNow = useSearchParams().get("buyNow")?.trim() || "";
+  const [directOrder, setDirectOrder] = useState<{ id: string; item?: CartItem }>();
+  const directReady = directOrder?.id === buyNow;
+  const orderItems = buyNow
+    ? (directReady && directOrder.item ? [directOrder.item] : [])
+    : cart;
+  const total = orderItems.reduce((sum, item) => sum + Math.round(item.price * 100) * item.quantity, 0) / 100;
+  const checkoutReady = buyNow ? directReady : isInitialised;
+  const { user } = useAuth();
   const router = useRouter();
-  const [total, setTotal] = useState(0);
   const [isClient, setIsClient] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [savedAddresses, setSavedAddresses] = useState<Address[]>([]);
-  const [selectedAddress, setSelectedAddress] = useState<string>("new"); // 'new' or address index
+  const [selectedAddress, setSelectedAddress] = useState("");
+  const [addressLoading, setAddressLoading] = useState(true);
+  const [addressError, setAddressError] = useState("");
+  const [savingAddress, setSavingAddress] = useState(false);
+  const chosenAddress = savedAddresses.find((address) => address.id === selectedAddress);
   const [savedPhones, setSavedPhones] = useState<string[]>([]);
-  const [selectedPhone, setSelectedPhone] = useState<string>("profile"); // 'profile' or 'new'
-  const [paymentMethod, setPaymentMethod] = useState<"upi" | "cod">("upi");
+  const [selectedPhone, setSelectedPhone] = useState(user?.phone ? "profile" : "new"); // 'profile' or 'new'
+  const [paymentMethod, setPaymentMethod] = useState<"upi" | "cod">("cod");
 
   useEffect(() => {
     setIsClient(true); // Ensure this runs only on the client
   }, []);
 
   useEffect(() => {
-    if (isClient) {
-      const calculatedTotal = getCartTotal();
-      setTotal(calculatedTotal);
-      if (calculatedTotal === 0 && !isProcessing) {
-        // Don't redirect if already processing
-        // Redirect if cart is empty on client side
-        toast({
-          title: "Your cart is empty!",
-          description: "Redirecting to home page.",
-          variant: "destructive",
-        });
-        router.push("/");
-      }
-    }
-  }, [cart, getCartTotal, router, isClient, isProcessing]);
+    if (!buyNow) return;
+    let active = true;
+    getProductById(buyNow)
+      .then(({ product }) => {
+        if (!active) return;
+        const item = product.id && product.available !== false && product.price > 0
+          ? { ...product, id: product.id, quantity: 1 }
+          : undefined;
+        setDirectOrder({ id: buyNow, item });
+      })
+      .catch(() => { if (active) setDirectOrder({ id: buyNow }); });
+    return () => { active = false; };
+  }, [buyNow]);
 
   useEffect(() => {
-    const fetchAddresses = async () => {
-      if (user && token) {
-        try {
-          const data = await getAddresses(token);
-          setSavedAddresses(data.addresses || []);
-        } catch (error) {
-          console.error("Error fetching addresses:", error);
-          setSavedAddresses([]); // Ensure it's an empty array on error
-        }
-      }
-    };
-    const fetchPhones = async () => {
-      if (user) {
-        // Assuming user.phone is a string or array of phones
-        if (user.phone) {
-          if (Array.isArray(user.phone)) {
-            setSavedPhones(user.phone);
-          } else if (typeof user.phone === "string") {
-            setSavedPhones([user.phone]);
-          }
-        } else {
-          setSavedPhones([]);
-        }
-      }
-    };
-    if (isClient) {
-      fetchAddresses();
-      fetchPhones();
+    if (!buyNow && isClient && isInitialised && cart.length === 0 && !isProcessing) {
+      router.push("/");
     }
-  }, [user, token, isClient]);
+  }, [buyNow, cart.length, router, isClient, isProcessing, isInitialised]);
+
+  const userId = user?.userId;
+  useEffect(() => {
+    if (!userId) return;
+    let active = true;
+    getAddresses().then(({ addresses }) => {
+      if (!active) return;
+      const saved = addresses.filter((address) => Boolean(address.id));
+      setSavedAddresses(saved);
+      setSelectedAddress((current) =>
+        current || saved.find((address) => address.isDefault)?.id || saved[0]?.id || "new"
+      );
+    }).catch(() => {
+      if (!active) return;
+      setAddressError("Saved addresses could not be loaded. You can enter a new address.");
+      setSelectedAddress("new");
+    }).finally(() => { if (active) setAddressLoading(false); });
+    return () => { active = false; };
+  }, [userId]);
+
+  useEffect(() => {
+    setSavedPhones(user?.phone ? [user.phone] : []);
+  }, [user?.phone]);
 
   const form = useForm<FormSchema>({
     resolver: zodResolver(formSchema),
@@ -141,6 +158,7 @@ export default function CheckoutPage() {
       phone: user?.phone ?? "",
       address: "",
       city: "",
+      state: "",
       postalCode: "",
       country: "",
     },
@@ -164,34 +182,40 @@ export default function CheckoutPage() {
     }
   }, [user, form]);
 
-  // Effect to update form when a saved address is selected
   useEffect(() => {
-    if (selectedAddress !== "new" && savedAddresses.length > 0) {
-      const addressIndex = parseInt(selectedAddress, 10);
-      if (!isNaN(addressIndex) && savedAddresses[addressIndex]) {
-        const addr = savedAddresses[addressIndex];
-        form.reset({
-          ...form.getValues(),
-          address: addr.street ?? "",
-          city: addr.city ?? "",
-          postalCode: addr.postalCode ?? "",
-          country: addr.country ?? "",
-        });
-      }
-    } else if (selectedAddress === "new") {
-      form.reset({
-        name: user
-          ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim()
-          : "",
-        email: user?.email ?? "",
-        phone: user?.phone ?? "",
-        address: "",
-        city: "",
-        postalCode: "",
-        country: "",
-      });
+    if (!selectedAddress) return;
+    const address = chosenAddress;
+    form.setValue("address", address?.street ?? "");
+    form.setValue("city", address?.city ?? "");
+    form.setValue("state", address?.state ?? "");
+    form.setValue("postalCode", address?.postalCode ?? "");
+    form.setValue("country", address?.country ?? "");
+    form.clearErrors(["address", "city", "state", "postalCode", "country"]);
+  }, [selectedAddress, chosenAddress, form]);
+
+  const handleSaveAddress = async () => {
+    const values = form.getValues();
+    const parsed = addressSchema.safeParse({
+      street: values.address.trim(), city: values.city.trim(), state: values.state?.trim() ?? "",
+      postalCode: values.postalCode.trim(), country: values.country.trim(),
+    });
+    if (!parsed.success) {
+      setAddressError(parsed.error.issues[0]?.message ?? "Enter a complete address.");
+      return;
     }
-  }, [selectedAddress, savedAddresses, form, user]);
+    setSavingAddress(true);
+    setAddressError("");
+    try {
+      const { addresses, addressId } = await saveAddress(parsed.data);
+      setSavedAddresses(addresses);
+      setSelectedAddress(addressId);
+      toast({ title: "Address saved" });
+    } catch (error) {
+      setAddressError(error instanceof Error ? error.message : "Could not save the address.");
+    } finally {
+      setSavingAddress(false);
+    }
+  };
 
   // Effect to update phone field when selectedPhone changes
   useEffect(() => {
@@ -203,7 +227,7 @@ export default function CheckoutPage() {
   }, [selectedPhone, savedPhones, form]);
 
   const onSubmit = async (data: FormSchema) => {
-    if (!token) {
+    if (!user) {
       toast({
         title: "Authentication Error",
         description: "Please log in to complete your order.",
@@ -212,6 +236,7 @@ export default function CheckoutPage() {
       router.push(`/login?redirect=/checkout`);
       return;
     }
+    if (!checkoutReady || orderItems.length === 0 || addressLoading || savingAddress || isProcessing) return;
     setIsProcessing(true);
     toast({
       title: "Processing Order...",
@@ -219,45 +244,30 @@ export default function CheckoutPage() {
     });
 
     try {
-      // For QR code flow, we assume payment is done externally.
-      // The user clicks "I have made the payment" to proceed.
-      const orderItems = cart.map((item) => {
-        if (!item.id) {
-          throw new Error("All items in cart must have a valid product ID");
-        }
-        return {
-          productId: item.id,
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-          imageUrl: item.imageUrl,
-        };
-      });
-
+      const { instructions, ...shippingDetails } = data;
       const orderData = {
-        shippingDetails: data,
-        items: orderItems,
+        shippingDetails,
+        instructions,
+        items: orderItems.map(cartLineInput),
         totalAmount: total,
-        paymentStatus: paymentMethod === "upi" ? "completed" : "pending",
         paymentMethod: paymentMethod,
-        orderStatus: "Processing",
       };
 
       const result = await createOrder(orderData);
       const { orderId } = result;
 
-      clearCart();
+      if (!buyNow) clearCart();
       toast({
         title: "Order Successful!",
         description: "Thank you for your purchase. Your order is confirmed.",
         variant: "default",
       });
       router.push(`/order-confirmation?orderId=${orderId}`);
-    } catch (orderError: any) {
+    } catch (orderError) {
       console.error("Order creation error:", orderError);
       toast({
         title: "Order Creation Failed",
-        description: `There was an issue saving your order: ${orderError.message}. Please contact support.`,
+        description: `There was an issue saving your order: ${orderError instanceof Error ? orderError.message : "Unknown error"}. Please contact support.`,
         variant: "destructive",
         duration: 10000,
       });
@@ -265,7 +275,14 @@ export default function CheckoutPage() {
     }
   };
 
-  if (!isClient || (total === 0 && !isProcessing)) {
+  if (buyNow && directReady && !directOrder.item) {
+    return <Container className="px-4 py-8 md:px-6 md:py-12">
+      <p>This product is unavailable for checkout.</p>
+      <Button onClick={() => router.push("/shop")}>Back to shop</Button>
+    </Container>;
+  }
+
+  if (!isClient || !checkoutReady || (total === 0 && !isProcessing)) {
     return (
       <Container className="px-4 py-8 md:px-6 md:py-12">
         <h1 className="text-3xl font-bold mb-6 text-gradient">
@@ -391,47 +408,40 @@ export default function CheckoutPage() {
                   </Box>
 
                   {/* Address Selection Dropdown */}
-                  {savedAddresses && savedAddresses.length > 0 && (
-                    <FormItem className="mb-3 sm:mb-4">
-                      <FormLabel className="text-sm sm:text-base">
-                        Select Address
-                      </FormLabel>
-                      <Select
-                        onValueChange={(value) => setSelectedAddress(value)}
-                        defaultValue={selectedAddress}
-                        disabled={isProcessing}
-                      >
-                        <FormControl>
-                          <SelectTrigger className="select-trigger w-full">
-                            <SelectValue
-                              placeholder="Choose a saved address or add new"
-                              className="select-value w-full"
-                            />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem
-                            value="new"
-                            className="flex items-center h-12 px-4 text-base"
+                  <FormItem className="mb-3 sm:mb-4">
+                    <Label htmlFor="checkout-address" className="text-sm sm:text-base">
+                      Select Address
+                    </Label>
+                    <Select
+                      onValueChange={(value) => { if (value) { setSelectedAddress(value); setAddressError(""); } }}
+                      value={selectedAddress}
+                      disabled={isProcessing || addressLoading || savingAddress}
+                    >
+                      <FormControl>
+                        <SelectTrigger id="checkout-address" aria-label="Select Address" className="select-trigger w-full">
+                          <SelectValue
+                            placeholder={addressLoading ? "Loading addresses…" : "Choose a saved address or add new"}
+                            className="select-value w-full"
                           >
-                            <Row className="items-center">
-                              <House className="mr-2 h-4 w-4" />
-                              Add New Address
-                            </Row>
+                            {chosenAddress ? addressLabel(chosenAddress) : selectedAddress === "new" ? "Add Address" : undefined}
+                          </SelectValue>
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {savedAddresses.map((addr) => addr.id && (
+                          <SelectItem key={addr.id} value={addr.id} className="flex items-center h-12 px-4 text-base">
+                            {addressLabel(addr)}
                           </SelectItem>
-                          {savedAddresses.map((addr, index) => (
-                            <SelectItem
-                              key={index}
-                              value={index.toString()}
-                              className="flex items-center h-12 px-4 text-base"
-                            >
-                              {`${addr.street}, ${addr.city}${addr.isDefault ? " (Default)" : ""}`}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </FormItem>
-                  )}
+                        ))}
+                        <SelectItem value="new" className="flex items-center h-12 px-4 text-base">
+                          <Row className="items-center">
+                            <House className="mr-2 h-4 w-4" />
+                            Add Address
+                          </Row>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
 
                   <FormField
                     control={form.control}
@@ -443,11 +453,8 @@ export default function CheckoutPage() {
                           <Input
                             placeholder="123 Sweet Lane"
                             {...field}
-                            disabled={
-                              isProcessing ||
-                              (selectedAddress !== "new" &&
-                                savedAddresses.length > 0)
-                            }
+                            readOnly={selectedAddress !== "new"}
+                            disabled={isProcessing || savingAddress || addressLoading}
                           />
                         </FormControl>
                         <FormMessage />
@@ -465,11 +472,8 @@ export default function CheckoutPage() {
                             <Input
                               placeholder="Foodville"
                               {...field}
-                              disabled={
-                                isProcessing ||
-                                (selectedAddress !== "new" &&
-                                  savedAddresses.length > 0)
-                              }
+                              readOnly={selectedAddress !== "new"}
+                              disabled={isProcessing || savingAddress || addressLoading}
                             />
                           </FormControl>
                           <FormMessage />
@@ -486,11 +490,8 @@ export default function CheckoutPage() {
                             <Input
                               placeholder="12345"
                               {...field}
-                              disabled={
-                                isProcessing ||
-                                (selectedAddress !== "new" &&
-                                  savedAddresses.length > 0)
-                              }
+                              readOnly={selectedAddress !== "new"}
+                              disabled={isProcessing || savingAddress || addressLoading}
                             />
                           </FormControl>
                           <FormMessage />
@@ -507,11 +508,8 @@ export default function CheckoutPage() {
                             <Input
                               placeholder="India"
                               {...field}
-                              disabled={
-                                isProcessing ||
-                                (selectedAddress !== "new" &&
-                                  savedAddresses.length > 0)
-                              }
+                              readOnly={selectedAddress !== "new"}
+                              disabled={isProcessing || savingAddress || addressLoading}
                             />
                           </FormControl>
                           <FormMessage />
@@ -519,6 +517,45 @@ export default function CheckoutPage() {
                       )}
                     />
                   </Box>
+
+                  {selectedAddress === "new" && (
+                    <div className="flex flex-wrap items-end gap-3">
+                      <FormField control={form.control} name="state" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>State</FormLabel>
+                          <FormControl><Input {...field} value={field.value ?? ""} disabled={isProcessing || savingAddress} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <Button type="button" variant="outlined" disabled={isProcessing || savingAddress} onClick={handleSaveAddress}>
+                        {savingAddress ? "Saving address…" : "Save address"}
+                      </Button>
+                    </div>
+                  )}
+                  {addressError && <p role="alert" className="text-sm text-destructive">{addressError}</p>}
+
+                  <Separator className="my-4 sm:my-6" />
+
+                  <FormField
+                    control={form.control}
+                    name="instructions"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Order instructions (optional)</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            {...field}
+                            value={field.value ?? ""}
+                            rows={3}
+                            placeholder="For example, pack the boxes separately."
+                            disabled={isProcessing}
+                          />
+                        </FormControl>
+                        <FormDescription>Up to {ORDER_INSTRUCTIONS_LIMIT} characters.</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
                   <Separator className="my-4 sm:my-6" />
 
@@ -533,18 +570,17 @@ export default function CheckoutPage() {
                         defaultValue={paymentMethod}
                         className="flex flex-col space-y-1 sm:flex-row sm:space-y-0 sm:space-x-4"
                       >
-                        <FormItem className="flex items-center space-x-3 space-y-0">
-                          <FormControl>
-                            <RadioGroupItem value="upi" id="upi" />
-                          </FormControl>
-                          <FormLabel
-                            htmlFor="upi"
-                            className="font-normal flex items-center"
-                          >
-                            <CreditCard className="mr-2 h-5 w-5 text-primary" />{" "}
-                            UPI / QR Code
-                          </FormLabel>
-                        </FormItem>
+                        {upiQrUrl && (
+                          <FormItem className="flex items-center space-x-3 space-y-0">
+                            <FormControl>
+                              <RadioGroupItem value="upi" id="upi" />
+                            </FormControl>
+                            <FormLabel htmlFor="upi" className="font-normal flex items-center">
+                              <CreditCard className="mr-2 h-5 w-5 text-primary" />
+                              UPI / QR Code
+                            </FormLabel>
+                          </FormItem>
+                        )}
                         <FormItem className="flex items-center space-x-3 space-y-0">
                           <FormControl>
                             <RadioGroupItem value="cod" id="cod" />
@@ -563,14 +599,14 @@ export default function CheckoutPage() {
                   </FormItem>
 
                   {/* QR Code Payment Section - Conditional */}
-                  {paymentMethod === "upi" && (
+                  {paymentMethod === "upi" && upiQrUrl && (
                     <Column className="my-6 p-6 border rounded-md bg-card items-center shadow-sm transition-all duration-300 ease-in-out">
                       <CardTitle className="text-xl mb-4 text-center">
                         Scan to Pay with UPI
                       </CardTitle>
                       <Box className="mb-4 p-2 border rounded-md inline-block bg-background">
                         <Image
-                          src="/images/GPay.png" // Replace with your actual QR code URL
+                          src={upiQrUrl}
                           alt="QR Code for Payment"
                           width={250}
                           height={250}
@@ -579,16 +615,15 @@ export default function CheckoutPage() {
                         />
                       </Box>
                       <p className="text-sm text-muted-foreground mt-2 text-center">
-                        Scan the QR code with your payment app. After completing
-                        the payment, click the button below.
+                        Scan the QR code with your payment app. After paying, submit the order for payment verification.
                       </p>
                     </Column>
                   )}
 
                   <InteractiveHoverButton
                     type="submit"
-                    className="w-full mt-4 sm:mt-6 text-base sm:text-lg py-3 sm:py-4 bg-orange-600 text-white shadow-md rounded-full hover:opacity-90 transition-opacity"
-                    disabled={isProcessing || cart.length === 0}
+                    className="w-full mt-4 sm:mt-6 text-base sm:text-lg py-3 sm:py-4"
+                    disabled={isProcessing || savingAddress || addressLoading || orderItems.length === 0}
                   >
                     {isProcessing ? (
                       <>
@@ -613,7 +648,7 @@ export default function CheckoutPage() {
               <CardTitle className="text-lg sm:text-xl">Your Order</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 sm:space-y-4 max-h-60 overflow-y-auto">
-              {cart.map((item) => (
+              {orderItems.map((item) => (
                 <Row
                   key={item.id}
                   className="items-center justify-between gap-4 text-sm"
@@ -621,11 +656,12 @@ export default function CheckoutPage() {
                   <Row className="items-center gap-2">
                     <span className="font-medium">{item.quantity} x</span>
                     <span className="truncate">{item.name}</span>
+                    <BoxContents box={item.box} />
                   </Row>
                   <span>₹{(item.price * item.quantity).toFixed(2)}</span>
                 </Row>
               ))}
-              {cart.length === 0 && (
+              {orderItems.length === 0 && (
                 <p className="text-muted-foreground text-center py-4">
                   Your cart is empty.
                 </p>

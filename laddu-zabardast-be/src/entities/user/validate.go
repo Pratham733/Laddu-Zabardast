@@ -2,6 +2,7 @@ package user
 
 import (
 	"errors"
+	"regexp"
 	"strings"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -51,6 +52,8 @@ func validateUpdateAppUserReq(id string, req UpdateUserRequestPacket) (bson.M, e
 	return updates, nil
 }
 
+var profilePhonePattern = regexp.MustCompile(`^\+?[0-9]{10,15}$`)
+
 func validateUpdateProfileReq(req UpdateProfileRequestPacket) (bson.M, error) {
 	updates := bson.M{}
 	if strings.TrimSpace(req.FirstName) != "" {
@@ -59,8 +62,12 @@ func validateUpdateProfileReq(req UpdateProfileRequestPacket) (bson.M, error) {
 	if strings.TrimSpace(req.LastName) != "" {
 		updates["lastName"] = strings.TrimSpace(req.LastName)
 	}
-	if strings.TrimSpace(req.Phone) != "" {
-		updates["phone"] = strings.TrimSpace(req.Phone)
+	if req.Phone != nil {
+		phone := strings.TrimSpace(*req.Phone)
+		if phone != "" && !profilePhonePattern.MatchString(phone) {
+			return nil, errors.New("phone must contain 10 to 15 digits, optionally prefixed by +")
+		}
+		updates["phone"] = phone
 	}
 
 	if len(updates) == 0 {

@@ -81,8 +81,8 @@ Ensure no leftover processes are blocking the ports:
 *If a port is in use, terminate the process with: `kill -9 <PID>`*
 
 ### 3. Node.js & Go Runtime Versions
-- **Go**: v1.23+ or v1.25+ (`go version`)
-- **Node.js**: v18.0.0+ (`node -v`)
+- **Go**: v1.25+ (`go version`)
+- **Node.js**: v20+ (`node -v`)
 - **npm**: v9.0.0+ (`npm -v`)
 
 ### 4. Frontend Environment Variable
@@ -188,8 +188,8 @@ Laddu-Zabardast/
 - **Interactive Storefront**: Handcrafted laddus and artisanal pickles with rich descriptions, dietary tags, and pricing.
 - **Dynamic Search & Filtering**: Instant keyword search and category filtering (`laddu`, `pickle`).
 - **Cart & Wishlist**: Real-time synchronized cart and wishlist with database persistence.
-- **Product Reviews & Ratings**: Verified customer reviews with rating stars, feedback comments, and admin review pinning.
-- **Streamlined Checkout**: Multi-step checkout with address selection and payment options (`COD`, `UPI`, `Card`, `Cash`).
+- **Product Reviews & Ratings**: Customer reviews with ratings, comments, and admin pinning.
+- **Streamlined Checkout**: Checkout with saved addresses, cash on delivery, and optional UPI QR payments. An administrator verifies UPI payments.
 - **Customer Account & Profiles**: User profile updates, secure password change, order tracking, and saved address book.
 - **Dark / Light Mode**: Beautiful theme toggle powered by Tailwind CSS and Next Themes.
 - **Smooth Animations**: Animated interactions and transitions powered by Framer Motion.
@@ -231,8 +231,8 @@ If you prefer using the terminal rather than the IDE runner:
 ### Prerequisites
 
 Ensure you have installed:
-- [Node.js](https://nodejs.org/) (v18.0.0 or higher) & `npm`
-- [Go](https://go.dev/dl/) (v1.23+ or v1.25+)
+- [Node.js](https://nodejs.org/) (v20 or higher) & `npm`
+- [Go](https://go.dev/dl/) (v1.25+)
 - Local MongoDB running on `localhost:27017` (or MongoDB Atlas URI)
 
 ---
@@ -244,20 +244,23 @@ Ensure you have installed:
    cd laddu-zabardast-be
    ```
 
-2. **Verify configuration (`env/local.toml`)**:
-   Ensure `env/local.toml` points to your local MongoDB:
-   ```toml
-   routes = [
-       "http://localhost:7000"
-   ]
+2. **Verify configuration (`env/local.local.json`)**.
+   This file takes precedence over `env/local.json`. Use `CONFIG_PATH` to select another JSON file explicitly.
 
-   [master_mongo]
-   host = "mongodb://localhost:27017"
-   database = "lz_local"
-
-   [auth]
-   jwt_secret = "seQdPYk/vWPg9AgUrPm9mrNQ1t3cpvvRy0jPQy9TJLY="
+   ```json
+   {
+     "routes": ["http://localhost:7000"],
+     "master_mongo": {
+       "host": "mongodb://localhost:27017",
+       "database": "laddu_zabardast"
+     },
+     "auth": {
+       "jwt_secret": "REPLACE_WITH_A_RANDOM_SECRET"
+     }
+   }
    ```
+
+   The backend uses the configured database. The local default is `laddu_zabardast`, which also holds data from earlier versions. Use a different database name for isolated development or testing.
 
 3. **Install dependencies & build**:
    ```bash
@@ -348,11 +351,11 @@ All backend API routes are served at `http://localhost:8080`.
 ### Reviews & Ratings
 | Method | Endpoint | Description | Auth Required |
 |:-------|:---------|:------------|:-------------:|
-| `GET` | `/reviews/{productId}` | List verified reviews for a product | No |
-| `POST` | `/reviews/create` | Submit a new review and rating | Yes |
-| `PUT` | `/reviews/edit/{id}` | Update existing review content | Yes |
-| `DELETE` | `/reviews/delete/{id}` | Remove a review | Yes |
-| `POST` | `/reviews/pin/{id}` | Pin/unpin review to top (Admin) | Yes |
+| `GET` | `/products/{productId}/reviews` | List product reviews | No |
+| `POST` | `/products/{productId}/reviews` | Submit a review and rating | Yes |
+| `PUT` | `/reviews/{reviewId}` | Edit a review | Owner or admin |
+| `DELETE` | `/reviews/{reviewId}` | Remove a review | Owner or admin |
+| `PATCH` | `/reviews/{reviewId}` | Pin or unpin a review | Admin |
 
 ### Orders
 | Method | Endpoint | Description | Auth Required |
@@ -360,15 +363,16 @@ All backend API routes are served at `http://localhost:8080`.
 | `GET` | `/orders` | List user orders (or all orders for Admin) | Yes |
 | `GET` | `/orders/{id}` | Get detailed order summary | Yes |
 | `POST` | `/orders` | Place a new order | Yes |
-| `PUT` | `/orders/{id}` | Full update of order information | Yes |
-| `PATCH` | `/orders/{id}` | Partial update of order or payment status | Yes |
-| `DELETE` | `/orders/{id}` | Cancel/delete an order | Yes |
+| `PUT` | `/orders/{id}` | Update order or payment status | Admin |
+| `PATCH` | `/orders` | Update order or payment status by body `orderId` | Admin |
+| `DELETE` | `/orders/{id}` | Delete an order | Admin |
+| `GET` | `/generate-invoice?orderId={id}` | Download an order PDF | Owner or admin |
 
 ---
 
 ## ⚙ Environment Configuration
 
-### Backend Configuration (`env/local.toml` or `env/dev.toml`)
+### Backend Configuration (`env/local.local.json` or `env/dev.local.json`)
 | Key | Type | Description |
 |:----|:-----|:------------|
 | `routes` | `string[]` | Allowed CORS origins (e.g. `["http://localhost:7000"]`) |
@@ -380,6 +384,36 @@ All backend API routes are served at `http://localhost:8080`.
 | Key | Default | Description |
 |:----|:--------|:------------|
 | `VITE_BACKEND_URL` | `http://localhost:8080` | URL of the running Go API backend |
+| `VITE_UPI_QR_URL` | Empty | Merchant QR image URL or frontend asset path. Set this to show UPI at checkout. |
+
+### Order confirmation emails
+
+For the local debugger, create `laddu-zabardast-be/env/order-email.local.json`. This file is ignored by Git. Use a verified sender and the SMTP provider's credentials, then restart the backend debugger.
+
+```json
+{
+  "host": "smtp.example.com",
+  "port": "587",
+  "security": "starttls",
+  "user": "orders@example.com",
+  "password": "SMTP_PROVIDER_PASSWORD",
+  "sender": "orders@example.com"
+}
+```
+
+For deployments, set `ORDER_SMTP_HOST`, `ORDER_SMTP_PORT`, `ORDER_SMTP_SECURITY`, `ORDER_SMTP_USER`, `ORDER_SMTP_PASSWORD`, and `ORDER_EMAIL_FROM`. Environment variables override the local file. Port defaults to 587 for STARTTLS or 465 for implicit TLS. Use `plain` only for a loopback test relay. The local admin email comes from `env/local.credentials.json`. Set `ORDER_EMAIL_ADMIN` to use a separate fulfillment inbox.
+
+The local checkout queues separate messages for the checkout email and admin even before SMTP is configured. After enabling SMTP and restarting, the queue retries pending messages. Orders created by older builds with mail disabled have no notification jobs.
+
+### Local administrator
+
+The email in `env/local.credentials.json` grants admin access to that existing account on local startup. Sign in with its existing password. Public signup reserves this email. MongoDB accounts with a stored admin role can also manage the store. To grant that role to a different account, first sign up with the separate email, then run this in the configured MongoDB database.
+
+```javascript
+db.users.updateOne({ email: "operator@example.test" }, { $set: { role: "admin" } })
+```
+
+Reload the storefront and open `/admin`. Existing administrators who previously relied on an email match also need the stored `admin` role.
 
 ---
 

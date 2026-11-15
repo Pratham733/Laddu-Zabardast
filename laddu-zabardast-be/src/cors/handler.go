@@ -1,6 +1,11 @@
 package cors
 
-import "net/http"
+import (
+	"net/http"
+	"slices"
+
+	"github.com/Pratham733/laddu-zabardast-be/src/config"
+)
 
 const (
 	corsAllowOriginHeader  string = "Access-Control-Allow-Origin"
@@ -13,10 +18,11 @@ const (
 func CORSHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
-		if origin != "" {
+		w.Header().Add("Vary", "Origin")
+		if origin != "" && slices.Contains(config.AppConfig.Routes, origin) {
 			w.Header().Set(corsAllowOriginHeader, origin)
+			w.Header().Set(corsAllowCredentials, "true")
 		}
-		w.Header().Set(corsAllowCredentials, "true")
 		w.Header().Set(corsAllowMethodsHeader, "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		w.Header().Set(corsAllowHeadersHeader, "Content-Type, Authorization")
 		if r.Method == "OPTIONS" {

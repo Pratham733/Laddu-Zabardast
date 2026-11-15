@@ -12,24 +12,25 @@ export async function getAddresses(token?: string): Promise<{ addresses: Address
   });
 }
 
-export async function saveAddress(address: Address, token?: string, method: 'POST' | 'PUT' = 'POST'): Promise<{ addresses: Address[] }> {
+export async function saveAddress(address: Address, token?: string): Promise<{ addresses: Address[]; addressId: string }> {
   const headers: Record<string, string> = {};
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-  return apiClient('/address', {
-    method,
+  const endpoint = address.id ? `/address/update/${encodeURIComponent(address.id)}` : "/address/create";
+  return apiClient(endpoint, {
+    method: address.id ? "PUT" : "POST",
     headers,
     body: JSON.stringify(address),
   });
 }
 
-export async function deleteAddress(id: string, token?: string): Promise<{ addresses: Address[] }> {
+export async function deleteAddress(id: string, token?: string): Promise<{ message: string }> {
   const headers: Record<string, string> = {};
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-  return apiClient(`/address/${id}`, {
+  return apiClient(`/address/${encodeURIComponent(id)}`, {
     method: 'DELETE',
     headers,
   });

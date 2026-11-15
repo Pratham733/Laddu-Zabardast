@@ -171,9 +171,7 @@ export default function SignupPage() {
           phone: userDetails.phone ?? null,
           photoURL: userDetails.photoURL ?? null,
           role: userDetails.role ?? null,
-          isAdmin: Boolean(
-            userDetails.isAdmin || data.email === "spratham388@gmail.com",
-          ),
+          isAdmin: userDetails.role === "admin",
           picture: userDetails.picture ?? null,
           addresses: userDetails.addresses ?? [],
         });

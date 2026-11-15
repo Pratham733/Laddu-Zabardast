@@ -50,8 +50,6 @@ import {
   profileSchema,
   addressSchema,
   passwordSchema,
-  type ProfileFormValues,
-  type AddressFormValues,
   type PasswordFormValues,
 } from "@/schema";
 
@@ -69,13 +67,9 @@ interface AddressManagerProps {
   setUser: (u: AppUser) => void;
 }
 
-interface PasswordManagerProps {
-  token: string | null;
-}
-
-const getProfileCompletion = (user: any) => {
+const getProfileCompletion = (user: AppUser) => {
   let filled = 0;
-  let total = 4;
+  const total = 5;
   if (user?.firstName) filled++;
   if (user?.lastName) filled++;
   if (user?.email) filled++;
@@ -88,11 +82,8 @@ export default function ProfilePage() {
   const { user, loading: authLoading, token, logout, setUser } = useAuth();
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [isEditingPhone, setIsEditingPhone] = useState(false);
-  const [editablePhone, setEditablePhone] = useState(user?.phone || "");
-  const [isSavingPhone, setIsSavingPhone] = useState(false);
+  const [profileDraft, setProfileDraft] = useState<{ firstName: string; lastName: string; phone: string }>();
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
@@ -123,12 +114,6 @@ export default function ProfilePage() {
   }, []);
 
   useEffect(() => {
-    if (user?.phone) {
-      setEditablePhone(user.phone);
-    }
-  }, [user?.phone]);
-
-  useEffect(() => {
     if (isClient && !authLoading && !user) {
       toast({
         title: "Access Denied",
@@ -149,69 +134,29 @@ export default function ProfilePage() {
     }
   };
 
-  // Helper: Delete account (mock)
-  const handleDeleteAccount = async () => {
-    setDeleting(true);
-    setTimeout(() => {
-      setDeleting(false);
-      setShowDeleteDialog(false);
-      toast({
-        title: "Account Deleted (Mock)",
-        description: "Your account would be deleted in a real app.",
-      });
-      logout();
-    }, 2000);
-  };
-
-  const handleSavePhone = async () => {
-    if (!user) {
-      toast({
-        title: "Authentication Error",
-        description: "You must be logged in to update your phone number.",
-        variant: "destructive",
-      });
+  const handleSaveProfile = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!user || !profileDraft || isSavingProfile) return;
+    const draft = {
+      firstName: profileDraft.firstName.trim(),
+      lastName: profileDraft.lastName.trim(),
+      phone: profileDraft.phone.trim(),
+    };
+    const parsed = profileSchema.safeParse(draft);
+    if (!draft.firstName || !draft.lastName || !parsed.success) {
+      toast({ title: "Enter your name and a valid phone number (10–15 digits), or leave phone blank.", variant: "destructive" });
       return;
     }
-
-    // Basic validation (can be enhanced with zod)
-    const phoneRegex = /^[+]?\d{10,15}$/;
-    if (editablePhone && !phoneRegex.test(editablePhone)) {
-      toast({
-        title: "Invalid Phone Number",
-        description:
-          "Please enter a valid phone number (10-15 digits, optionally starting with +).",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (!editablePhone && user?.phone) {
-      // If clearing an existing phone number
-      // Allow clearing if desired, or add specific logic
-    } else if (!editablePhone && !user?.phone) {
-      // No change if both are empty
-      setIsEditingPhone(false);
-      return;
-    }
-
-    setIsSavingPhone(true);
+    setIsSavingProfile(true);
     try {
-      await updateProfile({ phone: editablePhone });
-      toast({
-        title: "Phone Number Updated",
-        description: "Your phone number has been successfully updated.",
-      });
-      setUser({ ...user!, phone: editablePhone === "" ? null : editablePhone }); // Update user context, store null if empty
-      setIsEditingPhone(false);
-    } catch (error: any) {
-      console.error("Failed to update phone number:", error);
-      toast({
-        title: "Error",
-        description:
-          error.message || "An unexpected error occurred. Please try again.",
-        variant: "destructive",
-      });
+      const { user: updated } = await updateProfile(draft);
+      setUser({ ...user, ...updated, source: "db" });
+      setProfileDraft(undefined);
+      toast({ title: "Profile updated" });
+    } catch (error) {
+      toast({ title: error instanceof Error ? error.message : "Could not update profile", variant: "destructive" });
     } finally {
-      setIsSavingPhone(false);
+      setIsSavingProfile(false);
     }
   };
 
@@ -324,100 +269,82 @@ export default function ProfilePage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-8 dark:bg-zinc-900">
-              <Box className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Box>
-                  <Label className="text-orange-700 font-semibold">
-                    First Name
-                  </Label>
-                  <Box className="bg-orange-50 border rounded px-3 py-2 mt-1 text-orange-900 shadow-sm dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100">
-                    {user?.firstName ?? "—"}
+              <form onSubmit={handleSaveProfile}>
+                <Box className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Box>
+                    <Label htmlFor="profile-firstName" className="text-orange-700 font-semibold">
+                      First Name
+                    </Label>
+                    {profileDraft ? (
+                      <Input id="profile-firstName" className="mt-1" required disabled={isSavingProfile}
+                        value={profileDraft.firstName} onChange={(event) => setProfileDraft({ ...profileDraft, firstName: event.target.value })} />
+                    ) : (
+                    <Box className="bg-orange-50 border rounded px-3 py-2 mt-1 text-orange-900 shadow-sm dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100">
+                      {user?.firstName ?? "—"}
+                    </Box>
+                    )}
                   </Box>
-                </Box>
-                <Box>
-                  <Label className="text-orange-700 font-semibold">
-                    Last Name
-                  </Label>
-                  <Box className="bg-orange-50 border rounded px-3 py-2 mt-1 text-orange-900 shadow-sm dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100">
-                    {user?.lastName ?? "—"}
+                  <Box>
+                    <Label htmlFor="profile-lastName" className="text-orange-700 font-semibold">
+                      Last Name
+                    </Label>
+                    {profileDraft ? (
+                      <Input id="profile-lastName" className="mt-1" required disabled={isSavingProfile}
+                        value={profileDraft.lastName} onChange={(event) => setProfileDraft({ ...profileDraft, lastName: event.target.value })} />
+                    ) : (
+                    <Box className="bg-orange-50 border rounded px-3 py-2 mt-1 text-orange-900 shadow-sm dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100">
+                      {user?.lastName ?? "—"}
+                    </Box>
+                    )}
                   </Box>
-                </Box>
-                <Box>
-                  <Label className="text-orange-700 font-semibold">Email</Label>
-                  <Box className="bg-orange-50 border rounded px-3 py-2 mt-1 text-orange-900 shadow-sm flex items-center gap-2 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100">
-                    {user?.email || "-"}
-                    <Button
-                      variant="text"
-                      size="small"
-                      className="ml-1 hover:bg-orange-100 dark:hover:bg-zinc-700"
-                      onClick={handleCopyEmail}
-                      title="Copy Email"
-                    >
-                      <Icon icon="Copy" className="h-4 w-4 text-orange-400" />
-                    </Button>
-                  </Box>
-                </Box>
-                <Box>
-                  <Label className="text-orange-700 font-semibold">
-                    Phone Number
-                  </Label>
-                  {isEditingPhone ? (
-                    <Row className="items-center gap-2 mt-1">
-                      <Input
-                        type="tel"
-                        value={editablePhone}
-                        onChange={(e) => setEditablePhone(e.target.value)}
-                        placeholder="Enter phone number"
-                        className="bg-white dark:bg-zinc-800"
-                      />
-                      <Button
-                        size="small"
-                        onClick={handleSavePhone}
-                        disabled={isSavingPhone}
-                        className="bg-green-500 hover:bg-green-600 text-white"
-                      >
-                        {isSavingPhone ? (
-                          <Icon
-                            icon="Loader2"
-                            className="h-4 w-4 animate-spin"
-                          />
-                        ) : (
-                          <Icon icon="Save" className="h-4 w-4" />
-                        )}
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        onClick={() => setIsEditingPhone(false)}
-                        disabled={isSavingPhone}
-                      >
-                        Cancel
-                      </Button>
-                    </Row>
-                  ) : (
-                    <Row className="bg-orange-50 border rounded px-3 py-2 mt-1 text-orange-900 shadow-sm items-center justify-between dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100">
-                      <span>{user?.phone || "-"}</span>
+                  <Box>
+                    <Label className="text-orange-700 font-semibold">Email</Label>
+                    <Box className="bg-orange-50 border rounded px-3 py-2 mt-1 text-orange-900 shadow-sm flex items-center gap-2 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100">
+                      {user?.email || "-"}
                       <Button
                         variant="text"
                         size="small"
                         className="ml-1 hover:bg-orange-100 dark:hover:bg-zinc-700"
-                        onClick={() => {
-                          setEditablePhone(user?.phone || "");
-                          setIsEditingPhone(true);
-                        }}
-                        title="Edit Phone"
+                        onClick={handleCopyEmail}
+                        title="Copy Email"
                       >
-                        <Icon icon="Edit" className="h-4 w-4 text-orange-400" />
+                        <Icon icon="Copy" className="h-4 w-4 text-orange-400" />
                       </Button>
-                    </Row>
-                  )}
+                    </Box>
+                  </Box>
+                  <Box>
+                    <Label htmlFor="profile-phone" className="text-orange-700 font-semibold">
+                      Phone Number
+                    </Label>
+                    {profileDraft ? (
+                      <Input id="profile-phone" type="tel" className="mt-1" disabled={isSavingProfile}
+                        value={profileDraft.phone} onChange={(event) => setProfileDraft({ ...profileDraft, phone: event.target.value })} />
+                    ) : (
+                      <Box className="bg-orange-50 border rounded px-3 py-2 mt-1 text-orange-900 shadow-sm dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100">
+                        {user.phone || "—"}
+                      </Box>
+                    )}
+                  </Box>
                 </Box>
-              </Box>
-              {user && typeof (user as any).createdAt === "string" && (
+                <Row className="mt-4 justify-end gap-2">
+                  {profileDraft ? (
+                    <>
+                      <Button type="button" variant="outlined" disabled={isSavingProfile} onClick={() => setProfileDraft(undefined)}>Cancel</Button>
+                      <Button type="submit" variant="contained" disabled={isSavingProfile}>Save profile</Button>
+                    </>
+                  ) : (
+                    <Button type="button" variant="outlined" onClick={() => setProfileDraft({
+                      firstName: user.firstName, lastName: user.lastName, phone: user.phone ?? "",
+                    })}>Edit profile</Button>
+                  )}
+                </Row>
+              </form>
+              {user.createdAt && (
                 <Row className="items-center gap-2 justify-center mt-8">
                   <Icon icon="Calendar" className="h-4 w-4 text-orange-400" />
                   <span className="text-xs text-orange-500">
                     Joined:{" "}
-                    {new Date((user as any).createdAt).toLocaleDateString()}
+                    {new Date(user.createdAt).toLocaleDateString()}
                   </span>
                 </Row>
               )}
@@ -428,7 +355,7 @@ export default function ProfilePage() {
           <AddressManager user={user} token={token} setUser={setUser} />
         </TabsContent>
         <TabsContent value="security">
-          <PasswordManager token={token} />
+          <PasswordManager />
         </TabsContent>
       </Tabs>
     </Container>
@@ -439,14 +366,9 @@ function AddressManager({
   user,
   token,
   setUser,
-}: {
-  user: AppUser;
-  token: string | null;
-  setUser: (u: AppUser) => void;
-}) {
-  const [addresses, setAddresses] = useState<Address[]>(user?.addresses || []);
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [form, setForm] = useState<AddressFormValues>({
+}: AddressManagerProps) {
+  const addresses = user.addresses ?? [];
+  const [form, setForm] = useState<Address>({
     street: "",
     city: "",
     state: "",
@@ -456,43 +378,8 @@ function AddressManager({
   });
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    setAddresses(user?.addresses || []);
-  }, [user]);
-
-  const fetchAddresses = async () => {
-    if (!user) return;
-    setLoading(true);
-    try {
-      const data = await getAddresses(token ?? undefined);
-      setAddresses(data.addresses || []);
-      setUser({
-        source: "jwt",
-        userId: user?.userId || (user as any)?.id || "",
-        id: user?.id || user?.userId || "",
-        email: user?.email ?? null,
-        firstName: user?.firstName ?? "",
-        lastName: user?.lastName ?? "",
-        phone: user?.phone ?? null,
-        photoURL: user?.photoURL ?? null,
-        role: user?.role ?? null,
-        isAdmin: user?.isAdmin ?? false,
-        picture: user?.picture ?? null,
-        addresses: data.addresses || [],
-      });
-    } catch (e) {
-      console.error("Failed to fetch addresses:", e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleEdit = (idx: number) => {
-    setEditingIndex(idx);
-    setForm(addresses[idx]);
-  };
+  const handleEdit = (address: Address) => setForm(address);
   const handleCancel = () => {
-    setEditingIndex(null);
     setForm({
       street: "",
       city: "",
@@ -506,38 +393,34 @@ function AddressManager({
     setForm({ ...form, [e.target.name]: e.target.value });
   };
   const handleSave = async () => {
-    if (!user) return;
+    const result = addressSchema.safeParse(form);
+    if (!result.success) {
+      toast({ title: result.error.issues[0]?.message ?? "Enter a complete address", variant: "destructive" });
+      return;
+    }
     setLoading(true);
     try {
-      const res = await saveAddress(
-        form,
-        token ?? undefined,
-        editingIndex === null ? "POST" : "PUT",
-      );
-      await fetchAddresses();
+      const response = await saveAddress({ ...form, ...result.data }, token ?? undefined);
+      setUser({ ...user, addresses: response.addresses });
       handleCancel();
       toast({ title: "Address saved!" });
-    } catch (err: any) {
-      toast({
-        title: err.message || "Failed to save address",
-        variant: "destructive",
-      });
+    } catch (error) {
+      toast({ title: error instanceof Error ? error.message : "Failed to save address", variant: "destructive" });
     } finally {
       setLoading(false);
     }
   };
-  const handleDelete = async (id: string) => {
-    if (!user) return;
+
+  const handleDelete = async (addressId: string) => {
     setLoading(true);
     try {
-      await deleteAddress(id, token ?? undefined);
-      await fetchAddresses();
+      await deleteAddress(addressId, token ?? undefined);
+      const { addresses } = await getAddresses(token ?? undefined);
+      setUser({ ...user, addresses });
+      if (form.id === addressId) handleCancel();
       toast({ title: "Address deleted!" });
-    } catch (err: any) {
-      toast({
-        title: err.message || "Failed to delete address",
-        variant: "destructive",
-      });
+    } catch (error) {
+      toast({ title: error instanceof Error ? error.message : "Failed to delete address", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -545,8 +428,9 @@ function AddressManager({
   return (
     <Column className="space-y-4">
       <h2 className="text-lg font-bold text-orange-700 mb-2">Your Addresses</h2>
-      {addresses.map((addr, idx) => (
-        <Card key={idx} className="mb-2">
+      {addresses.length === 0 && <p className="text-sm text-muted-foreground">No saved addresses yet.</p>}
+      {addresses.map((addr) => (
+        <Card key={addr.id ?? [addr.street, addr.city, addr.postalCode].join(",")} className="mb-2">
           <CardContent className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 p-4">
             <Box>
               <Box className="font-semibold">
@@ -559,7 +443,8 @@ function AddressManager({
               <Button
                 size="small"
                 variant="outlined"
-                onClick={() => handleEdit(idx)}
+                disabled={loading || !addr.id}
+                onClick={() => handleEdit(addr)}
               >
                 Edit
               </Button>
@@ -567,7 +452,8 @@ function AddressManager({
                 size="small"
                 variant="contained"
                 color="error"
-                onClick={() => handleDelete(addr.id ?? "")} /// need to verify
+                disabled={loading || !addr.id}
+                onClick={() => { if (addr.id) void handleDelete(addr.id); }}
               >
                 Delete
               </Button>
@@ -577,7 +463,7 @@ function AddressManager({
       ))}
       <Box className="mt-4">
         <h3 className="font-semibold mb-2">
-          {editingIndex === null ? "Add New Address" : "Edit Address"}
+          {!form.id ? "Add New Address" : "Edit Address"}
         </h3>
         <Box className="grid grid-cols-1 md:grid-cols-2 gap-2">
           <Input
@@ -611,11 +497,16 @@ function AddressManager({
             onChange={handleChange}
           />
         </Box>
+        <Label className="mt-3 flex items-center gap-2">
+          <input type="checkbox" checked={Boolean(form.isDefault)} disabled={loading}
+            onChange={(event) => setForm({ ...form, isDefault: event.target.checked })} />
+          Default address
+        </Label>
         <Row className="gap-2 mt-2">
           <Button variant="contained" onClick={handleSave} disabled={loading}>
-            {editingIndex === null ? "Add Address" : "Save Changes"}
+            {!form.id ? "Add Address" : "Save Changes"}
           </Button>
-          {editingIndex !== null && (
+          {form.id && (
             <Button variant="outlined" onClick={handleCancel}>
               Cancel
             </Button>
@@ -626,7 +517,7 @@ function AddressManager({
   );
 }
 
-function PasswordManager({ token }: { token: string | null }) {
+function PasswordManager() {
   const [form, setForm] = useState<PasswordFormValues>({
     currentPassword: "",
     newPassword: "",
@@ -671,7 +562,7 @@ function PasswordManager({ token }: { token: string | null }) {
   };
 
   const handleSave = async () => {
-    if (!token || !isFormValid()) return;
+    if (!isFormValid()) return;
 
     setLoading(true);
     try {

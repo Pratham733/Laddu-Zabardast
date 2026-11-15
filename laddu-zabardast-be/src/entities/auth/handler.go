@@ -19,6 +19,10 @@ func SignupHandler(w http.ResponseWriter, r *http.Request, req SignupRequestPack
 		return nil, err
 	}
 
+	if user.IsConfiguredAdminEmail(req.Email) {
+		return nil, errors.New("this address is reserved for the local admin account")
+	}
+
 	collection := getCollection()
 	count, err := collection.CountDocuments(r.Context(), bson.M{"email": strings.TrimSpace(req.Email)})
 	if err != nil {

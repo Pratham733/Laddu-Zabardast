@@ -1,3 +1,6 @@
+import { OrderInstructions } from "@/components/order-instructions";
+import { BoxContents } from "@/components/box-contents";
+import Image from "next/image";
 import { useEffect, useState, useMemo } from "react";
 import { Container, Column, Row, Box } from "@/components/ui/layout";
 import {
@@ -347,6 +350,7 @@ export default function OrdersPage() {
                             </Box>
                           </Box>
 
+                          <OrderInstructions instructions={details[order.id]?.instructions} />
                           <Box>
                             <h4 className="font-semibold text-md pt-3 mb-2 text-foreground dark:text-zinc-100 border-b pb-1 dark:border-zinc-700">
                               Items Ordered
@@ -355,23 +359,23 @@ export default function OrdersPage() {
                               <ul className="space-y-3">
                                 {details[order.id]?.items.map((item) => (
                                   <li
-                                    key={item.productId}
+                                    key={item.id ?? item.productId}
                                     className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 dark:hover:bg-zinc-700/50 transition-colors"
                                   >
-                                    <img
-                                      src={
-                                        item.imageUrl ||
-                                        "/placeholder-image.png"
-                                      } // Fallback image
-                                      alt={item.name}
-                                      width={50}
-                                      height={50}
-                                      className="rounded-md object-cover border border-border dark:border-zinc-700"
-                                    />
+                                    {!item.box && (
+                                      <Image
+                                        src={item.imageUrl || "/images/logo.png"}
+                                        alt={item.name}
+                                        width={50}
+                                        height={50}
+                                        className="rounded-md object-cover border border-border dark:border-zinc-700"
+                                      />
+                                    )}
                                     <Column className="flex-grow">
                                       <p className="font-medium text-sm text-foreground dark:text-zinc-200">
                                         {item.name}
                                       </p>
+                                      <BoxContents box={item.box} />
                                       <p className="text-xs text-muted-foreground dark:text-zinc-400">
                                         Quantity: {item.quantity}
                                       </p>

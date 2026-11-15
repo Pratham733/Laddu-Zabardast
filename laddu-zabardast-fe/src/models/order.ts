@@ -1,6 +1,9 @@
+import type { LadduBox } from "./box";
+
 export interface OrderItem {
   id?: string; 
-  productId: string;
+  productId?: string;
+  box?: LadduBox;
   name: string;
   price: number;
   quantity: number;
@@ -25,6 +28,7 @@ export interface Order {
   _id?: string;
   userId?: string;
   email?: string;
+  instructions?: string;
   items: OrderItem[];
   shippingDetails: ShippingDetails;
   totalAmount: number;

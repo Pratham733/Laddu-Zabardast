@@ -8,6 +8,7 @@ import Home from './pages/home-page';
 import ShopPage from './pages/shop-page';
 import CartPage from './pages/cart-page';
 import CheckoutPage from './pages/checkout-page';
+import BuildABoxPage from './pages/build-a-box-page';
 import LoginPage from './pages/login-page';
 import SignupPage from './pages/signup-page';
 import ProfilePage from './pages/profile-page';
@@ -29,7 +30,7 @@ function ProductPageWrapper() {
 }
 
 // Guard to require user authentication before landing
-function RequireAuth({ children }: { children: React.ReactNode }) {
+function RequireAuth({ children, admin = false }: { children: React.ReactNode; admin?: boolean }) {
   const { user, loading } = useAuth();
   if (loading) {
     return (
@@ -41,6 +42,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   if (!user) {
     return <Navigate to="/login" replace />;
   }
+  if (admin && user.role !== "admin") return <Navigate to="/" replace />;
   return <>{children}</>;
 }
 
@@ -68,13 +70,14 @@ export default function App() {
           <Route path="/" element={<RequireAuth><Home /></RequireAuth>} />
           <Route path="/shop" element={<RequireAuth><ShopPage /></RequireAuth>} />
           <Route path="/cart" element={<RequireAuth><CartPage /></RequireAuth>} />
+          <Route path="/build-a-box" element={<RequireAuth><BuildABoxPage /></RequireAuth>} />
           <Route path="/checkout" element={<RequireAuth><CheckoutPage /></RequireAuth>} />
           <Route path="/login" element={<RedirectIfAuth><LoginPage /></RedirectIfAuth>} />
           <Route path="/signup" element={<RedirectIfAuth><SignupPage /></RedirectIfAuth>} />
           <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
           <Route path="/orders" element={<RequireAuth><OrdersPage /></RequireAuth>} />
           <Route path="/order-confirmation" element={<RequireAuth><OrderConfirmationPage /></RequireAuth>} />
-          <Route path="/admin" element={<RequireAuth><AdminPage /></RequireAuth>} />
+          <Route path="/admin" element={<RequireAuth admin><AdminPage /></RequireAuth>} />
           <Route path="/product/:productId" element={<RequireAuth><ProductPageWrapper /></RequireAuth>} />
           <Route path="/search" element={<RequireAuth><SearchPage /></RequireAuth>} />
           <Route path="/privacy-policy" element={<RequireAuth><PrivacyPolicyPage /></RequireAuth>} />

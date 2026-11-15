@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   Cookie,
@@ -7,6 +8,7 @@ import {
   Sparkles,
   Star,
   Gift,
+  PackagePlus,
 } from "lucide-react";
 import {
   Box,
@@ -30,6 +32,7 @@ const categories: CategoryItem[] = [
   { label: "Laddus", icon: <Cookie size={22} />, href: "#laddu" },
   { label: "Pickles", icon: <Droplets size={22} />, href: "#pickle" },
   { label: "Gift Boxes", icon: <Gift size={22} />, href: "#gifts" },
+  { label: "Create Your Box", icon: <PackagePlus size={22} />, href: "/build-a-box" },
 ];
 
 export function CategoryStrip() {
@@ -70,9 +73,10 @@ export function CategoryStrip() {
   }, []);
 
   const handleClick = (
-    e: React.MouseEvent<HTMLButtonElement>,
+    e: React.MouseEvent<HTMLAnchorElement>,
     href: string,
   ) => {
+    e.preventDefault();
     setActiveCategory(href);
     isClickScrollingRef.current = true;
     if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
@@ -163,7 +167,9 @@ export function CategoryStrip() {
                 sx={{ flexShrink: 0 }}
               >
                 <ButtonBase
-                  onClick={(e) => handleClick(e, cat.href)}
+                  component={Link}
+                  href={cat.href}
+                  onClick={cat.href.startsWith("#") ? (e) => handleClick(e, cat.href) : undefined}
                   sx={{
                     display: "flex",
                     flexDirection: "column",

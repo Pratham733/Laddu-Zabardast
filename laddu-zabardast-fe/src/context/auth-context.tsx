@@ -22,8 +22,6 @@ interface AuthContextType {
   isUserAdmin: () => boolean;
 }
 
-const adminEmail = "spratham388@gmail.com"; 
-
 export const AuthContext = createContext<AuthContextType>({
   user: null,
   token: null,
@@ -41,13 +39,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [isInitialised, setIsInitialised] = useState(false);
 
-  const isUserAdmin = (): boolean => {
-    const isAdminCheck = user?.email === adminEmail;
-    console.log(
-      `[AuthContext] isUserAdmin check: user.email ("${user?.email}") === adminEmail ("${adminEmail}") => ${isAdminCheck}`,
-    );
-    return isAdminCheck;
-  };
+  const isUserAdmin = () => user?.role === "admin";
 
   const setToken = (newToken: string | null) => {
     setTokenState(newToken);
@@ -62,7 +54,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
     setToken(null);
     localStorage.removeItem("authToken");
-    console.log("[AuthContext] User logged out via logout function.");
     window.location.href = "/login";
   };
 
@@ -75,7 +66,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const initAuth = async () => {
       setLoading(true);
       try {
-        console.log("[AuthContext] Checking cookie session via /user...");
         const data = await getUser();
         if (data && data.user) {
           const u = data.user;
@@ -83,23 +73,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             throw new Error("Invalid session user: userId is required");
           }
           setUser({
-            source: "db",
             ...u,
+            source: "db",
             userId: u.userId,
             id: u.userId,
             firstName: u.firstName ?? "",
             lastName: u.lastName ?? "",
-            isAdmin: Boolean(u.isAdmin || u.email === adminEmail),
+            isAdmin: u.role === "admin",
           });
-          console.log("[AuthContext] Session recovered:", data.user);
         } else {
           setUser(null);
         }
-      } catch (error) {
-        console.log(
-          "[AuthContext] Session check finished (no user logged in or error):",
-          error,
-        );
+      } catch {
         setUser(null);
       } finally {
         setLoading(false);

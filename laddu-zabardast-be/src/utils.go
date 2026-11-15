@@ -62,7 +62,7 @@ func ParseClaims(r *http.Request) (*Claims, error) {
 	jwtSecret := []byte(config.AppConfig.Auth.JWTSecret)
 	token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (interface{}, error) {
 		return jwtSecret, nil
-	})
+	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}), jwt.WithExpirationRequired())
 	if err != nil || !token.Valid {
 		return nil, errors.New("invalid or expired token")
 	}

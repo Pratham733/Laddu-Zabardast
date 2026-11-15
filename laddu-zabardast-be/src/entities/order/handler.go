@@ -4,20 +4,27 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"strings"
 	"time"
 
 	utils "github.com/Pratham733/laddu-zabardast-be/src"
+	"github.com/Pratham733/laddu-zabardast-be/src/entities/box"
+	"github.com/Pratham733/laddu-zabardast-be/src/entities/product"
+	"github.com/Pratham733/laddu-zabardast-be/src/entities/user"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 func GetOrders(w http.ResponseWriter, r *http.Request) (*GetAllOrdersResponsePacket, error) {
+	filter, err := orderAccessFilter(r)
+	if err != nil {
+		return nil, err
+	}
 	collection := getCollection()
-	filter := bson.M{}
-	if email := strings.TrimSpace(r.URL.Query().Get("email")); email != "" {
+	if email := strings.TrimSpace(r.URL.Query().Get("email")); len(filter) == 0 && email != "" {
 		filter["email"] = email
 	}
 
@@ -46,9 +53,13 @@ func GetOrder(w http.ResponseWriter, r *http.Request) (*GetOrderResponsePacket, 
 		return nil, err
 	}
 
-	collection := getCollection()
+	filter, err := orderAccessFilter(r)
+	if err != nil {
+		return nil, err
+	}
+	filter["_id"] = id
 	var ord Order
-	err := collection.FindOne(r.Context(), bson.M{"_id": id}).Decode(&ord)
+	err = getCollection().FindOne(r.Context(), filter).Decode(&ord)
 	if err != nil {
 		return nil, errors.New("order not found")
 	}
@@ -65,61 +76,48 @@ func CreateOrder(w http.ResponseWriter, r *http.Request, req CreateOrderRequestP
 		return nil, err
 	}
 
-	var userID, userEmail string
-	if uid, err := utils.GetUserID(r); err == nil {
-		userID = uid
-	}
-	email, err := utils.GetUserID(r)
-	if err == nil && email != "" {
-		userEmail = email
-	} else {
-		userEmail = strings.TrimSpace(req.ShippingDetails.Email)
+	account, err := user.AuthenticatedUser(r)
+	if err != nil {
+		return nil, err
 	}
 
-	orderStatus := strings.TrimSpace(req.OrderStatus)
-	if orderStatus == "" {
-		orderStatus = OrderStatusProcessing
-	}
-
-	paymentStatus := strings.TrimSpace(req.PaymentStatus)
-	if paymentStatus == "" {
-		paymentStatus = PaymentStatusPending
-	}
-
-	paymentMethod := strings.TrimSpace(req.PaymentMethod)
+	paymentMethod := strings.ToLower(strings.TrimSpace(req.PaymentMethod))
 	if paymentMethod == "" {
 		paymentMethod = "cod"
 	}
-
-	now := time.Now().UTC().Format(time.RFC3339)
-
-	orderItems := make([]OrderItem, 0, len(req.Items))
-	for _, item := range req.Items {
-		orderItems = append(orderItems, OrderItem{
-			ID:        item.ProductID,
-			ProductID: item.ProductID,
-			Name:      item.Name,
-			Quantity:  item.Quantity,
-			Price:     item.Price,
-			ImageUrl:  item.ImageUrl,
-		})
+	switch paymentMethod {
+	case "cod", "cash", "upi":
+	default:
+		return nil, errors.New("unsupported payment method")
 	}
 
+	orderItems, total, err := priceOrder(r.Context(), req.Items)
+	if err != nil {
+		return nil, err
+	}
+	if math.Round(req.TotalAmount*100) != math.Round(total*100) {
+		return nil, errors.New("product prices changed, refresh your cart before placing the order")
+	}
+
+	now := time.Now().UTC()
 	shippingModel := ShippingDetailsPacketToModel(req.ShippingDetails)
+	shippingModel.Email = strings.TrimSpace(shippingModel.Email)
 
 	newOrder := Order{
-		ID:              uuid.NewString(),
-		UserID:          userID,
-		Email:           userEmail,
-		ShippingDetails: shippingModel,
-		Items:           orderItems,
-		TotalAmount:     req.TotalAmount,
-		OrderStatus:     orderStatus,
-		Status:          orderStatus,
-		PaymentStatus:   paymentStatus,
-		PaymentMethod:   paymentMethod,
-		Date:            now,
-		CreatedAt:       now,
+		ID:                 uuid.NewString(),
+		UserID:             account.ID,
+		Email:              account.Email,
+		ShippingDetails:    shippingModel,
+		Items:              orderItems,
+		TotalAmount:        total,
+		OrderStatus:        OrderStatusProcessing,
+		Status:             OrderStatusProcessing,
+		PaymentStatus:      PaymentStatusPending,
+		PaymentMethod:      paymentMethod,
+		Date:               now.Format(time.RFC3339),
+		CreatedAt:          now.Format(time.RFC3339),
+		Instructions:       strings.TrimSpace(req.Instructions),
+		ConfirmationEmails: newConfirmationEmails(shippingModel.Email, now),
 	}
 
 	collection := getCollection()
@@ -162,7 +160,7 @@ func UpdateOrder(w http.ResponseWriter, r *http.Request, req UpdateOrderStatusRe
 }
 
 func PatchOrder(w http.ResponseWriter, r *http.Request, req UpdateOrderStatusRequestPacket) (utils.SuccessResponsePacket, error) {
-	updateFields, err := validatePatchOrderStatus(req)
+	updateFields, err := validateUpdateOrderStatus(req.OrderID, req)
 	if err != nil {
 		return utils.SuccessResponsePacket{}, err
 	}
@@ -209,12 +207,17 @@ func GenerateInvoiceHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	collection := getCollection()
 	ctx, cancel := context.WithTimeout(r.Context(), utils.DefaultTimeout)
 	defer cancel()
 
+	filter, err := orderAccessFilter(r.WithContext(ctx))
+	if err != nil {
+		http.Error(w, "Authentication required", http.StatusUnauthorized)
+		return
+	}
+	filter["_id"] = orderId
 	var ord Order
-	err := collection.FindOne(ctx, bson.M{"_id": orderId}).Decode(&ord)
+	err = getCollection().FindOne(ctx, filter).Decode(&ord)
 	if err != nil {
 		http.Error(w, "Order not found", http.StatusNotFound)
 		return
@@ -227,4 +230,60 @@ func GenerateInvoiceHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(pdfData)))
 	w.WriteHeader(http.StatusOK)
 	w.Write(pdfData)
+}
+
+func orderAccessFilter(r *http.Request) (bson.M, error) {
+	account, err := user.AuthenticatedUser(r)
+	if err != nil {
+		return nil, err
+	}
+	if account.IsAdmin() {
+		return bson.M{}, nil
+	}
+	return bson.M{"userId": account.ID}, nil
+}
+
+func priceOrder(ctx context.Context, items []OrderItemPacket) ([]OrderItem, float64, error) {
+	ids := make([]string, 0, len(items))
+	for _, item := range items {
+		if item.Box != nil {
+			ids = item.Box.AppendProductIDs(ids)
+		} else {
+			ids = append(ids, strings.TrimSpace(item.ProductID))
+		}
+	}
+	catalog, err := product.AvailableByID(ctx, ids)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	priced := make([]OrderItem, 0, len(items))
+	var totalCents float64
+	for _, item := range items {
+		if item.Box != nil {
+			custom, err := box.Price(*item.Box, catalog)
+			if err != nil {
+				return nil, 0, err
+			}
+			totalCents += math.Round(custom.Price*100) * float64(item.Quantity)
+			priced = append(priced, OrderItem{
+				ID: custom.ID, Name: custom.Selection.Name(), Quantity: item.Quantity,
+				Price: custom.Price, Box: &custom.Selection,
+			})
+			continue
+		}
+
+		id := strings.TrimSpace(item.ProductID)
+		p, ok := catalog[id]
+		if !ok || p.Price <= 0 {
+			return nil, 0, fmt.Errorf("product %s is unavailable", id)
+		}
+		cents := math.Round(p.Price * 100)
+		totalCents += cents * float64(item.Quantity)
+		priced = append(priced, OrderItem{
+			ID: p.ID, ProductID: p.ID, Name: p.Name,
+			Price: cents / 100, Quantity: item.Quantity, ImageUrl: p.ImageUrl,
+		})
+	}
+	return priced, totalCents / 100, nil
 }

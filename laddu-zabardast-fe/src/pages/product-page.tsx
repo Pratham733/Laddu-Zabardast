@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
-import type { Product, Review } from "@/types";
-import { useAuth } from "@/hooks";
+import type { Review } from "@/types";
+import type { Product } from "@/models";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button-new";
+import { toast, useAuth, useCart, useWishlist } from "@/hooks";
 import { ProductCard } from "@/components/product-card";
 import type { ChangeEvent, FormEvent } from "react";
 import {
@@ -178,17 +181,29 @@ interface PageProps {
 export default function Page({ params }: PageProps) {
   const { productId } = params;
   const [product, setProduct] = useState<Product | null>(null);
+  const [productLoading, setProductLoading] = useState(true);
+  const navigate = useNavigate();
+  const { addToCart, isInitialised: cartReady } = useCart();
+  const { wishlist, addToWishlist, removeFromWishlist, isInitialised: wishlistReady } = useWishlist();
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const { user, isUserAdmin } = useAuth();
 
   useEffect(() => {
-    getProductById(productId).then((data) => setProduct(data.product));
+    let active = true;
+    setProductLoading(true);
+    setProduct(null);
+    getProductById(productId)
+      .then(({ product }) => { if (active) setProduct(product); })
+      .catch((error) => { if (active) console.error("Could not load product:", error); })
+      .finally(() => { if (active) setProductLoading(false); });
+    return () => { active = false; };
   }, [productId]);
 
   // Fetch related products by category
   useEffect(() => {
     if (!product) return;
-    getProducts()
+    let active = true;
+    getProducts(product.category)
       .then((data) => {
         const related = (data.products || [])
           .filter(
@@ -196,10 +211,13 @@ export default function Page({ params }: PageProps) {
               p.category === product.category && p.id !== product.id,
           )
           .slice(0, 4);
-        setRelatedProducts(related);
+        if (active) setRelatedProducts(related);
       })
       .catch(console.error);
+    return () => { active = false; };
   }, [product]);
+
+  if (productLoading) return <Container className="p-8 text-center">Loading product…</Container>;
 
   if (!product) {
     return (
@@ -209,6 +227,8 @@ export default function Page({ params }: PageProps) {
     );
   }
 
+  const available = product.available !== false;
+  const saved = wishlist.some((item) => item.id === product.id);
   return (
     <Container className="p-4 md:p-8">
       <Box className="grid md:grid-cols-2 gap-8">
@@ -224,12 +244,32 @@ export default function Page({ params }: PageProps) {
         <Column>
           <h1 className="text-3xl font-bold mb-4">{product.name}</h1>
           <p className="text-xl mb-4">₹{product.price.toFixed(2)}</p>
+          <p className="mb-2 text-sm text-muted-foreground">
+            {product.category === "laddu" ? "Laddus" : product.category === "pickle" ? "Pickles" : product.category}
+            {product.weight && ` · ${product.weight}`}
+          </p>
+          <p className="mb-4 text-sm font-medium" role="status">{available ? "In stock" : "Out of stock"}</p>
           <Box className="prose max-w-none mb-6">
-            <p>{product.description}</p>
+            <h2 className="mb-2 font-semibold">Description</h2>
+            <p className="whitespace-pre-wrap">{product.description || "No description available."}</p>
           </Box>
-          <button className="bg-primary text-primary-foreground px-6 py-3 rounded-lg w-full md:w-auto">
-            Add
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" disabled={!available || !product.id}
+              onClick={() => navigate(`/checkout?buyNow=${encodeURIComponent(productId)}`)}>
+              Buy Now
+            </Button>
+            <Button type="button" variant="outline" disabled={!available || !product.id || !cartReady}
+              onClick={() => {
+                addToCart(product);
+                toast({ title: `${product.name} added to cart` });
+              }}>
+              Add to Cart
+            </Button>
+            <Button type="button" variant="outline" disabled={!product.id || !wishlistReady} aria-pressed={saved}
+              onClick={() => saved ? removeFromWishlist(product) : addToWishlist(product)}>
+              {saved ? "Remove from Wishlist" : "Add to Wishlist"}
+            </Button>
+          </div>
         </Column>
       </Box>{" "}
       <ProductReviews

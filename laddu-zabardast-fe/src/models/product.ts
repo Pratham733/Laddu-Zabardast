@@ -7,5 +7,6 @@ export interface Product {
   imageUrl: string;
   category: 'laddu' | 'pickle';
   aiHint?: string;
+  weight?: string;
   available?: boolean;  
 }

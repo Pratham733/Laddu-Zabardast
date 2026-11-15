@@ -1,5 +1,6 @@
 // src/shims/next/image.tsx
 import React from "react";
+import { backendURL } from "@/routes/apiClient";
 
 export interface ImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   priority?: boolean;
@@ -7,7 +8,7 @@ export interface ImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   unoptimized?: boolean;
 }
 
-export default function Image({ priority, fill, unoptimized, className, style, ...props }: ImageProps) {
+export default function Image({ priority, fill, unoptimized, className, style, src, ...props }: ImageProps) {
   const fillStyle: React.CSSProperties = fill
     ? {
         position: 'absolute',
@@ -23,6 +24,7 @@ export default function Image({ priority, fill, unoptimized, className, style, .
 
   return (
     <img
+      src={src?.startsWith("/uploads/") ? `${backendURL}${src}` : src}
       className={className}
       style={{ ...fillStyle, ...style }}
       {...props}

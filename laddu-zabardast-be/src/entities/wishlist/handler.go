@@ -1,13 +1,16 @@
 package wishlist
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 	"time"
 
 	utils "github.com/Pratham733/laddu-zabardast-be/src"
 	"github.com/Pratham733/laddu-zabardast-be/src/entities/product"
+	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
@@ -16,11 +19,17 @@ func GetWishlist(w http.ResponseWriter, r *http.Request) (*GetWishlistResponsePa
 	if err != nil {
 		return nil, err
 	}
+	if mux.Vars(r)["userId"] != userId {
+		return nil, errors.New("account does not match request")
+	}
 
 	collection := getCollection()
 	var userWishlist UserWishlist
 	err = collection.FindOne(r.Context(), bson.M{"_id": userId}).Decode(&userWishlist)
-	if err != nil || userWishlist.Items == nil {
+	if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
+		return nil, err
+	}
+	if userWishlist.Items == nil {
 		return &GetWishlistResponsePacket{
 			Wishlist: []product.ProductPacket{},
 		}, nil
@@ -36,6 +45,9 @@ func UpdateWishlist(w http.ResponseWriter, r *http.Request, payload WishlistPayl
 	userId, err := utils.GetUserID(r)
 	if err != nil {
 		return nil, err
+	}
+	if mux.Vars(r)["userId"] != userId {
+		return nil, errors.New("account does not match request")
 	}
 
 	if err := validateWishlistPayload(payload); err != nil {

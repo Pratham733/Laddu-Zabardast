@@ -1,14 +1,19 @@
 package order
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/Pratham733/laddu-zabardast-be/src/entities/box"
+)
 
 type OrderItem struct {
-	ID        string  `bson:"id,omitempty" json:"id,omitempty"`
-	ProductID string  `bson:"productId" json:"productId"`
-	Name      string  `bson:"name" json:"name"`
-	Quantity  int     `bson:"quantity" json:"quantity"`
-	Price     float64 `bson:"price" json:"price"`
-	ImageUrl  string  `bson:"imageUrl,omitempty" json:"imageUrl,omitempty"`
+	Box       *box.Selection `bson:"box,omitempty" json:"box,omitempty"`
+	ID        string         `bson:"id,omitempty" json:"id,omitempty"`
+	ProductID string         `bson:"productId,omitempty" json:"productId,omitempty"`
+	Name      string         `bson:"name" json:"name"`
+	Quantity  int            `bson:"quantity" json:"quantity"`
+	Price     float64        `bson:"price" json:"price"`
+	ImageUrl  string         `bson:"imageUrl,omitempty" json:"imageUrl,omitempty"`
 }
 
 type ShippingDetails struct {
@@ -25,18 +30,20 @@ type ShippingDetails struct {
 }
 
 type Order struct {
-	ID              string          `bson:"_id,omitempty" json:"id"`
-	UserID          string          `bson:"userId" json:"userId"`
-	Email           string          `bson:"email" json:"email"`
-	ShippingDetails ShippingDetails `bson:"shippingDetails" json:"shippingDetails"`
-	Items           []OrderItem     `bson:"items" json:"items"`
-	TotalAmount     float64         `bson:"totalAmount" json:"totalAmount"`
-	OrderStatus     string          `bson:"orderStatus" json:"orderStatus"`
-	Status          string          `bson:"status" json:"status"`
-	PaymentStatus   string          `bson:"paymentStatus" json:"paymentStatus"`
-	PaymentMethod   string          `bson:"paymentMethod,omitempty" json:"paymentMethod,omitempty"`
-	Date            string          `bson:"date" json:"date"`
-	CreatedAt       string          `bson:"createdAt" json:"createdAt"`
+	Instructions       string              `bson:"instructions,omitempty" json:"instructions,omitempty"`
+	ConfirmationEmails []confirmationEmail `bson:"confirmationEmails,omitempty" json:"-"`
+	ID                 string              `bson:"_id,omitempty" json:"id"`
+	UserID             string              `bson:"userId" json:"userId"`
+	Email              string              `bson:"email" json:"email"`
+	ShippingDetails    ShippingDetails     `bson:"shippingDetails" json:"shippingDetails"`
+	Items              []OrderItem         `bson:"items" json:"items"`
+	TotalAmount        float64             `bson:"totalAmount" json:"totalAmount"`
+	OrderStatus        string              `bson:"orderStatus" json:"orderStatus"`
+	Status             string              `bson:"status" json:"status"`
+	PaymentStatus      string              `bson:"paymentStatus" json:"paymentStatus"`
+	PaymentMethod      string              `bson:"paymentMethod,omitempty" json:"paymentMethod,omitempty"`
+	Date               string              `bson:"date" json:"date"`
+	CreatedAt          string              `bson:"createdAt" json:"createdAt"`
 }
 
 func (o Order) MarshalJSON() ([]byte, error) {

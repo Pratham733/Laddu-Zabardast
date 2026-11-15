@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/google/uuid"
@@ -42,6 +43,9 @@ func GetProducts(w http.ResponseWriter, r *http.Request) (*GetProductsResponsePa
 func GetProduct(w http.ResponseWriter, r *http.Request) (*GetProductResponsePacket, error) {
 	vars := mux.Vars(r)
 	id := vars["id"]
+	if id == "" {
+		id = strings.TrimSpace(r.URL.Query().Get("productId"))
+	}
 	if err := validateProductId(id); err != nil {
 		return nil, err
 	}
@@ -65,8 +69,8 @@ func CreateProduct(w http.ResponseWriter, r *http.Request, req CreateProductRequ
 	}
 
 	available := true
-	if req.Available {
-		available = req.Available
+	if req.Available != nil {
+		available = *req.Available
 	}
 
 	newProduct := Product{
@@ -99,15 +103,12 @@ func CreateProduct(w http.ResponseWriter, r *http.Request, req CreateProductRequ
 	}, nil
 }
 
-func UpdateProduct(w http.ResponseWriter, r *http.Request, updates bson.M) (*ProductActionResponsePacket, error) {
+func UpdateProduct(w http.ResponseWriter, r *http.Request, req UpdateProductRequestPacket) (*ProductActionResponsePacket, error) {
 	vars := mux.Vars(r)
 	id := vars["id"]
-	if err := validateUpdateProductReq(id, updates); err != nil {
+	updates, err := validateUpdateProductReq(id, req)
+	if err != nil {
 		return nil, err
-	}
-
-	if name, ok := updates["name"].(string); ok && name != "" {
-		updates["key"] = GenerateProductKey(name)
 	}
 
 	collection := getCollection()
@@ -120,7 +121,9 @@ func UpdateProduct(w http.ResponseWriter, r *http.Request, updates bson.M) (*Pro
 	}
 
 	var updated Product
-	_ = collection.FindOne(r.Context(), bson.M{"_id": id}).Decode(&updated)
+	if err := collection.FindOne(r.Context(), bson.M{"_id": id}).Decode(&updated); err != nil {
+		return nil, err
+	}
 	allProducts := fetchAllProducts(r.Context())
 	productPacket := ProductToPacket(updated)
 
@@ -163,7 +166,7 @@ func SearchProducts(w http.ResponseWriter, r *http.Request) (*GetProductsRespons
 	}
 
 	collection := getCollection()
-	filter := bson.M{"name": bson.M{"$regex": query, "$options": "i"}}
+	filter := bson.M{"name": bson.M{"$regex": regexp.QuoteMeta(query), "$options": "i"}}
 	opts := options.Find().SetLimit(10)
 
 	cursor, err := collection.Find(r.Context(), filter, opts)
@@ -188,10 +191,13 @@ func UploadProductImage(w http.ResponseWriter, r *http.Request) (*UploadImageRes
 		return nil, errors.New("method not allowed")
 	}
 
-	err := r.ParseMultipartForm(10 << 20) // 10MB max
+	r.Body = http.MaxBytesReader(w, r.Body, 10<<20)
+	err := r.ParseMultipartForm(10 << 20)
 	if err != nil {
 		return nil, errors.New("file too large or invalid multipart form")
 	}
+
+	defer r.MultipartForm.RemoveAll()
 
 	file, fileHeader, err := r.FormFile("image")
 	if err != nil {
@@ -204,7 +210,21 @@ func UploadProductImage(w http.ResponseWriter, r *http.Request) (*UploadImageRes
 		return nil, err
 	}
 
-	_ = os.MkdirAll(UploadDir, 0755)
+	var header [512]byte
+	n, err := io.ReadFull(file, header[:])
+	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) {
+		return nil, errors.New("could not read image")
+	}
+	contentType := http.DetectContentType(header[:n])
+	if !imageMatchesExtension(ext, contentType) {
+		return nil, errors.New("image content does not match its extension")
+	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(UploadDir, 0755); err != nil {
+		return nil, err
+	}
 
 	filename := uuid.NewString() + strings.ToLower(ext)
 	destPath := filepath.Join(UploadDir, filename)
@@ -213,9 +233,10 @@ func UploadProductImage(w http.ResponseWriter, r *http.Request) (*UploadImageRes
 	if err != nil {
 		return nil, err
 	}
-	defer dst.Close()
-
-	if _, err := io.Copy(dst, file); err != nil {
+	_, copyErr := io.Copy(dst, file)
+	closeErr := dst.Close()
+	if err := errors.Join(copyErr, closeErr); err != nil {
+		_ = os.Remove(destPath)
 		return nil, err
 	}
 

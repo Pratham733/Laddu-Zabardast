@@ -1,6 +1,8 @@
 // src/app/order-confirmation/OrderSummary.tsx
 
 import Image from "next/image";
+import { Package } from "lucide-react";
+import { BoxContents } from "@/components/box-contents";
 import type { OrderItem } from "@/models";
 
 export function OrderSummary({ items }: { items: OrderItem[] }) {
@@ -12,16 +14,23 @@ export function OrderSummary({ items }: { items: OrderItem[] }) {
           className="flex items-center gap-4 p-4 animate-fade-in"
         >
           <div className="w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden bg-muted border">
-            <Image
-              src={item.imageUrl || "/images/1.jpg"}
-              alt={item.name}
-              width={80}
-              height={80}
-              className="object-cover w-full h-full"
-            />
+            {item.box ? (
+              <div className="grid h-full place-items-center">
+                <Package aria-hidden="true" className="h-7 w-7 text-primary" />
+              </div>
+            ) : (
+              <Image
+                src={item.imageUrl || "/images/logo.png"}
+                alt={item.name}
+                width={80}
+                height={80}
+                className="object-cover w-full h-full"
+              />
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <div className="font-semibold text-base truncate">{item.name}</div>
+            <BoxContents box={item.box} />
             <div className="text-sm text-muted-foreground">
               Qty: {item.quantity}
             </div>

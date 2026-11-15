@@ -2,6 +2,7 @@ package review
 
 import (
 	utils "github.com/Pratham733/laddu-zabardast-be/src"
+	"github.com/Pratham733/laddu-zabardast-be/src/entities/user"
 	"github.com/gorilla/mux"
 )
 
@@ -14,5 +15,5 @@ func RegisterRoutes(r *mux.Router) {
 	// Direct review management by reviewId
 	r.HandleFunc("/reviews/{reviewId}", utils.WithBodyAndResponse(UpdateReview)).Methods("PUT", "OPTIONS")
 	r.HandleFunc("/reviews/{reviewId}", utils.WithResponse(DeleteReview)).Methods("DELETE", "OPTIONS")
-	r.HandleFunc("/reviews/{reviewId}", utils.WithBodyAndResponse(PinReview)).Methods("PATCH", "OPTIONS")
+	r.HandleFunc("/reviews/{reviewId}", user.AdminOnly(utils.WithBodyAndResponse(PinReview))).Methods("PATCH", "OPTIONS")
 }

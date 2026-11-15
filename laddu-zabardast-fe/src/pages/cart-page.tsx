@@ -2,7 +2,8 @@ import { useCart, toast } from "@/hooks";
 import Image from "next/image";
 import { Button } from "@mui/material";
 import { Input } from "@/components/ui/input";
-import { Minus, Plus, Trash2, ShoppingCart } from "lucide-react";
+import { BoxContents } from "@/components/box-contents";
+import { Minus, Package, Plus, Trash2, ShoppingCart } from "lucide-react";
 import Link from "next/link";
 import {
   Card,
@@ -13,7 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useEffect, useState } from "react";
-import { InteractiveHoverButton } from "@/components/magicui/interactive-hover-button";
+import { Button as StorefrontButton } from "@/components/ui/button-new";
 import { Container, Column, Row, Box } from "@/components/ui/layout";
 
 export default function CartPage() {
@@ -91,12 +92,9 @@ export default function CartPage() {
               Looks like you haven't added anything yet. Let's find some
               goodies!
             </p>
-            <Link href="/">
-              {/* Replace <InteractiveHoverButton variant="contained">Start Shopping</InteractiveHoverButton> */}
-              <InteractiveHoverButton className="bg-orange-600 text-white shadow-md px-6 py-2 rounded-full hover:opacity-90 transition-opacity">
-                Start Shopping
-              </InteractiveHoverButton>
-            </Link>
+            <StorefrontButton asChild className="rounded-full bg-orange-600 px-6 text-white">
+              <Link href="/">Start Shopping</Link>
+            </StorefrontButton>
           </CardContent>
         </Card>
       ) : (
@@ -107,16 +105,23 @@ export default function CartPage() {
                 key={item.id}
                 className="flex flex-col sm:flex-row items-center gap-4 p-4 shadow-sm"
               >
-                <Image
-                  src={item.imageUrl}
-                  alt={item.name}
-                  width={100}
-                  height={100}
-                  className="rounded-md object-cover aspect-square"
-                  data-ai-hint={item.aiHint}
-                />
+                {item.box ? (
+                  <div className="grid h-24 w-24 shrink-0 place-items-center rounded-md bg-muted">
+                    <Package aria-hidden="true" className="h-8 w-8 text-primary" />
+                  </div>
+                ) : (
+                  <Image
+                    src={item.imageUrl}
+                    alt={item.name}
+                    width={100}
+                    height={100}
+                    className="rounded-md object-cover aspect-square"
+                    data-ai-hint={item.aiHint}
+                  />
+                )}
                 <Column className="flex-grow text-center sm:text-left">
                   <h2 className="text-lg font-medium">{item.name}</h2>
+                  <BoxContents box={item.box} />
                   <p className="text-sm text-muted-foreground">
                     ₹
                     {typeof item.price === "number" && !isNaN(item.price)
@@ -215,12 +220,9 @@ export default function CartPage() {
                 </Row>
               </CardContent>
               <CardFooter>
-                {/* Replace <InteractiveHoverButton variant="contained" className="w-full">Proceed to Checkout</InteractiveHoverButton> */}
-                <Link href="/checkout" className="w-full">
-                  <InteractiveHoverButton className="w-full bg-orange-600 text-white shadow-md px-6 py-2 rounded-full hover:opacity-90 transition-opacity">
-                    Proceed to Checkout
-                  </InteractiveHoverButton>
-                </Link>
+                <StorefrontButton asChild className="w-full rounded-full bg-orange-600 px-6 text-white">
+                  <Link href="/checkout">Proceed to Checkout</Link>
+                </StorefrontButton>
               </CardFooter>
             </Card>
           </Box>

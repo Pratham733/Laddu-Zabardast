@@ -110,10 +110,16 @@ func (u UserResponsePacket) MarshalJSON() ([]byte, error) {
 	})
 }
 
+type AddressMutationResponse struct {
+	Message   string                  `json:"message"`
+	AddressID string                  `json:"addressId"`
+	Addresses []AddressResponsePacket `json:"addresses"`
+}
+
 type UpdateProfileRequestPacket struct {
-	FirstName string `json:"firstName,omitempty" bson:"firstName,omitempty"`
-	LastName  string `json:"lastName,omitempty" bson:"lastName,omitempty"`
-	Phone     string `json:"phone,omitempty" bson:"phone,omitempty"`
+	FirstName string  `json:"firstName,omitempty" bson:"firstName,omitempty"`
+	LastName  string  `json:"lastName,omitempty" bson:"lastName,omitempty"`
+	Phone     *string `json:"phone,omitempty" bson:"phone,omitempty"`
 }
 
 type UpdateProfileRequest = UpdateProfileRequestPacket
@@ -229,8 +235,6 @@ func UserToPacket(u User) UserPacket {
 		addrs = append(addrs, AddressModelToPacket(a))
 	}
 
-	isAdmin := u.Role == RoleAdmin || u.Email == AdminEmail
-
 	return UserPacket{
 		ID:        u.ID,
 		UserID:    u.ID,
@@ -239,8 +243,8 @@ func UserToPacket(u User) UserPacket {
 		LastName:  u.LastName,
 		Email:     u.Email,
 		Phone:     u.Phone,
-		Role:      u.Role,
-		IsAdmin:   isAdmin,
+		Role:      u.EffectiveRole(),
+		IsAdmin:   u.IsAdmin(),
 		PhotoURL:  u.PhotoURL,
 		Picture:   u.Picture,
 		Addresses: addrs,

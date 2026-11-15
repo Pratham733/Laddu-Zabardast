@@ -31,3 +31,24 @@ func fetchAllProducts(ctx context.Context) []ProductPacket {
 func GenerateProductKey(name string) string {
 	return strings.ToLower(strings.ReplaceAll(strings.TrimSpace(name), " ", "_"))
 }
+
+// AvailableByID loads the current catalog entries used to price cart and order lines.
+func AvailableByID(ctx context.Context, ids []string) (map[string]Product, error) {
+	byID := make(map[string]Product, len(ids))
+	if len(ids) == 0 {
+		return byID, nil
+	}
+	cursor, err := getCollection().Find(ctx, bson.M{"_id": bson.M{"$in": ids}, "available": true})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	for cursor.Next(ctx) {
+		var product Product
+		if err := cursor.Decode(&product); err != nil {
+			return nil, err
+		}
+		byID[product.ID] = product
+	}
+	return byID, cursor.Err()
+}

@@ -6,6 +6,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/Pratham733/laddu-zabardast-be/src/config"
+
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"go.mongodb.org/mongo-driver/v2/mongo/readpref"
@@ -49,6 +51,9 @@ const DefaultDB = "laddu_zabardast"
 func GetCollection(dbName string, colName string) *mongo.Collection {
 	if Client == nil {
 		log.Fatal("Database client is not initialized. Call Connect first.")
+	}
+	if dbName == DefaultDB && config.AppConfig.MasterMongo.Database != "" {
+		dbName = config.AppConfig.MasterMongo.Database
 	}
 	return Client.Database(dbName).Collection(colName)
 }

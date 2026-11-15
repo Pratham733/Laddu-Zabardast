@@ -1,3 +1,5 @@
+import { OrderInstructions } from "@/components/order-instructions";
+import { BoxContents } from "@/components/box-contents";
 import React from "react";
 
 import { useEffect, useState } from "react";
@@ -61,6 +63,7 @@ import {
   deleteProduct,
   getProducts,
   updateProduct,
+  uploadProductImage,
 } from "@/routes/products";
 import { updateOrderStatus, updatePaymentStatus } from "@/routes/orders";
 import {
@@ -270,7 +273,7 @@ function DraggableBannerItem({
 }
 
 export default function AdminPage() {
-  const { token } = useAuth();
+  const { user } = useAuth();
   const [adminTab, setAdminTab] = useState<"product" | "banners">("product");
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
@@ -324,8 +327,8 @@ export default function AdminPage() {
         setIsLoadingOrders(false);
       }
     };
-    if (token) fetchOrders();
-  }, [token]);
+    if (user?.role === "admin") fetchOrders();
+  }, [user?.role]);
 
   useEffect(() => {
     async function fetchProducts() {
@@ -548,15 +551,21 @@ export default function AdminPage() {
     try {
       const form = event.currentTarget;
       const formData = new FormData(form);
+      const file = formData.get("imageFile");
+      const imageUrl = file instanceof File && file.size > 0
+        ? (await uploadProductImage(file)).imageUrl
+        : String(formData.get("imageUrl") ?? "").trim();
+      if (!imageUrl) throw new Error("Provide a product image URL or upload a file.");
       const product = {
         name: formData.get("name") as string,
         price: parseFloat(formData.get("price") as string),
         category: formData.get("category") as "laddu" | "pickle",
         description: formData.get("description") as string,
-        imageUrl: formData.get("imageUrl") as string,
+        imageUrl,
       };
 
       const data = await addProduct(product);
+      setProducts(data.products || []);
 
       toast({
         title: "Product Added",
@@ -785,6 +794,10 @@ export default function AdminPage() {
                     multiline
                     maxRows={4}
                   />
+                  <Label htmlFor="product-image-file" className="block mt-3 mb-1">
+                    Or upload an image
+                  </Label>
+                  <Input id="product-image-file" name="imageFile" type="file" accept="image/jpeg,image/png,image/webp" />
                 </div>
                 <Button
                   type="submit"
@@ -1197,7 +1210,8 @@ export default function AdminPage() {
                             )}
                             {order.paymentMethod &&
                               (order.paymentMethod.toLowerCase() === "cod" ||
-                                order.paymentMethod.toLowerCase() === "cash") &&
+                                order.paymentMethod.toLowerCase() === "cash" ||
+                                order.paymentMethod.toLowerCase() === "upi") &&
                               order.paymentStatus !== "paid" &&
                               order.paymentStatus !== "completed" && (
                                 <InteractiveHoverButton
@@ -1241,6 +1255,7 @@ export default function AdminPage() {
                                 <div className="font-semibold text-base mb-1 text-primary dark:text-yellow-400">
                                   Order Details
                                 </div>
+                                <OrderInstructions instructions={order.instructions} />
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                   <div>
                                     <div className="font-semibold mb-1 text-secondary dark:text-blue-400">
@@ -1339,6 +1354,7 @@ export default function AdminPage() {
                                         >
                                           <td className="px-2 py-1 dark:text-zinc-100">
                                             {item.name}
+                                            <BoxContents box={item.box} />
                                           </td>
                                           <td className="px-2 py-1 text-center dark:text-zinc-100">
                                             {item.quantity}

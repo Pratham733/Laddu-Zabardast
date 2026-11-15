@@ -4,3 +4,4 @@ export * from './order';
 export * from './review';
 export * from './cart';
 export * from './banner';
+export * from './box';

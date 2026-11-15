@@ -15,23 +15,18 @@ import { Button } from "@mui/material";
 import { ShoppingCart, Heart, HeartIcon } from "lucide-react";
 import { useCart, useWishlist, toast } from "@/hooks";
 import { motion } from "framer-motion";
-import { useRouter } from "next/navigation";
+import { Link } from "react-router-dom";
 import { InteractiveHoverButton } from "@/components/magicui/interactive-hover-button";
 
 interface ProductCardProps {
   product: Product;
-  onClick?: () => void;
-}
-
-function slugifyName(name: string) {
-  return encodeURIComponent(name.toLowerCase().replace(/\s+/g, "-"));
 }
 
 export function ProductCard({ product }: ProductCardProps) {
   const { addToCart } = useCart();
   const { wishlist, addToWishlist, removeFromWishlist } = useWishlist();
   const [imgLoaded, setImgLoaded] = useState(false);
-  const router = useRouter();
+  const canPurchase = Boolean(product.id) && product.available !== false;
 
   // Memoize wishlist check for performance
   const isProductInWishlist = useMemo(
@@ -47,6 +42,7 @@ export function ProductCard({ product }: ProductCardProps) {
   }, [isProductInWishlist, removeFromWishlist, addToWishlist, product]);
 
   const handleAddToCart = useCallback(() => {
+    if (!canPurchase) return;
     addToCart(product);
     const price =
       typeof product.price === "string"
@@ -57,12 +53,25 @@ export function ProductCard({ product }: ProductCardProps) {
       title: `${product.name} added to cart`,
       description: `Price: ₹${formattedPrice}`,
     });
-  }, [addToCart, product]);
+  }, [addToCart, canPurchase, product]);
 
   // Handler to prevent click bubbling from action buttons
   const stopPropagation = useCallback(
     (e: React.MouseEvent) => e.stopPropagation(),
     [],
+  );
+
+  const productImage = (
+    <Image
+      src={product.imageUrl}
+      alt={product.name}
+      width={400}
+      height={300}
+      className={`object-cover w-full h-full transition-transform duration-300 hover:scale-105 ${imgLoaded ? "" : "opacity-0"}`}
+      data-ai-hint={product.aiHint}
+      priority={true}
+      onLoad={() => setImgLoaded(true)}
+    />
   );
 
   return (
@@ -77,25 +86,28 @@ export function ProductCard({ product }: ProductCardProps) {
         <CardHeader className="p-0 relative bg-muted/30">
           <div className="w-full aspect-[4/3] min-h-[180px] max-h-[240px] flex items-center justify-center overflow-hidden bg-white rounded-t-xl relative">
             {!imgLoaded && (
-              <div className="absolute inset-0 flex items-center justify-center bg-muted animate-pulse z-10">
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-muted animate-pulse z-10">
                 <span className="w-12 h-12 rounded-full bg-gradient-to-tr from-primary/30 to-primary/10 blur-sm" />
               </div>
             )}
-            <Image
-              src={product.imageUrl}
-              alt={product.name}
-              width={400}
-              height={300}
-              className={`object-cover w-full h-full transition-transform duration-300 hover:scale-105 ${imgLoaded ? "" : "opacity-0"}`}
-              data-ai-hint={product.aiHint}
-              priority={true}
-              onLoad={() => setImgLoaded(true)}
-            />
+            {product.id ? (
+              <Link
+                to={`/product/${encodeURIComponent(product.id)}`}
+                aria-label={`View details for ${product.name}`}
+                className="block h-full w-full"
+              >
+                {productImage}
+              </Link>
+            ) : (
+              productImage
+            )}
           </div>
         </CardHeader>
         <CardContent className="p-4 flex-grow">
           <CardTitle className="text-lg font-semibold mb-1">
-            {product.name}
+            {product.id ? (
+              <Link to={`/product/${encodeURIComponent(product.id)}`}>{product.name}</Link>
+            ) : product.name}
           </CardTitle>
           {product.description && (
             <CardDescription className="text-sm text-muted-foreground mb-2 line-clamp-2">
@@ -118,7 +130,7 @@ export function ProductCard({ product }: ProductCardProps) {
               stopPropagation(e);
               handleAddToWishlist();
             }}
-            aria-label="Add to Wishlist"
+            aria-label={`${isProductInWishlist ? "Remove from" : "Add to"} Wishlist: ${product.name}`}
             className="transition-colors duration-200 h-10"
           >
             {isProductInWishlist ? (
@@ -129,6 +141,7 @@ export function ProductCard({ product }: ProductCardProps) {
           </Button>
 
           <InteractiveHoverButton
+            disabled={!canPurchase}
             className="w-[80%] bg-orange-600 text-white shadow-md hover:opacity-90 transition-opacity flex items-center justify-center gap-2 h-10"
             onClick={(e) => {
               stopPropagation(e);
@@ -137,7 +150,7 @@ export function ProductCard({ product }: ProductCardProps) {
           >
             <div className="flex items-center gap-2">
               <ShoppingCart className="h-4 w-4" />
-              <span>Add</span>
+              <span>{canPurchase ? "Add" : "Unavailable"}</span>
             </div>
           </InteractiveHoverButton>
         </CardFooter>

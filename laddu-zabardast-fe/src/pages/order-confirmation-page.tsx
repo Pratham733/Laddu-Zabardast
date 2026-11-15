@@ -1,19 +1,17 @@
-// src/app/order-confirmation/page.tsx
-
+import { OrderInstructions } from "@/components/order-instructions";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@mui/material";
 import { Check, Download, FileText } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useAuth } from "@/hooks";
 import { OrderSummary } from "@/components/order-summary";
-import { AnimatePresence, motion } from "framer-motion";
-import { InteractiveHoverButton } from "@/components/magicui/interactive-hover-button";
+import { motion } from "framer-motion";
+import { Button as StorefrontButton } from "@/components/ui/button-new";
 import { ConfettiFireworks } from "@/components/magicui/confetti";
 import { generateInvoice } from "@/routes/orders";
 import { getOrderDetails } from "@/queries";
 import type { Order } from "@/models";
-import { Row, Column, Box } from "@/components/ui/layout";
+import { Row, Box } from "@/components/ui/layout";
 
 export default function OrderConfirmationPage() {
   const searchParams = useSearchParams();
@@ -23,7 +21,7 @@ export default function OrderConfirmationPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [downloadLoading, setDownloadLoading] = useState(false);
-  const { user, token } = useAuth();
+  const [invoiceError, setInvoiceError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchOrder = async () => {
@@ -36,6 +34,7 @@ export default function OrderConfirmationPage() {
 
       setIsLoading(true);
       setError(null);
+      setOrder(null);
 
       try {
         console.log(`Fetching order details for order ID: ${orderId}`);
@@ -58,61 +57,25 @@ export default function OrderConfirmationPage() {
   }, [orderId]);
 
   const downloadInvoice = async () => {
-    const oid = order?.id;
-    if (!oid) {
-      console.error("Order ID not available for invoice download.");
-      return;
-    }
-    if (!user && !token) {
-      alert("You must be logged in to download the invoice.");
-      return;
-    }
+    if (!order?.id) return;
+    setInvoiceError(null);
     setDownloadLoading(true);
     try {
-      console.log(`Generating invoice for order ID: ${oid}`);
-      const res = await generateInvoice(oid);
-      // Log status and headers for diagnostics
-      console.log("Invoice download response status:", res.status);
-      console.log(
-        "Invoice download response headers:",
-        Array.from(res.headers.entries()),
-      );
-      if (!res.ok) {
-        let backendError = await res.text();
-        let errorMsg = `Failed to generate invoice. Status: ${res.status}`;
-        try {
-          const errJson = JSON.parse(backendError);
-          if (errJson.error) errorMsg += `\n${errJson.error}`;
-        } catch {
-          if (backendError) errorMsg += `\n${backendError}`;
-        }
-        alert(errorMsg);
-        console.error("Invoice download failed:", errorMsg);
-        return;
+      const response = await generateInvoice(order.id);
+      if (!response.headers.get("content-type")?.includes("application/pdf")) {
+        throw new Error("The server did not return a PDF.");
       }
-      // Check content-type and content-disposition
-      const contentType = res.headers.get("content-type");
-      const contentDisposition = res.headers.get("content-disposition");
-      console.log("Content-Type:", contentType);
-      console.log("Content-Disposition:", contentDisposition);
-      if (!contentType?.includes("pdf")) {
-        alert(`Unexpected content-type: ${contentType || "none"}`);
-        return;
-      }
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
+      const url = URL.createObjectURL(await response.blob());
       const link = document.createElement("a");
       link.href = url;
-      link.download = `invoice-${oid}.pdf`;
+      link.download = `invoice-${order.id}.pdf`;
       document.body.appendChild(link);
       link.click();
       link.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error("Error downloading invoice:", err);
-      alert(
-        `Could not download invoice. ${err instanceof Error ? err.message : ""}`,
-      );
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      const detail = error instanceof Error ? ` ${error.message}` : "";
+      setInvoiceError(`Could not download the invoice.${detail}`);
     } finally {
       setDownloadLoading(false);
     }
@@ -137,7 +100,7 @@ export default function OrderConfirmationPage() {
   return (
     <main className="container mx-auto px-4 py-8 md:px-6 md:py-12 flex flex-col items-center justify-center min-h-[70vh]">
       {/* Confetti effect triggers on mount */}
-      <ConfettiFireworks />
+      {order && <ConfettiFireworks />}
       <motion.div
         className="text-center space-y-6 max-w-2xl w-full"
         initial={{ opacity: 0, y: 40 }}
@@ -162,7 +125,7 @@ export default function OrderConfirmationPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.5 }}
         >
-          Order Confirmed!
+          {order ? "Order Confirmed!" : "Order confirmation unavailable"}
         </motion.h1>
         <motion.p
           className="text-lg text-muted-foreground mb-2"
@@ -170,7 +133,7 @@ export default function OrderConfirmationPage() {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3, duration: 0.5 }}
         >
-          Thank you for your purchase. Your order has been successfully placed.
+          {order && "Thank you for your purchase. Your order has been placed."}
         </motion.p>
         {error && <p className="text-red-500">{error}</p>}
         {order && (
@@ -187,19 +150,16 @@ export default function OrderConfirmationPage() {
                   {order.id}
                 </span>
               </Box>
-              <span className="text-xs text-green-600 font-medium">
-                A confirmation email has been sent to your email address.
-              </span>
             </Row>
             <Box className="mb-2">
               <span className="font-medium text-lg">Order Summary</span>
-              <OrderSummary items={order.items as any} />
+              <OrderSummary items={order.items} />
             </Box>
+            <OrderInstructions instructions={order.instructions} />
             <Row className="flex-col md:flex-row md:items-center md:justify-between gap-2 mt-4">
-              <Box className="text-sm text-muted-foreground">
-                {/* <span>Status:</span> <span className="font-semibold text-primary">{order.status}</span> */}
-                {/* <span className="ml-4">Placed on: <span className="font-semibold">{new Date(order.date).toLocaleString()}</span></span> */}
-              </Box>
+              {order.paymentMethod?.toLowerCase() === "cod" && (
+                <p className="text-sm text-muted-foreground">Cash on delivery</p>
+              )}
               <Box className="text-xl font-bold text-right text-primary">
                 Total: ₹{(order.totalAmount || 0).toFixed(2)}
               </Box>
@@ -212,19 +172,25 @@ export default function OrderConfirmationPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5, duration: 0.5 }}
         >
-          <Link href="/">
-            <InteractiveHoverButton className="bg-orange-600 text-white shadow-md px-6 py-2 rounded-full hover:opacity-90 transition-opacity">
-              Continue Shopping
-            </InteractiveHoverButton>
-          </Link>
-          <Link href="/orders">
-            <InteractiveHoverButton className="border border-gray-300 text-gray-900 bg-white shadow-md px-6 py-2 rounded-full hover:bg-gray-100 transition-colors flex items-center">
-              <Row className="items-center">
-                <FileText className="mr-2 h-4 w-4" /> View Orders
-              </Row>
-            </InteractiveHoverButton>
-          </Link>
+          <StorefrontButton asChild className="rounded-full bg-orange-600 px-6 text-white">
+            <Link href="/">Continue Shopping</Link>
+          </StorefrontButton>
+          {order?.id && (
+            <Button
+              type="button"
+              variant="outlined"
+              startIcon={<Download className="h-4 w-4" />}
+              disabled={downloadLoading}
+              onClick={downloadInvoice}
+            >
+              {downloadLoading ? "Downloading invoice…" : "Download invoice"}
+            </Button>
+          )}
+          <StorefrontButton asChild variant="outline" className="rounded-full px-6">
+            <Link href="/orders"><FileText className="h-4 w-4" /> View Orders</Link>
+          </StorefrontButton>
         </motion.div>
+        {invoiceError && <p role="alert" className="text-sm text-destructive">{invoiceError}</p>}
       </motion.div>
     </main>
   );

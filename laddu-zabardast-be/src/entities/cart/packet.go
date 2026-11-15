@@ -1,15 +1,18 @@
 package cart
 
+import "github.com/Pratham733/laddu-zabardast-be/src/entities/box"
+
 // CartItemPacket represents a cart line item in API request and response bodies.
 type CartItemPacket struct {
-	ID          string  `json:"id"`
-	ProductID   string  `json:"productId,omitempty"`
-	Name        string  `json:"name"`
-	Description string  `json:"description,omitempty"`
-	Price       float64 `json:"price"`
-	ImageUrl    string  `json:"imageUrl,omitempty"`
-	Category    string  `json:"category,omitempty"`
-	Quantity    int     `json:"quantity"`
+	Box         *box.Selection `json:"box,omitempty"`
+	ID          string         `json:"id"`
+	ProductID   string         `json:"productId,omitempty"`
+	Name        string         `json:"name"`
+	Description string         `json:"description,omitempty"`
+	Price       float64        `json:"price"`
+	ImageUrl    string         `json:"imageUrl,omitempty"`
+	Category    string         `json:"category,omitempty"`
+	Quantity    int            `json:"quantity"`
 }
 
 type CartPayloadPacket struct {
@@ -37,6 +40,7 @@ func CartItemModelToPacket(item CartItem) CartItemPacket {
 		Name:        item.Name,
 		Description: item.Description,
 		Price:       item.Price,
+		Box:         item.Box,
 		ImageUrl:    item.ImageUrl,
 		Category:    item.Category,
 		Quantity:    item.Quantity,
@@ -50,6 +54,7 @@ func CartItemPacketToModel(p CartItemPacket) CartItem {
 		Name:        p.Name,
 		Description: p.Description,
 		Price:       p.Price,
+		Box:         p.Box,
 		ImageUrl:    p.ImageUrl,
 		Category:    p.Category,
 		Quantity:    p.Quantity,

@@ -1,14 +1,15 @@
 package cart
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 	"time"
 
 	utils "github.com/Pratham733/laddu-zabardast-be/src"
-	"github.com/Pratham733/laddu-zabardast-be/src/db"
-	"github.com/Pratham733/laddu-zabardast-be/src/entities/product"
+	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
@@ -17,17 +18,27 @@ func GetCart(w http.ResponseWriter, r *http.Request) (*GetCartResponsePacket, er
 	if err != nil {
 		return nil, err
 	}
+	if mux.Vars(r)["userId"] != userId {
+		return nil, errors.New("account does not match request")
+	}
 
 	collection := getCollection()
 	var userCart UserCart
 	err = collection.FindOne(r.Context(), bson.M{"_id": userId}).Decode(&userCart)
-	if err != nil || userCart.Items == nil {
+	if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
+		return nil, err
+	}
+	if userCart.Items == nil {
 		return &GetCartResponsePacket{
 			Items: []CartItemPacket{},
 		}, nil
 	}
 
-	packets := CartItemsToPacketList(userCart.Items)
+	items, err := refreshCartItems(r.Context(), userCart.Items, false)
+	if err != nil {
+		return nil, err
+	}
+	packets := CartItemsToPacketList(items)
 	return &GetCartResponsePacket{
 		Items: packets,
 	}, nil
@@ -38,23 +49,22 @@ func UpdateCart(w http.ResponseWriter, r *http.Request, payload CartPayloadPacke
 	if err != nil {
 		return nil, err
 	}
+	if mux.Vars(r)["userId"] != userId {
+		return nil, errors.New("account does not match request")
+	}
 
 	err = validateCartPayload(payload)
 	if err != nil {
 		return nil, err
 	}
 
-	prodCol := db.GetCollection(db.DefaultDB, product.CollectionProducts)
-	itemsToSave := make([]CartItem, 0, len(payload.Items))
-
-	for _, itemPacket := range payload.Items {
-		pID := strings.TrimSpace(itemPacket.ProductID)
-		itemModel := CartItemPacketToModel(itemPacket)
-		itemModel.ID = pID
-		itemModel.ProductID = pID
-
-		enrichCartItem(r.Context(), &itemModel, prodCol)
-		itemsToSave = append(itemsToSave, itemModel)
+	items := make([]CartItem, 0, len(payload.Items))
+	for _, item := range payload.Items {
+		items = append(items, CartItem{ProductID: strings.TrimSpace(item.ProductID), Quantity: item.Quantity, Box: item.Box})
+	}
+	itemsToSave, err := refreshCartItems(r.Context(), items, true)
+	if err != nil {
+		return nil, err
 	}
 
 	cartRecord := UserCart{

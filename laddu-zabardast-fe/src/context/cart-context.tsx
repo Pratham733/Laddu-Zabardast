@@ -1,19 +1,21 @@
-import type { Product, CartItem } from "@/models";
+import type { Product, CartItem, LadduBox } from "@/models";
 import React, {
   createContext,
-  useContext,
   useState,
   ReactNode,
   useEffect,
   useMemo,
   useRef,
 } from "react";
+import { cartLineInput, type CartLineInput, type CartResponse } from "@/packets/cart";
 import { getCart, updateCart } from "@/routes/cart";
 import { useAuth } from "@/hooks/use-auth";
 
 interface CartContextType {
   cart: CartItem[];
+  isInitialised: boolean;
   addToCart: (product: Product) => void;
+  addBox: (box: LadduBox) => Promise<void>;
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
@@ -26,93 +28,104 @@ export const CartContext = createContext<CartContextType | undefined>(
 
 const CART_STORAGE_KEY = "ladooExpressCart";
 
+function readGuestCart(): CartItem[] {
+  try {
+    const items = JSON.parse(localStorage.getItem(CART_STORAGE_KEY) ?? "[]");
+    return Array.isArray(items) ? items : [];
+  } catch {
+    return [];
+  }
+}
 
+function cartItemsFromResponse({ items }: CartResponse): CartItem[] {
+  return items.map((item) => ({ ...item, id: item.productId ?? item.id }));
+}
+
+function matchesBox(item: CartItem, box: LadduBox): boolean {
+  const existing = item.box;
+  return existing?.size === box.size &&
+    existing.items.length === box.items.length &&
+    box.items.every((choice) => existing.items.some((stored) =>
+      stored.productId === choice.productId && stored.quantity === choice.quantity
+    ));
+}
 
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const { user, token } = useAuth();
-  const [cart, setCart] = useState<CartItem[]>(() => {
-    if (typeof window !== "undefined") {
-      const savedCart = localStorage.getItem(CART_STORAGE_KEY);
-      return savedCart ? JSON.parse(savedCart) : [];
-    }
-    return [];
-  });
-  const [isInitialised, setIsInitialised] = useState(false);
-  const prevCartRef = useRef<string>("");
+  const userId = user?.userId;
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [loadedOwner, setLoadedOwner] = useState<string | null>(null);
+  const owner = userId ?? "";
+  const isInitialised = owner === loadedOwner;
+  const persistedCart = useRef("");
+  const pendingSave = useRef(Promise.resolve());
+  const currentOwner = useRef(owner);
+  currentOwner.current = owner;
 
-  // Helper to sanitize cart items
-  function sanitizeCartItems(items: any[]): CartItem[] {
-    return (items || [])
-      .map((item) => {
-        const id = item.productId ?? item.id;
-        if (!id) return null;
-        return {
-          ...item,
-          price:
-            typeof item.price === "number" && !isNaN(item.price)
-              ? item.price
-              : 0,
-          quantity:
-            typeof item.quantity === "number" && item.quantity > 0
-              ? item.quantity
-              : 1,
-          id: String(id),
-          productId: String(id),
-        };
-      })
-      .filter((item): item is CartItem => item !== null);
-  }
+  const saveCart = (id: string, items: CartLineInput[]) => {
+    const save = pendingSave.current.then(() => updateCart(id, items, token ?? undefined));
+    pendingSave.current = save.then(() => {}, () => {});
+    return save;
+  };
 
-  // Load cart from backend or localStorage on mount or user change
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!user || !user.userId) {
-      // Not logged in: load from localStorage
-      const saved = localStorage.getItem(CART_STORAGE_KEY);
-      setCart(saved ? sanitizeCartItems(JSON.parse(saved)) : []);
-      setIsInitialised(true);
-      return;
-    }
-    // Logged in: fetch from backend
-    getCart(user.userId, token ?? undefined)
-      .then((data) => {
-        // Only set cart if backend returns items
-        if (Array.isArray(data.items)) {
-          setCart(sanitizeCartItems(data.items));
-        }
-        setIsInitialised(true);
-      })
-      .catch(() => {
-        // Do not clear cart on error, just mark as initialised
-        setIsInitialised(true);
-      });
-  }, [user, token]);
+    let active = true;
+    const load = async () => {
+      try {
+        const items = userId
+          ? cartItemsFromResponse(await getCart(userId, token ?? undefined))
+          : readGuestCart();
+        if (!active) return;
+        persistedCart.current = JSON.stringify(items);
+        setCart(items);
+        setLoadedOwner(owner);
+      } catch (error) {
+        if (active) console.error("Could not load cart:", error);
+      }
+    };
+    void load();
+    return () => { active = false; };
+  }, [owner, userId, token]);
 
-  // Save cart to localStorage (for guests) or backend (for logged-in users)
   useEffect(() => {
     if (!isInitialised) return;
-    if (typeof window === "undefined") return;
-    const cartString = JSON.stringify(cart);
-    if (prevCartRef.current === cartString) return;
-    prevCartRef.current = cartString;
-    if (!user || !user.userId) {
-      localStorage.setItem(CART_STORAGE_KEY, cartString);
-    } else {
-      // Save to backend
-      const itemsToSave = cart.map((item) => {
-        if (!item.id) {
-          throw new Error("Cart item missing product ID");
-        }
-        return {
-          productId: item.id,
-          quantity: item.quantity,
-        };
-      });
-      updateCart(user.userId, itemsToSave, token ?? undefined);
+    const serialized = JSON.stringify(cart);
+    if (serialized === persistedCart.current) return;
+    persistedCart.current = serialized;
+    if (!userId) {
+      localStorage.setItem(CART_STORAGE_KEY, serialized);
+      return;
     }
-  }, [cart, user, token, isInitialised]);
+
+    void saveCart(userId, cart.map(cartLineInput)).catch((error) => {
+      console.error("Could not save cart:", error);
+    });
+  }, [cart, isInitialised, userId, token]);
+
+  const addBox = async (box: LadduBox) => {
+    if (!userId || !isInitialised) throw new Error("Your cart is still loading.");
+    const existing = cart.find((item) => matchesBox(item, box));
+    const lines = cart.map((item) =>
+      item === existing ? { box, quantity: item.quantity + 1 } : cartLineInput(item)
+    );
+    if (!existing) lines.push({ box, quantity: 1 });
+
+    const saved = cartItemsFromResponse(await saveCart(userId, lines));
+    if (currentOwner.current !== owner) return;
+    const savedBox = saved.find((item) => matchesBox(item, box));
+    if (!savedBox) throw new Error("The box could not be saved.");
+    persistedCart.current = JSON.stringify(saved);
+    setCart((current) => {
+      if (current === cart) return saved;
+      const currentBox = current.find((item) => matchesBox(item, box));
+      return currentBox
+        ? current.map((item) => item === currentBox ? { ...savedBox, quantity: item.quantity + 1 } : item)
+        : [...current, { ...savedBox, quantity: 1 }];
+    });
+  };
 
   const addToCart = (product: Product) => {
+    if (product.available === false) return;
     if (!product.id) {
       console.error("Product has no id, cannot add to cart:", product);
       return;
@@ -160,15 +173,16 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   // Memoize context value to prevent unnecessary re-renders
   const contextValue = useMemo(
     () => ({
-      cart,
+      cart: isInitialised ? cart : [],
       addToCart,
+      addBox,
       removeFromCart,
       updateQuantity,
       clearCart,
       getCartTotal,
       isInitialised,
     }),
-    [cart, isInitialised],
+    [cart, isInitialised, userId, token],
   );
 
   return (

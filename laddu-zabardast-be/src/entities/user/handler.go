@@ -1,6 +1,7 @@
 package user
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -114,136 +115,92 @@ func GetAddressesHandler(w http.ResponseWriter, r *http.Request) (*GetAddressesR
 	}, nil
 }
 
-func SaveAddressHandler(w http.ResponseWriter, r *http.Request, req AddressRequestPacket) (*utils.SuccessResponsePacket, error) {
-	userId, err := utils.GetUserID(r)
+func SaveAddressHandler(w http.ResponseWriter, r *http.Request, req AddressRequestPacket) (*AddressMutationResponse, error) {
+	return saveUserAddress(r, req, false)
+}
+
+func UpdateAddressHandler(w http.ResponseWriter, r *http.Request, req AddressRequestPacket) (*AddressMutationResponse, error) {
+	req.ID = mux.Vars(r)["id"]
+	return saveUserAddress(r, req, true)
+}
+
+func saveUserAddress(r *http.Request, req AddressRequestPacket, requireExisting bool) (*AddressMutationResponse, error) {
+	userID, err := utils.GetUserID(r)
 	if err != nil {
 		return nil, err
 	}
-
 	if err := validateSaveAddressReq(req); err != nil {
 		return nil, err
 	}
-
-	collection := getCollection()
-	var u User
-	err = collection.FindOne(r.Context(), bson.M{"_id": userId}).Decode(&u)
+	if req.ID == "" {
+		if requireExisting {
+			return nil, errors.New("address ID required")
+		}
+		req.ID = uuid.NewString()
+	}
+	address := Address{
+		ID: req.ID, Label: req.Label, Street: req.Street, City: req.City,
+		State: req.State, Country: req.Country, PostalCode: req.PostalCode, IsDefault: req.IsDefault,
+	}
+	addresses, err := writeUserAddress(r.Context(), userID, address, requireExisting)
 	if err != nil {
 		return nil, err
 	}
-
-	addressID := req.ID
-	if addressID == "" {
-		addressID = uuid.NewString()
-	}
-
-	newAddr := Address{
-		ID:         addressID,
-		Label:      req.Label,
-		Street:     req.Street,
-		City:       req.City,
-		State:      req.State,
-		Country:    req.Country,
-		PostalCode: req.PostalCode,
-		IsDefault:  req.IsDefault,
-	}
-
-	var updatedAddresses []Address
-	found := false
-	for _, a := range u.Addresses {
-		if a.ID == addressID {
-			updatedAddresses = append(updatedAddresses, newAddr)
-			found = true
-		} else {
-			if newAddr.IsDefault {
-				a.IsDefault = false
-			}
-			updatedAddresses = append(updatedAddresses, a)
-		}
-	}
-	if !found {
-		if newAddr.IsDefault {
-			for i := range updatedAddresses {
-				updatedAddresses[i].IsDefault = false
-			}
-		} else if len(updatedAddresses) == 0 {
-			newAddr.IsDefault = true
-		}
-		updatedAddresses = append(updatedAddresses, newAddr)
-	}
-
-	_, err = collection.UpdateOne(r.Context(), bson.M{"_id": userId}, bson.M{"$set": bson.M{"addresses": updatedAddresses}})
-	if err != nil {
-		return nil, err
-	}
-
-	return &utils.SuccessResponsePacket{
-		Message: "Address created successfully",
+	return &AddressMutationResponse{
+		Message: "Address saved successfully", AddressID: address.ID, Addresses: ModelAddressesToPacket(addresses),
 	}, nil
 }
 
-func UpdateAddressHandler(w http.ResponseWriter, r *http.Request, req AddressRequestPacket) (*utils.SuccessResponsePacket, error) {
-	userId, err := utils.GetUserID(r)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := validateSaveAddressReq(req); err != nil {
-		return nil, err
-	}
-
-	addressId := mux.Vars(r)["id"]
-	if addressId != "" {
-		req.ID = addressId
-	}
-
+func writeUserAddress(ctx context.Context, userID string, address Address, requireExisting bool) ([]Address, error) {
 	collection := getCollection()
-	var u User
-	err = collection.FindOne(r.Context(), bson.M{"_id": userId}).Decode(&u)
-	if err != nil {
-		return nil, err
-	}
+	for attempt := 0; attempt < 3; attempt++ {
+		var snapshot bson.Raw
+		if err := collection.FindOne(ctx, bson.M{"_id": userID}).Decode(&snapshot); err != nil {
+			return nil, err
+		}
+		original := snapshot.Lookup("addresses")
+		var account User
+		if err := bson.Unmarshal(snapshot, &account); err != nil {
+			return nil, err
+		}
 
-	var updatedAddresses []Address
-	found := false
-	for _, a := range u.Addresses {
-		if a.ID == req.ID {
-			newAddr := Address{
-				ID:         req.ID,
-				Label:      req.Label,
-				Street:     req.Street,
-				City:       req.City,
-				State:      req.State,
-				Country:    req.Country,
-				PostalCode: req.PostalCode,
-				IsDefault:  req.IsDefault,
+		next := address
+		if len(account.Addresses) == 0 && !requireExisting {
+			next.IsDefault = true
+		}
+		addresses := account.Addresses
+		found := false
+		for i, saved := range addresses {
+			if saved.ID == next.ID {
+				addresses[i] = next
+				found = true
+			} else if next.IsDefault {
+				addresses[i].IsDefault = false
 			}
-			if newAddr.IsDefault {
-				for i := range updatedAddresses {
-					updatedAddresses[i].IsDefault = false
-				}
+		}
+		if !found {
+			if requireExisting {
+				return nil, errors.New("address not found")
 			}
-			updatedAddresses = append(updatedAddresses, newAddr)
-			found = true
+			addresses = append(addresses, next)
+		}
+
+		// Match the address list we read so another add, edit or delete cannot be overwritten.
+		filter := bson.M{"_id": userID}
+		if original.Type == 0 {
+			filter["addresses"] = bson.M{"$exists": false}
 		} else {
-			if req.IsDefault {
-				a.IsDefault = false
-			}
-			updatedAddresses = append(updatedAddresses, a)
+			filter["addresses"] = original
+		}
+		result, err := collection.UpdateOne(ctx, filter, bson.M{"$set": bson.M{"addresses": addresses}})
+		if err != nil {
+			return nil, err
+		}
+		if result.MatchedCount == 1 {
+			return addresses, nil
 		}
 	}
-
-	if !found {
-		return nil, errors.New("address not found")
-	}
-
-	_, err = collection.UpdateOne(r.Context(), bson.M{"_id": userId}, bson.M{"$set": bson.M{"addresses": updatedAddresses}})
-	if err != nil {
-		return nil, err
-	}
-
-	return &utils.SuccessResponsePacket{
-		Message: "Address updated successfully",
-	}, nil
+	return nil, errors.New("addresses changed, please try again")
 }
 
 func DeleteAddressHandler(w http.ResponseWriter, r *http.Request) (*utils.SuccessResponsePacket, error) {

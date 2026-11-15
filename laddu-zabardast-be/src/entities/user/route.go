@@ -7,6 +7,7 @@ import (
 
 func RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/user", utils.WithResponse(GetUserHandler)).Methods("GET", "OPTIONS")
+	r.HandleFunc("/profile", utils.WithResponse(GetUserHandler)).Methods("GET", "OPTIONS")
 
 	r.HandleFunc("/update-profile", utils.WithBodyAndResponse(UpdateProfileHandler)).Methods("POST", "PUT", "OPTIONS")
 	r.HandleFunc("/change-password", utils.WithBodyAndResponse(ChangePasswordHandler)).Methods("POST", "OPTIONS")
@@ -22,10 +23,10 @@ func RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/addresses", utils.WithBodyAndResponse(SaveAddressHandler)).Methods("POST", "PUT", "OPTIONS")
 	r.HandleFunc("/addresses/{id}", utils.WithResponse(DeleteAddressHandler)).Methods("DELETE", "OPTIONS")
 
-	r.HandleFunc("/admin/users", utils.WithResponse(GetAppUsers)).Methods("GET", "OPTIONS")
-	r.HandleFunc("/admin/users/{id}", utils.WithResponse(GetAppUser)).Methods("GET", "OPTIONS")
-	r.HandleFunc("/admin/users/delete/{id}", utils.WithResponse(DeleteAppUser)).Methods("DELETE", "OPTIONS")
-	r.HandleFunc("/users", utils.WithResponse(GetAppUsers)).Methods("GET", "OPTIONS")
-	r.HandleFunc("/users/{id}", utils.WithResponse(GetAppUser)).Methods("GET", "OPTIONS")
-	r.HandleFunc("/users/{id}", utils.WithResponse(DeleteAppUser)).Methods("DELETE", "OPTIONS")
+	r.HandleFunc("/admin/users", AdminOnly(utils.WithResponse(GetAppUsers))).Methods("GET", "OPTIONS")
+	r.HandleFunc("/admin/users/{id}", AdminOnly(utils.WithResponse(GetAppUser))).Methods("GET", "OPTIONS")
+	r.HandleFunc("/admin/users/delete/{id}", AdminOnly(utils.WithResponse(DeleteAppUser))).Methods("DELETE", "OPTIONS")
+	r.HandleFunc("/users", AdminOnly(utils.WithResponse(GetAppUsers))).Methods("GET", "OPTIONS")
+	r.HandleFunc("/users/{id}", AdminOnly(utils.WithResponse(GetAppUser))).Methods("GET", "OPTIONS")
+	r.HandleFunc("/users/{id}", AdminOnly(utils.WithResponse(DeleteAppUser))).Methods("DELETE", "OPTIONS")
 }

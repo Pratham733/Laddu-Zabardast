@@ -2,14 +2,13 @@ package cart
 
 import (
 	"errors"
-	"strings"
+	"github.com/Pratham733/laddu-zabardast-be/src/entities/box"
 )
 
 func validateCartPayload(payload CartPayloadPacket) error {
 	for _, itemPacket := range payload.Items {
-		pID := strings.TrimSpace(itemPacket.ProductID)
-		if pID == "" {
-			return errors.New("empty productId")
+		if err := box.ValidateItem(itemPacket.ProductID, itemPacket.Box); err != nil {
+			return err
 		}
 		if itemPacket.Quantity <= 0 {
 			return errors.New("invalid quantity")

@@ -1,5 +1,5 @@
 import { apiClient } from './apiClient';
-import type { CartResponse } from '@/packets';
+import type { CartLineInput, CartResponse } from '@/packets/cart';
 
 export async function getCart(userId: string, token?: string): Promise<CartResponse> {
   if (!userId || !userId.trim()) {
@@ -15,7 +15,7 @@ export async function getCart(userId: string, token?: string): Promise<CartRespo
   });
 }
 
-export async function updateCart(userId: string, items: any[], token?: string): Promise<any> {
+export async function updateCart(userId: string, items: CartLineInput[], token?: string): Promise<CartResponse> {
   if (!userId || !userId.trim()) {
     throw new Error('User ID is required');
   }

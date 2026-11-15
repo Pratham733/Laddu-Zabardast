@@ -3,7 +3,9 @@ package order
 import (
 	"errors"
 	"strings"
+	"unicode/utf8"
 
+	"github.com/Pratham733/laddu-zabardast-be/src/entities/box"
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
@@ -29,9 +31,16 @@ func validateCreateOrderReq(req CreateOrderRequestPacket) error {
 		return errors.New("shipping details (name, email, city) are required")
 	}
 
+	if !isMailbox(strings.TrimSpace(req.ShippingDetails.Email)) {
+		return errors.New("enter a valid checkout email address")
+	}
+	if utf8.RuneCountInString(strings.TrimSpace(req.Instructions)) > 500 {
+		return errors.New("order instructions must be at most 500 characters")
+	}
+
 	for _, item := range req.Items {
-		if strings.TrimSpace(item.ProductID) == "" {
-			return errors.New("each order item must have a valid productId")
+		if err := box.ValidateItem(item.ProductID, item.Box); err != nil {
+			return err
 		}
 		if item.Quantity <= 0 {
 			return errors.New("each order item must have a quantity greater than zero")
@@ -47,41 +56,26 @@ func validateUpdateOrderStatus(id string, req UpdateOrderStatusRequestPacket) (b
 	}
 
 	updateFields := bson.M{}
-	status := strings.TrimSpace(req.OrderStatus)
-	if status != "" {
-		updateFields["orderStatus"] = status
-		updateFields["status"] = status
+	if status := strings.ToLower(strings.TrimSpace(req.OrderStatus)); status != "" {
+		switch status {
+		case OrderStatusPending, OrderStatusProcessing, OrderStatusShipped, OrderStatusDelivered, OrderStatusCancelled:
+			updateFields["orderStatus"] = status
+			updateFields["status"] = status
+		default:
+			return nil, errors.New("invalid orderStatus")
+		}
 	}
-	if pStatus := strings.TrimSpace(req.PaymentStatus); pStatus != "" {
-		updateFields["paymentStatus"] = pStatus
+	if status := strings.ToLower(strings.TrimSpace(req.PaymentStatus)); status != "" {
+		switch status {
+		case PaymentStatusPending, PaymentStatusPaid, PaymentStatusFailed, "completed":
+			updateFields["paymentStatus"] = status
+		default:
+			return nil, errors.New("invalid paymentStatus")
+		}
 	}
-
 	if len(updateFields) == 0 {
 		return nil, errors.New("no orderStatus or paymentStatus provided to update")
 	}
-
-	return updateFields, nil
-}
-
-func validatePatchOrderStatus(req UpdateOrderStatusRequestPacket) (bson.M, error) {
-	if strings.TrimSpace(req.OrderID) == "" {
-		return nil, errors.New("orderId is required in request body")
-	}
-
-	updateFields := bson.M{}
-	status := strings.TrimSpace(req.OrderStatus)
-	if status != "" {
-		updateFields["orderStatus"] = status
-		updateFields["status"] = status
-	}
-	if pStatus := strings.TrimSpace(req.PaymentStatus); pStatus != "" {
-		updateFields["paymentStatus"] = pStatus
-	}
-
-	if len(updateFields) == 0 {
-		return nil, errors.New("orderStatus or paymentStatus is required to update")
-	}
-
 	return updateFields, nil
 }
 
