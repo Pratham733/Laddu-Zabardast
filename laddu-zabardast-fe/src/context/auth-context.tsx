@@ -6,6 +6,8 @@ import React, {
   useRef,
   ReactNode,
 } from "react";
+import { NativeConnectionError } from "@/routes/apiClient";
+import { Button } from "@/components/ui/button-new";
 import { Loader2 } from "lucide-react";
 import type { AppUser } from "@/models";
 import { logout as apiLogout } from "@/routes/auth";
@@ -36,6 +38,7 @@ export const AuthContext = createContext<AuthContextType>({
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<AppUser | null>(null);
   const [token, setTokenState] = useState<string | null>(null);
+  const [connectionError, setConnectionError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isInitialised, setIsInitialised] = useState(false);
 
@@ -84,7 +87,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } else {
           setUser(null);
         }
-      } catch {
+      } catch (error) {
+        if (error instanceof NativeConnectionError) setConnectionError(true);
         setUser(null);
       } finally {
         setLoading(false);
@@ -108,6 +112,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }),
     [user, token, loading, isInitialised],
   );
+
+  if (connectionError) {
+    return (
+      <div className="mx-auto flex min-h-screen max-w-sm flex-col items-center justify-center gap-4 px-6 text-center">
+        <h1 className="text-xl font-semibold">Cannot reach the store</h1>
+        <p className="text-sm text-muted-foreground">Check your connection and try again.</p>
+        <Button onClick={() => window.location.reload()}>Try again</Button>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
