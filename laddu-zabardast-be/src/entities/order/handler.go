@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"math"
 	"net/http"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
 func GetOrders(w http.ResponseWriter, r *http.Request) (*GetAllOrdersResponsePacket, error) {
@@ -110,8 +112,8 @@ func CreateOrder(w http.ResponseWriter, r *http.Request, req CreateOrderRequestP
 		ShippingDetails:    shippingModel,
 		Items:              orderItems,
 		TotalAmount:        total,
-		OrderStatus:        OrderStatusProcessing,
-		Status:             OrderStatusProcessing,
+		OrderStatus:        OrderStatusPending,
+		Status:             OrderStatusPending,
 		PaymentStatus:      PaymentStatusPending,
 		PaymentMethod:      paymentMethod,
 		Date:               now.Format(time.RFC3339),
@@ -126,6 +128,14 @@ func CreateOrder(w http.ResponseWriter, r *http.Request, req CreateOrderRequestP
 		return nil, err
 	}
 
+	// The order is already committed. Keep it successful if archival is temporarily unavailable.
+	// The mail worker and authenticated invoice downloads can retry the same order ID.
+	invoiceCtx, cancelInvoice := context.WithTimeout(context.WithoutCancel(r.Context()), utils.DefaultTimeout)
+	defer cancelInvoice()
+	if _, err := issueInvoice(invoiceCtx, newOrder, time.Now); err != nil {
+		log.Printf("archive invoice for order %s: %v", newOrder.ID, err)
+	}
+
 	orderPacket := OrderToPacket(newOrder)
 	w.WriteHeader(http.StatusCreated)
 
@@ -137,46 +147,12 @@ func CreateOrder(w http.ResponseWriter, r *http.Request, req CreateOrderRequestP
 	}, nil
 }
 
-func UpdateOrder(w http.ResponseWriter, r *http.Request, req UpdateOrderStatusRequestPacket) (utils.SuccessResponsePacket, error) {
-	vars := mux.Vars(r)
-	id := vars["id"]
-	updateFields, err := validateUpdateOrderStatus(id, req)
-	if err != nil {
-		return utils.SuccessResponsePacket{}, err
-	}
-
-	collection := getCollection()
-	result, err := collection.UpdateOne(r.Context(), bson.M{"_id": id}, bson.M{"$set": updateFields})
-	if err != nil {
-		return utils.SuccessResponsePacket{}, err
-	}
-	if result.MatchedCount == 0 {
-		return utils.SuccessResponsePacket{}, errors.New("order not found")
-	}
-
-	return utils.SuccessResponsePacket{
-		Message: "Order updated successfully",
-	}, nil
+func UpdateOrder(_ http.ResponseWriter, r *http.Request, req UpdateOrderStatusRequestPacket) (utils.SuccessResponsePacket, error) {
+	return updateOrderFromRequest(r, mux.Vars(r)["id"], req)
 }
 
-func PatchOrder(w http.ResponseWriter, r *http.Request, req UpdateOrderStatusRequestPacket) (utils.SuccessResponsePacket, error) {
-	updateFields, err := validateUpdateOrderStatus(req.OrderID, req)
-	if err != nil {
-		return utils.SuccessResponsePacket{}, err
-	}
-
-	collection := getCollection()
-	result, err := collection.UpdateOne(r.Context(), bson.M{"_id": req.OrderID}, bson.M{"$set": updateFields})
-	if err != nil {
-		return utils.SuccessResponsePacket{}, err
-	}
-	if result.MatchedCount == 0 {
-		return utils.SuccessResponsePacket{}, errors.New("order not found")
-	}
-
-	return utils.SuccessResponsePacket{
-		Message: "Order updated successfully",
-	}, nil
+func PatchOrder(_ http.ResponseWriter, r *http.Request, req UpdateOrderStatusRequestPacket) (utils.SuccessResponsePacket, error) {
+	return updateOrderFromRequest(r, req.OrderID, req)
 }
 
 func DeleteOrder(w http.ResponseWriter, r *http.Request) (utils.SuccessResponsePacket, error) {
@@ -216,17 +192,37 @@ func GenerateInvoiceHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	filter["_id"] = orderId
-	var ord Order
-	err = getCollection().FindOne(ctx, filter).Decode(&ord)
-	if err != nil {
-		http.Error(w, "Order not found", http.StatusNotFound)
-		return
+	var invoice issuedInvoice
+	// Archived admin copies remain available if the order is removed from operations.
+	if _, restricted := filter["userId"]; !restricted {
+		err = invoiceCollection().FindOne(ctx, bson.M{"_id": orderId}).Decode(&invoice)
+		if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
+			http.Error(w, "Could not load the invoice", http.StatusServiceUnavailable)
+			return
+		}
+	}
+	if len(invoice.PDF) == 0 {
+		var ord Order
+		err = getCollection().FindOne(ctx, filter).Decode(&ord)
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			http.Error(w, "Order not found", http.StatusNotFound)
+			return
+		}
+		if err == nil {
+			invoice, err = issueInvoice(ctx, ord, time.Now)
+		}
+		if err != nil {
+			log.Printf("issue invoice: %v", err)
+			http.Error(w, "Could not issue the invoice. Please try again.", http.StatusServiceUnavailable)
+			return
+		}
 	}
 
-	pdfData := generatePDFBytes(ord)
-
+	pdfData := invoice.PDF
+	w.Header().Set("Cache-Control", "private, no-store")
 	w.Header().Set("Content-Type", "application/pdf")
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="invoice-%s.pdf"`, ord.ID))
+	w.Header().Set("Access-Control-Expose-Headers", "Content-Disposition")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, invoiceFilename(invoice)))
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(pdfData)))
 	w.WriteHeader(http.StatusOK)
 	w.Write(pdfData)
@@ -275,13 +271,17 @@ func priceOrder(ctx context.Context, items []OrderItemPacket) ([]OrderItem, floa
 
 		id := strings.TrimSpace(item.ProductID)
 		p, ok := catalog[id]
-		if !ok || p.Price <= 0 {
+		if !ok {
 			return nil, 0, fmt.Errorf("product %s is unavailable", id)
 		}
-		cents := math.Round(p.Price * 100)
+		choice, price, err := p.UnitPrice(item.Sweetener)
+		if err != nil {
+			return nil, 0, err
+		}
+		cents := math.Round(price * 100)
 		totalCents += cents * float64(item.Quantity)
 		priced = append(priced, OrderItem{
-			ID: p.ID, ProductID: p.ID, Name: p.Name,
+			ID: product.LineID(p.ID, choice), ProductID: p.ID, Name: p.Name, Sweetener: choice,
 			Price: cents / 100, Quantity: item.Quantity, ImageUrl: p.ImageUrl,
 		})
 	}

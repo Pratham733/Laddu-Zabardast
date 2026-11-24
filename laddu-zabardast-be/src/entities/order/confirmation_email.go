@@ -2,10 +2,14 @@ package order
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
 	"time"
+
+	"github.com/Pratham733/laddu-zabardast-be/src/config"
+	"github.com/Pratham733/laddu-zabardast-be/src/email"
 
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -14,6 +18,7 @@ import (
 )
 
 type confirmationEmail struct {
+	Event         string     `bson:"event,omitempty"`
 	Kind          string     `bson:"kind"`
 	To            string     `bson:"to"`
 	NextAttemptAt *time.Time `bson:"nextAttemptAt,omitempty"`
@@ -23,13 +28,16 @@ type confirmationEmail struct {
 }
 
 func StartConfirmationEmails(ctx context.Context) error {
-	settings, err := loadSMTPSettings()
+	settings, err := email.LoadSMTP()
 	if err != nil {
 		return err
 	}
 	if settings == nil {
 		log.Print("Order confirmation email is disabled. Set ORDER_SMTP_HOST or configure the local SMTP settings file to enable delivery.")
 		return nil
+	}
+	if !email.IsMailbox(orderAdminEmail()) {
+		return errors.New("ORDER_EMAIL_ADMIN must be a valid email address")
 	}
 	indexCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
@@ -45,17 +53,20 @@ func StartConfirmationEmails(ctx context.Context) error {
 }
 
 func newConfirmationEmails(customer string, now time.Time) []confirmationEmail {
-	admin := orderAdminEmail()
-	if !isMailbox(admin) {
-		return nil
-	}
-	return []confirmationEmail{
-		{Kind: "customer", To: customer, NextAttemptAt: &now},
-		{Kind: "admin", To: admin, NextAttemptAt: &now},
-	}
+	return newOrderEmails(customer, "", now)
 }
 
-func runConfirmationEmails(ctx context.Context, settings *smtpSettings) {
+func newOrderEmails(customer, event string, now time.Time) []confirmationEmail {
+	var notices []confirmationEmail
+	for _, recipient := range []struct{ kind, email string }{{"customer", customer}, {"admin", orderAdminEmail()}} {
+		if email.IsMailbox(recipient.email) {
+			notices = append(notices, confirmationEmail{Kind: recipient.kind, Event: event, To: recipient.email, NextAttemptAt: &now})
+		}
+	}
+	return notices
+}
+
+func runConfirmationEmails(ctx context.Context, settings *email.SMTP) {
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 	for ctx.Err() == nil {
@@ -74,7 +85,7 @@ func runConfirmationEmails(ctx context.Context, settings *smtpSettings) {
 	}
 }
 
-func sendNextConfirmation(ctx context.Context, settings *smtpSettings) (bool, error) {
+func sendNextConfirmation(ctx context.Context, settings *email.SMTP) (bool, error) {
 	col := getCollection()
 	lease := uuid.NewString()
 	claimCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -101,8 +112,11 @@ func sendNextConfirmation(ctx context.Context, settings *smtpSettings) (bool, er
 			continue
 		}
 		subject, body := confirmationMessage(ord, notice)
-		messageID := fmt.Sprintf("%s.%s@%s", ord.ID, notice.Kind, settings.senderDomain)
-		sendErr := settings.send(ctx, notice.To, messageID, subject, body)
+		messageID := fmt.Sprintf("%s.%s@%s", ord.ID, notice.Kind, settings.SenderDomain)
+		if notice.Event != "" {
+			messageID = fmt.Sprintf("%s.%s.%s@%s", ord.ID, notice.Kind, notice.Event, settings.SenderDomain)
+		}
+		sendErr := sendOrderEmail(ctx, settings, ord, notice, messageID, subject, body)
 
 		markCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
@@ -126,8 +140,42 @@ func sendNextConfirmation(ctx context.Context, settings *smtpSettings) (bool, er
 	return false, fmt.Errorf("order %s confirmation lease was missing", ord.ID)
 }
 
+func sendOrderEmail(ctx context.Context, sender *email.SMTP, ord Order, notice confirmationEmail, messageID, subject, body string) error {
+	if notice.Kind != "customer" || notice.Event != "" {
+		return sender.Send(ctx, notice.To, messageID, subject, body)
+	}
+	invoiceCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	invoice, err := issueInvoice(invoiceCtx, ord, time.Now)
+	if err != nil {
+		return err
+	}
+	return sender.Send(ctx, notice.To, messageID, subject, body+"\nYour invoice is attached.\n", email.Attachment{
+		Filename: invoiceFilename(invoice), ContentType: "application/pdf", Data: invoice.PDF,
+	})
+}
+
 func confirmationMessage(ord Order, notice confirmationEmail) (string, string) {
 	var body strings.Builder
+	if notice.Event == OrderStatusCancelled || notice.Event == OrderStatusDelivered {
+		label := "delivered"
+		if notice.Event == OrderStatusCancelled {
+			label = "cancelled"
+		}
+		fmt.Fprintf(&body, "Order %s has been %s.\n", ord.ID, label)
+		if notice.Kind == "admin" && ord.ShippingDetails.Name != "" {
+			fmt.Fprintf(&body, "Customer: %s\n", ord.ShippingDetails.Name)
+		}
+		if notice.Event == OrderStatusCancelled && (ord.PaymentStatus == PaymentStatusPaid || ord.PaymentStatus == "completed") {
+			body.WriteString("Payment was recorded for this order. Contact support to discuss the next steps.\n")
+		}
+		support := config.StoreSupport()
+		fmt.Fprintf(&body, "\nLaddu Zabardast support: %s\n", support.Email)
+		for _, phone := range support.Phones {
+			fmt.Fprintln(&body, phone)
+		}
+		return "Laddu Zabardast order " + label + " – " + ord.ID, body.String()
+	}
 	subject := "Laddu Zabardast order confirmed"
 	if notice.Kind == "admin" {
 		subject = "New Laddu Zabardast order"
@@ -143,7 +191,7 @@ func confirmationMessage(ord Order, notice confirmationEmail) (string, string) {
 	}
 	fmt.Fprintf(&body, "Order: %s\n\n", ord.ID)
 	for _, item := range ord.Items {
-		fmt.Fprintf(&body, "%d x %s - INR %.2f\n", item.Quantity, item.Name, float64(item.Quantity)*item.Price)
+		fmt.Fprintf(&body, "%d x %s - INR %.2f\n", item.Quantity, item.displayName(), float64(item.Quantity)*item.Price)
 		if item.Box != nil {
 			for _, laddu := range item.Box.Items {
 				fmt.Fprintf(&body, "  %d x %s per box\n", laddu.Quantity, laddu.Name)
