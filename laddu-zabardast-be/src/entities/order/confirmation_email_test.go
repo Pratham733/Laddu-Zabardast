@@ -2,6 +2,7 @@ package order
 
 import (
 	"bytes"
+	storeemail "github.com/Pratham733/laddu-zabardast-be/src/email"
 	"io"
 	"mime/quotedprintable"
 	"net/mail"
@@ -43,7 +44,7 @@ func TestConfirmationMessageIncludesInstructionsAndBoxContents(t *testing.T) {
 		t.Run(kind, func(t *testing.T) {
 			recipient := kind + "@example.test"
 			subject, body := confirmationMessage(ord, confirmationEmail{Kind: kind, To: recipient})
-			message, err := mail.ReadMessage(bytes.NewReader(formatMessage("orders@example.test", recipient, "fixture@example.test", subject, body)))
+			message, err := mail.ReadMessage(bytes.NewReader(storeemail.FormatMessage("orders@example.test", recipient, "fixture@example.test", subject, body)))
 			if err != nil {
 				t.Fatal(err)
 			}

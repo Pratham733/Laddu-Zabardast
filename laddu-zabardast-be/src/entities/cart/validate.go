@@ -7,6 +7,9 @@ import (
 
 func validateCartPayload(payload CartPayloadPacket) error {
 	for _, itemPacket := range payload.Items {
+		if itemPacket.Box != nil && itemPacket.Sweetener != "" {
+			return errors.New("sweetener is only supported on individual products")
+		}
 		if err := box.ValidateItem(itemPacket.ProductID, itemPacket.Box); err != nil {
 			return err
 		}
