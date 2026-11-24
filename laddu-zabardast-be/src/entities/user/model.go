@@ -47,17 +47,18 @@ func (a *Address) UnmarshalJSON(data []byte) error {
 }
 
 type User struct {
-	ID        string    `bson:"_id,omitempty" json:"id"`
-	FirstName string    `bson:"firstName" json:"firstName"`
-	LastName  string    `bson:"lastName" json:"lastName"`
-	Email     string    `bson:"email" json:"email"`
-	Password  string    `bson:"password" json:"password"`
-	Phone     string    `bson:"phone,omitempty" json:"phone,omitempty"`
-	Role      string    `bson:"role,omitempty" json:"role,omitempty"`
-	PhotoURL  string    `bson:"photoURL,omitempty" json:"photoURL,omitempty"`
-	Picture   string    `bson:"picture,omitempty" json:"picture,omitempty"`
-	Addresses []Address `bson:"addresses,omitempty" json:"addresses,omitempty"`
-	CreatedAt string    `bson:"createdAt,omitempty" json:"createdAt,omitempty"`
+	GoogleSubject string    `bson:"googleSubject,omitempty" json:"-"`
+	ID            string    `bson:"_id,omitempty" json:"id"`
+	FirstName     string    `bson:"firstName" json:"firstName"`
+	LastName      string    `bson:"lastName" json:"lastName"`
+	Email         string    `bson:"email" json:"email"`
+	Password      string    `bson:"password" json:"password"`
+	Phone         string    `bson:"phone,omitempty" json:"phone,omitempty"`
+	Role          string    `bson:"role,omitempty" json:"role,omitempty"`
+	PhotoURL      string    `bson:"photoURL,omitempty" json:"photoURL,omitempty"`
+	Picture       string    `bson:"picture,omitempty" json:"picture,omitempty"`
+	Addresses     []Address `bson:"addresses,omitempty" json:"addresses,omitempty"`
+	CreatedAt     string    `bson:"createdAt,omitempty" json:"createdAt,omitempty"`
 }
 
 func (u User) MarshalJSON() ([]byte, error) {
