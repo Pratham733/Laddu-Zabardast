@@ -2,10 +2,7 @@ package product
 
 import (
 	"errors"
-	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -73,20 +70,40 @@ func CreateProduct(w http.ResponseWriter, r *http.Request, req CreateProductRequ
 		available = *req.Available
 	}
 
+	var details *FoodDetails
+	if req.FoodDetails != nil {
+		clean, err := normalizeFoodDetails(*req.FoodDetails)
+		if err != nil {
+			return nil, err
+		}
+		if clean != (FoodDetails{}) {
+			details = &clean
+		}
+	}
+	variants, err := normalizeVariantDetails(req.VariantDetails)
+	if err != nil {
+		return nil, err
+	}
+
 	newProduct := Product{
-		ID:          uuid.NewString(),
-		Key:         GenerateProductKey(req.Name),
-		Name:        strings.TrimSpace(req.Name),
-		Description: strings.TrimSpace(req.Description),
-		Price:       req.Price,
-		ImageUrl:    strings.TrimSpace(req.ImageUrl),
-		Category:    strings.TrimSpace(req.Category),
-		Available:   available,
-		Weight:      strings.TrimSpace(req.Weight),
+		FoodDetails:     details,
+		VariantDetails:  variants,
+		BestSeller:      req.BestSeller,
+		NewArrival:      req.NewArrival,
+		SweetenerPrices: req.SweetenerPrices,
+		ID:              uuid.NewString(),
+		Key:             GenerateProductKey(req.Name),
+		Name:            strings.TrimSpace(req.Name),
+		Description:     strings.TrimSpace(req.Description),
+		Price:           req.Price,
+		ImageUrl:        strings.TrimSpace(req.ImageUrl),
+		Category:        strings.TrimSpace(req.Category),
+		Available:       available,
+		Weight:          strings.TrimSpace(req.Weight),
 	}
 
 	collection := getCollection()
-	_, err := collection.InsertOne(r.Context(), newProduct)
+	_, err = collection.InsertOne(r.Context(), newProduct)
 	if err != nil {
 		return nil, err
 	}
@@ -183,68 +200,5 @@ func SearchProducts(w http.ResponseWriter, r *http.Request) (*GetProductsRespons
 	packets := ProductsToPacketList(products)
 	return &GetProductsResponsePacket{
 		Products: packets,
-	}, nil
-}
-
-func UploadProductImage(w http.ResponseWriter, r *http.Request) (*UploadImageResponsePacket, error) {
-	if r.Method != http.MethodPost {
-		return nil, errors.New("method not allowed")
-	}
-
-	r.Body = http.MaxBytesReader(w, r.Body, 10<<20)
-	err := r.ParseMultipartForm(10 << 20)
-	if err != nil {
-		return nil, errors.New("file too large or invalid multipart form")
-	}
-
-	defer r.MultipartForm.RemoveAll()
-
-	file, fileHeader, err := r.FormFile("image")
-	if err != nil {
-		return nil, errors.New("missing 'image' file field")
-	}
-	defer file.Close()
-
-	ext := filepath.Ext(fileHeader.Filename)
-	if err := validateImageExtension(ext); err != nil {
-		return nil, err
-	}
-
-	var header [512]byte
-	n, err := io.ReadFull(file, header[:])
-	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) {
-		return nil, errors.New("could not read image")
-	}
-	contentType := http.DetectContentType(header[:n])
-	if !imageMatchesExtension(ext, contentType) {
-		return nil, errors.New("image content does not match its extension")
-	}
-	if _, err := file.Seek(0, io.SeekStart); err != nil {
-		return nil, err
-	}
-	if err := os.MkdirAll(UploadDir, 0755); err != nil {
-		return nil, err
-	}
-
-	filename := uuid.NewString() + strings.ToLower(ext)
-	destPath := filepath.Join(UploadDir, filename)
-
-	dst, err := os.Create(destPath)
-	if err != nil {
-		return nil, err
-	}
-	_, copyErr := io.Copy(dst, file)
-	closeErr := dst.Close()
-	if err := errors.Join(copyErr, closeErr); err != nil {
-		_ = os.Remove(destPath)
-		return nil, err
-	}
-
-	imageURL := "/uploads/" + filename
-	return &UploadImageResponsePacket{
-		ImageUrl: imageURL,
-		Filename: filename,
-		Success:  true,
-		Message:  "Image uploaded successfully",
 	}, nil
 }
