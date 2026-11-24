@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
+import { HOME_SHORTCUTS, useStorefront, type ShortcutId } from "@/context/storefront-context";
 import { motion } from "framer-motion";
 import {
   Cookie,
@@ -19,23 +20,12 @@ import {
   Avatar,
 } from "@mui/material";
 
-interface CategoryItem {
-  label: string;
-  icon: React.ReactNode;
-  href: string;
-}
-
-const categories: CategoryItem[] = [
-  { label: "Best Sellers", icon: <Star size={22} />, href: "#bestsellers" },
-  { label: "New Arrivals", icon: <Sparkles size={22} />, href: "#new" },
-  { label: "All Products", icon: <ShoppingBag size={22} />, href: "#all" },
-  { label: "Laddus", icon: <Cookie size={22} />, href: "#laddu" },
-  { label: "Pickles", icon: <Droplets size={22} />, href: "#pickle" },
-  { label: "Gift Boxes", icon: <Gift size={22} />, href: "#gifts" },
-  { label: "Create Your Box", icon: <PackagePlus size={22} />, href: "/build-a-box" },
-];
-
-export function CategoryStrip() {
+const icons = { bestsellers: Star, new: Sparkles, all: ShoppingBag, laddu: Cookie, pickle: Droplets, gifts: Gift, "custom-box": PackagePlus };
+export function CategoryStrip({ sectionIds }: { sectionIds: ShortcutId[] }) {
+  const { hiddenShortcuts } = useStorefront();
+  const categories = useMemo(() => HOME_SHORTCUTS.filter(cat => !hiddenShortcuts.includes(cat.id)).map(cat => ({
+    ...cat, Icon: icons[cat.id], href: sectionIds.includes(cat.id) ? `#${cat.id}` : cat.href,
+  })), [hiddenShortcuts, sectionIds]);
   const [activeCategory, setActiveCategory] = useState<string>("");
   const isClickScrollingRef = useRef<boolean>(false);
   const clickTimeoutRef = useRef<NodeJS.Timeout>();
@@ -70,7 +60,7 @@ export function CategoryStrip() {
       window.removeEventListener("scroll", handleScrollSpy);
       if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
     };
-  }, []);
+  }, [categories]);
 
   const handleClick = (
     e: React.MouseEvent<HTMLAnchorElement>,
@@ -124,6 +114,7 @@ export function CategoryStrip() {
     }
   };
 
+  if (!categories.length) return null;
   return (
     <Box
       id="category-strip-container"
@@ -146,7 +137,7 @@ export function CategoryStrip() {
           spacing={1}
           sx={{
             alignItems: "center",
-            py: 1.5,
+            py: { xs: 0.75, sm: 1.5 },
             overflowX: "auto",
             scrollbarWidth: "none",
             "&::-webkit-scrollbar": { display: "none" },
@@ -174,10 +165,10 @@ export function CategoryStrip() {
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
-                    gap: 0.75,
-                    minWidth: 84,
-                    px: 1.5,
-                    py: 1,
+                    gap: { xs: 0.5, sm: 0.75 },
+                    minWidth: { xs: 68, sm: 84 },
+                    px: { xs: 1, sm: 1.5 },
+                    py: { xs: 0.75, sm: 1 },
                     borderRadius: 2,
                     color: isActive ? "primary.main" : "text.secondary",
                     transition: "all 0.2s ease",
@@ -194,8 +185,8 @@ export function CategoryStrip() {
                 >
                   <Avatar
                     sx={{
-                      width: 44,
-                      height: 44,
+                      width: { xs: 36, sm: 44 },
+                      height: { xs: 36, sm: 44 },
                       bgcolor: isActive ? "primary.main" : "action.selected",
                       color: isActive ? "common.white" : "primary.main",
                       boxShadow: isActive
@@ -205,14 +196,14 @@ export function CategoryStrip() {
                       transition: "all 0.2s ease",
                     }}
                   >
-                    {cat.icon}
+                    <cat.Icon size={22} />
                   </Avatar>
                   <Typography
                     variant="caption"
                     sx={{
                       fontWeight: isActive ? 700 : 600,
                       whiteSpace: "nowrap",
-                      fontSize: "0.75rem",
+                      fontSize: { xs: "0.6875rem", sm: "0.75rem" },
                       color: isActive ? "primary.main" : "inherit",
                     }}
                   >
