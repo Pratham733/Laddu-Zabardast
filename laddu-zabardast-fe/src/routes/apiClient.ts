@@ -1,8 +1,15 @@
-// src/routes/apiClient.ts
+import { Capacitor, CapacitorHttp } from "@capacitor/core";
+import { getNativeToken } from "@/mobile/session";
+
+export class NativeConnectionError extends Error {
+  constructor() {
+    super("Cannot reach the store. Check your connection and try again.");
+  }
+}
 
 export interface RequestOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;
-  responseType?: 'json' | 'text' | 'blob' | 'response';
+  responseType?: 'json' | 'text' | 'blob' | 'response' | 'download';
 }
 
 export const backendURL = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080').replace(/\/$/, '');
@@ -34,16 +41,43 @@ export async function apiClient<T = any>(
     defaultHeaders['Content-Type'] = 'application/json';
   }
 
-  const mergedHeaders = {
-    ...defaultHeaders,
-    ...headers,
-  };
+  const mergedHeaders = new Headers(defaultHeaders);
+  new Headers(headers).forEach((value, name) => mergedHeaders.set(name, value));
+  const token = await getNativeToken();
+  if (token && !mergedHeaders.has("Authorization")) {
+    mergedHeaders.set("Authorization", `Bearer ${token}`);
+  }
 
-  const response = await fetch(url, {
-    ...restOptions,
-    headers: mergedHeaders,
-    credentials:'include',
-  });
+  let response: Response;
+  try {
+    if (Capacitor.isNativePlatform() && responseType === "download") {
+      // The native fetch bridge can decode ZIPs and PDFs as text. Ask the
+      // transport for base64 so every byte is preserved.
+      const nativeResponse = await CapacitorHttp.request({
+        url,
+        method: options.method ?? "GET",
+        headers: Object.fromEntries(mergedHeaders),
+        data: options.body,
+        responseType: "arraybuffer",
+        connectTimeout: 15_000,
+        readTimeout: 150_000,
+      });
+      const success = nativeResponse.status >= 200 && nativeResponse.status < 300;
+      const body = success
+        ? Uint8Array.from(atob(String(nativeResponse.data)), char => char.charCodeAt(0))
+        : typeof nativeResponse.data === "string" ? nativeResponse.data : JSON.stringify(nativeResponse.data);
+      response = new Response(body, { status: nativeResponse.status, headers: nativeResponse.headers });
+    } else {
+      response = await fetch(url, {
+        ...restOptions,
+        headers: mergedHeaders,
+        credentials: 'include',
+      });
+    }
+  } catch (error) {
+    if (Capacitor.isNativePlatform() && !options.signal?.aborted) throw new NativeConnectionError();
+    throw error;
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -59,7 +93,7 @@ export async function apiClient<T = any>(
     throw new Error(errorMessage);
   }
 
-  if (responseType === 'response') {
+  if (responseType === 'response' || responseType === 'download') {
     return response as unknown as T;
   }
 
