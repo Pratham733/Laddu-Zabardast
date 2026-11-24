@@ -60,17 +60,11 @@ func UpdateCart(w http.ResponseWriter, r *http.Request, payload CartPayloadPacke
 
 	items := make([]CartItem, 0, len(payload.Items))
 	for _, item := range payload.Items {
-		items = append(items, CartItem{ProductID: strings.TrimSpace(item.ProductID), Quantity: item.Quantity, Box: item.Box})
+		items = append(items, CartItem{ProductID: strings.TrimSpace(item.ProductID), Quantity: item.Quantity, Box: item.Box, Sweetener: item.Sweetener})
 	}
 	itemsToSave, err := refreshCartItems(r.Context(), items, true)
 	if err != nil {
 		return nil, err
-	}
-
-	cartRecord := UserCart{
-		UserID:    userId,
-		Items:     itemsToSave,
-		UpdatedAt: time.Now().UTC().Format(time.RFC3339),
 	}
 
 	cartCol := getCollection()
@@ -78,7 +72,7 @@ func UpdateCart(w http.ResponseWriter, r *http.Request, payload CartPayloadPacke
 	_, err = cartCol.UpdateOne(
 		r.Context(),
 		bson.M{"_id": userId},
-		bson.M{"$set": cartRecord},
+		bson.M{"$set": bson.M{"items": itemsToSave, "updatedAt": time.Now().UTC().Format(time.RFC3339)}, "$inc": bson.M{"revision": 1}},
 		opts,
 	)
 	if err != nil {

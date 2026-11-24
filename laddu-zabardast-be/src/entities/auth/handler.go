@@ -7,9 +7,12 @@ import (
 	"time"
 
 	utils "github.com/Pratham733/laddu-zabardast-be/src"
+	"github.com/Pratham733/laddu-zabardast-be/src/config"
 	"github.com/Pratham733/laddu-zabardast-be/src/entities/user"
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -19,12 +22,8 @@ func SignupHandler(w http.ResponseWriter, r *http.Request, req SignupRequestPack
 		return nil, err
 	}
 
-	if user.IsConfiguredAdminEmail(req.Email) {
-		return nil, errors.New("this address is reserved for the local admin account")
-	}
-
 	collection := getCollection()
-	count, err := collection.CountDocuments(r.Context(), bson.M{"email": strings.TrimSpace(req.Email)})
+	count, err := collection.CountDocuments(r.Context(), bson.M{"email": strings.TrimSpace(req.Email)}, options.Count().SetCollation(emailCollation))
 	if err != nil {
 		return nil, err
 	}
@@ -50,6 +49,9 @@ func SignupHandler(w http.ResponseWriter, r *http.Request, req SignupRequestPack
 	}
 
 	_, err = collection.InsertOne(r.Context(), newUser)
+	if mongo.IsDuplicateKeyError(err) {
+		return nil, errors.New("user already exists")
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -106,6 +108,7 @@ func LogoutHandler(w http.ResponseWriter, r *http.Request) (utils.SuccessRespons
 		Expires:  time.Unix(0, 0),
 		MaxAge:   -1,
 		HttpOnly: true,
+		Secure:   config.AppConfig.Production,
 		Path:     "/",
 		SameSite: http.SameSiteLaxMode,
 	})
