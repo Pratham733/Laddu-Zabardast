@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+import { CheckoutJourney } from "@/components/checkout-journey";
+import { ErrorState } from "@/components/store-feedback";
 import { Container, Column, Row, Box } from "@/components/ui/layout";
 import { Button } from "@mui/material";
 import { Input } from "@/components/ui/input";
@@ -16,6 +18,9 @@ import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { cartLineInput } from "@/packets/cart";
+import { SweetenerSelect } from "@/components/sweetener-select";
+import { priceProductLine, sweetenerOptions } from "@/lib/sweeteners";
+import { formatMoney } from "@/lib/store-display";
 import { BoxContents } from "@/components/box-contents";
 import { createOrder } from "@/routes/orders";
 import { getAddresses, saveAddress } from "@/routes/address";
@@ -79,19 +84,23 @@ const addressLabel = (address: Address) =>
 const upiQrUrl = import.meta.env.VITE_UPI_QR_URL?.trim();
 
 export default function CheckoutPage() {
-  const { cart, clearCart, isInitialised } = useCart();
-  const buyNow = useSearchParams().get("buyNow")?.trim() || "";
+  const { cart, clearCart, updateSweetener, isInitialised, loadError, retryLoad, syncCart } = useCart();
+  const params = useSearchParams();
+  const buyNow = params.get("buyNow")?.trim() || "";
+  const initialSweetener = params.get("sweetener");
   const [directOrder, setDirectOrder] = useState<{ id: string; item?: CartItem }>();
   const directReady = directOrder?.id === buyNow;
   const orderItems = buyNow
     ? (directReady && directOrder.item ? [directOrder.item] : [])
     : cart;
   const total = orderItems.reduce((sum, item) => sum + Math.round(item.price * 100) * item.quantity, 0) / 100;
+  const unavailable = orderItems.some(item => item.sweetenerUnavailable);
   const checkoutReady = buyNow ? directReady : isInitialised;
   const { user } = useAuth();
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const [savedAddresses, setSavedAddresses] = useState<Address[]>([]);
   const [selectedAddress, setSelectedAddress] = useState("");
   const [addressLoading, setAddressLoading] = useState(true);
@@ -112,14 +121,15 @@ export default function CheckoutPage() {
     getProductById(buyNow)
       .then(({ product }) => {
         if (!active) return;
+        const choice = sweetenerOptions(product).find(entry => entry.value === initialSweetener)?.value;
         const item = product.id && product.available !== false && product.price > 0
-          ? { ...product, id: product.id, quantity: 1 }
+          ? priceProductLine({ ...product, id: product.id }, 1, choice)
           : undefined;
         setDirectOrder({ id: buyNow, item });
       })
       .catch(() => { if (active) setDirectOrder({ id: buyNow }); });
     return () => { active = false; };
-  }, [buyNow]);
+  }, [buyNow, initialSweetener]);
 
   useEffect(() => {
     if (!buyNow && isClient && isInitialised && cart.length === 0 && !isProcessing) {
@@ -236,12 +246,9 @@ export default function CheckoutPage() {
       router.push(`/login?redirect=/checkout`);
       return;
     }
-    if (!checkoutReady || orderItems.length === 0 || addressLoading || savingAddress || isProcessing) return;
+    if (!checkoutReady || orderItems.length === 0 || addressLoading || savingAddress || isProcessing || unavailable) return;
     setIsProcessing(true);
-    toast({
-      title: "Processing Order...",
-      description: "Please wait while we confirm your order.",
-    });
+    setSubmitError("");
 
     try {
       const { instructions, ...shippingDetails } = data;
@@ -253,28 +260,28 @@ export default function CheckoutPage() {
         paymentMethod: paymentMethod,
       };
 
+      if (!buyNow) {
+        const synced = await syncCart();
+        const changed = synced.length !== orderItems.length || synced.some((line, index) => {
+          const previous = orderItems[index];
+          return previous.id !== line.id || previous.quantity !== line.quantity ||
+            Math.round(previous.price * 100) !== Math.round(line.price * 100);
+        });
+        if (changed) throw new Error("Your cart changed. Review the updated prices before placing the order.");
+      }
       const result = await createOrder(orderData);
       const { orderId } = result;
 
       if (!buyNow) clearCart();
-      toast({
-        title: "Order Successful!",
-        description: "Thank you for your purchase. Your order is confirmed.",
-        variant: "default",
-      });
       router.push(`/order-confirmation?orderId=${orderId}`);
     } catch (orderError) {
       console.error("Order creation error:", orderError);
-      toast({
-        title: "Order Creation Failed",
-        description: `There was an issue saving your order: ${orderError instanceof Error ? orderError.message : "Unknown error"}. Please contact support.`,
-        variant: "destructive",
-        duration: 10000,
-      });
+      setSubmitError(orderError instanceof Error ? orderError.message : "Your order could not be placed. Please try again. Your cart is still here.");
       setIsProcessing(false);
     }
   };
 
+  if (!buyNow && loadError) return <div className="px-4 py-6"><ErrorState message={loadError} onRetry={retryLoad} /></div>;
   if (buyNow && directReady && !directOrder.item) {
     return <Container className="px-4 py-8 md:px-6 md:py-12">
       <p>This product is unavailable for checkout.</p>
@@ -296,12 +303,60 @@ export default function CheckoutPage() {
   }
 
   return (
-    <Container className="px-2 sm:px-4 py-6 md:px-6 md:py-12">
-      <h1 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8 text-gradient text-center">
+    <Container className="px-4 py-6 md:px-6 md:py-12">
+      <CheckoutJourney step={2} />
+      <h1 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8 text-foreground">
         Checkout
       </h1>
       <Box className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-8">
-        <Box className="lg:col-span-2">
+        <Box className="min-w-0 lg:col-start-3 lg:row-start-1">
+          <Card className="lg:sticky lg:top-20">
+            <CardHeader>
+              <CardTitle className="text-lg sm:text-xl">Your Order</CardTitle>
+            </CardHeader>
+            <CardContent className="divide-y lg:max-h-[45vh] lg:overflow-y-auto">
+              {orderItems.map((item) => (
+                <div key={item.id} className="space-y-2 py-3 first:pt-0 last:pb-0">
+                  <Row className="items-start justify-between gap-3 text-sm">
+                    <div className="min-w-0">
+                      <p className="break-words font-medium">{item.quantity} × {item.name}</p>
+                      <BoxContents box={item.box} />
+                    </div>
+                    <span className="shrink-0 tabular-nums">{formatMoney(item.price * item.quantity)}</span>
+                  </Row>
+                  {!item.box && <SweetenerSelect product={item} value={item.sweetener} unavailable={item.sweetenerUnavailable}
+                    disabled={isProcessing} onChange={choice => {
+                      setSubmitError("");
+                      if (buyNow) setDirectOrder({ id: buyNow, item: priceProductLine(item, item.quantity, choice) });
+                      else updateSweetener(item.id, choice);
+                    }} />}
+                </div>
+              ))}
+              {unavailable && <p role="alert" className="pt-3 text-sm text-destructive">Choose an available sweetener or remove the item from your cart.</p>}
+              {orderItems.length === 0 && (
+                <p className="text-muted-foreground text-center py-4">
+                  Your cart is empty.
+                </p>
+              )}
+            </CardContent>
+            <CardFooter className="flex-col items-start space-y-2 pt-4 border-t">
+              <Row className="justify-between w-full">
+                <span>Subtotal</span>
+                <span>₹{total.toFixed(2)}</span>
+              </Row>
+              <Row className="justify-between w-full">
+                <span>Shipping</span>
+                <span>Free</span>
+              </Row>
+              <Separator />
+              <Row className="justify-between w-full font-bold text-lg">
+                <span>Total</span>
+                <span>₹{total.toFixed(2)}</span>
+              </Row>
+            </CardFooter>
+          </Card>
+        </Box>
+        <Box className="min-w-0 lg:col-span-2 lg:col-start-1 lg:row-start-1">
           <Card>
             <CardHeader>
               <CardTitle className="text-lg sm:text-xl">
@@ -620,10 +675,11 @@ export default function CheckoutPage() {
                     </Column>
                   )}
 
+                  {submitError && <p role="alert" className="mt-4 rounded-lg border border-destructive/25 bg-destructive/5 p-3 text-sm text-destructive">{submitError}</p>}
                   <InteractiveHoverButton
                     type="submit"
                     className="w-full mt-4 sm:mt-6 text-base sm:text-lg py-3 sm:py-4"
-                    disabled={isProcessing || savingAddress || addressLoading || orderItems.length === 0}
+                    disabled={isProcessing || savingAddress || addressLoading || orderItems.length === 0 || unavailable}
                   >
                     {isProcessing ? (
                       <>
@@ -642,48 +698,7 @@ export default function CheckoutPage() {
           </Card>
         </Box>
 
-        <Box className="lg:col-span-1">
-          <Card className="sticky top-20">
-            <CardHeader>
-              <CardTitle className="text-lg sm:text-xl">Your Order</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 sm:space-y-4 max-h-60 overflow-y-auto">
-              {orderItems.map((item) => (
-                <Row
-                  key={item.id}
-                  className="items-center justify-between gap-4 text-sm"
-                >
-                  <Row className="items-center gap-2">
-                    <span className="font-medium">{item.quantity} x</span>
-                    <span className="truncate">{item.name}</span>
-                    <BoxContents box={item.box} />
-                  </Row>
-                  <span>₹{(item.price * item.quantity).toFixed(2)}</span>
-                </Row>
-              ))}
-              {orderItems.length === 0 && (
-                <p className="text-muted-foreground text-center py-4">
-                  Your cart is empty.
-                </p>
-              )}
-            </CardContent>
-            <CardFooter className="flex-col items-start space-y-2 pt-4 border-t">
-              <Row className="justify-between w-full">
-                <span>Subtotal</span>
-                <span>₹{total.toFixed(2)}</span>
-              </Row>
-              <Row className="justify-between w-full">
-                <span>Shipping</span>
-                <span>Free</span>
-              </Row>
-              <Separator />
-              <Row className="justify-between w-full font-bold text-lg">
-                <span>Total</span>
-                <span>₹{total.toFixed(2)}</span>
-              </Row>
-            </CardFooter>
-          </Card>
-        </Box>
+
       </Box>
     </Container>
   );

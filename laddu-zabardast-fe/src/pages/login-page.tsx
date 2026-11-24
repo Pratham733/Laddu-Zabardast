@@ -1,6 +1,8 @@
 // /src/app/login/page.tsx
 
+import { GoogleSignIn } from "@/components/google-sign-in";
 import { useState, useEffect } from "react";
+import { safeReturnTo } from "@/lib/navigation";
 import { Container, Column, Row, Box } from "@/components/ui/layout";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -28,7 +30,7 @@ import {
 import { LogIn, Mail, Lock, LoaderCircle, Eye, EyeOff } from "lucide-react";
 import { useAuth, toast } from "@/hooks";
 import { Separator } from "@/components/ui/separator";
-import { InteractiveHoverButton } from "@/components/magicui/interactive-hover-button";
+import { Button as SubmitButton } from "@/components/ui/button-new";
 import { motion } from "framer-motion";
 import { login } from "@/routes/auth";
 import { getUser } from "@/queries";
@@ -157,15 +159,16 @@ const globalStyles = `
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const returnTo = safeReturnTo(searchParams?.get("redirect") || searchParams?.get("callbackUrl"));
   const { user, setUser } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (user) {
-      router.push("/");
+      router.push(returnTo);
     }
-  }, [user, router]);
+  }, [user, router, returnTo]);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -176,12 +179,7 @@ export default function LoginPage() {
   });
 
   const handleSuccessRedirect = () => {
-    const callbackUrl = searchParams?.get("callbackUrl");
-    if (callbackUrl) {
-      router.push(callbackUrl);
-    } else {
-      router.push("/");
-    }
+    router.push(returnTo);
   };
 
   const onSubmit = async (data: LoginFormValues) => {
@@ -349,7 +347,12 @@ export default function LoginPage() {
                     </FormItem>
                   )}
                 />
-                <InteractiveHoverButton
+                <div className="text-right">
+                  <Link href="/forgot-password" className="text-sm font-medium text-primary hover:underline">
+                    Forgot password?
+                  </Link>
+                </div>
+                <SubmitButton variant="outline"
                   type="submit"
                   className="w-full h-8 px-3 py-1 rounded-full text-sm font-semibold flex flex-row items-center justify-center gap-2"
                   disabled={isLoading}
@@ -364,14 +367,15 @@ export default function LoginPage() {
                       {isLoading ? "Logging In..." : "Login"}
                     </span>
                   </span>
-                </InteractiveHoverButton>
+                </SubmitButton>
               </form>
             </Form>
+            <GoogleSignIn from="login" returnTo={returnTo} disabled={isLoading} />
 
             <Separator />
             <Row className="text-center text-sm items-center justify-center gap-1 flex-wrap mt-2">
               Don't have an account?
-              <Link href="/signup">
+              <Link href={`/signup?redirect=${encodeURIComponent(returnTo)}`}>
                 <Button className="h-7 px-3 py-1 rounded-full text-sm font-medium align-middle ml-1">
                   <LogIn className="mr-2 h-4 w-4" />
                   Sign Up

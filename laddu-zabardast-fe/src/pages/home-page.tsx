@@ -1,181 +1,58 @@
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Cookie, Droplets, Gift, ShoppingBag, Sparkles, Star } from "lucide-react";
+import { Box } from "@mui/material";
+import { ErrorState, EmptyState, LoadingState } from "@/components/store-feedback";
 import { HeroCarousel } from "@/components/hero-banner";
 import { ProductStrip } from "@/components/product-strip";
 import { CategoryStrip } from "@/components/category-strip";
-import { PromoBanner } from "@/components/promo-banner";
 import { TrustBadges } from "@/components/trust-badges";
-import type { Product } from "@/types";
-import { useAuth } from "@/hooks";
+import { HOME_SHORTCUTS, useStorefront } from "@/context/storefront-context";
+import type { Product } from "@/models";
 import { getProducts } from "@/routes/products";
-import { motion } from "framer-motion";
-import { Box, Typography, CircularProgress } from "@mui/material";
+
+const collections = [
+  { id: "bestsellers", title: "Best sellers", icon: Star, includes: (p: Product) => p.bestSeller },
+  { id: "new", title: "New arrivals", icon: Sparkles, includes: (p: Product) => p.newArrival },
+  { id: "all", title: "All products", icon: ShoppingBag, includes: () => true },
+  { id: "laddu", title: "Our laddus", icon: Cookie, includes: (p: Product) => p.category === "laddu" },
+  { id: "pickle", title: "Homemade pickles", icon: Droplets, includes: (p: Product) => p.category === "pickle" },
+  { id: "gifts", title: "Gift boxes", icon: Gift, includes: (p: Product) => p.category === "gift" },
+] as const;
 
 export default function Home() {
-  const { user, loading } = useAuth();
-  const router = useRouter();
-
-  const [laddus, setLaddus] = useState<Product[]>([]);
-  const [pickles, setPickles] = useState<Product[]>([]);
-  const [productLoading, setProductLoading] = useState(true);
-  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const { hiddenShortcuts, status } = useStorefront();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const data = await getProducts();
+    let active = true;
+    setLoading(true);
+    setError(false);
+    getProducts().then(({ products }) => {
+      if (!active) return;
+      setProducts(Array.from(new Map(products.filter(p => p.available !== false).map(p => [p.id, p])).values()));
+    }).catch(() => { if (active) setError(true); }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [attempt]);
 
-        const products: Product[] = (data.products || []).map((item: any) => ({
-          ...item,
-          id: item.id,
-        }));
-
-        const uniqueProducts = Array.from(
-          new Map(products.map((p) => [p.id, p])).values(),
-        );
-        const laddusOnly = uniqueProducts.filter((p) => p.category === "laddu");
-        const picklesOnly = uniqueProducts.filter(
-          (p) => p.category === "pickle",
-        );
-
-        setAllProducts(uniqueProducts);
-        setLaddus(laddusOnly);
-        setPickles(picklesOnly);
-      } catch (error) {
-        console.error("Error fetching products:", error);
-      } finally {
-        setProductLoading(false);
-      }
-    };
-
-    fetchProducts();
-  }, [user]);
-
-  if (loading) {
-    return null;
-  }
+  const sections = collections.filter(section => !hiddenShortcuts.includes(section.id))
+    .map(section => ({ ...section, products: products.filter(section.includes) }))
+    .filter(section => section.products.length);
 
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
       <HeroCarousel />
-      <CategoryStrip />
-
-      {productLoading ? (
-        <Box
-          component="section"
-          sx={{
-            py: 12,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 2,
-          }}
-        >
-          <Box
-            component={motion.div}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            sx={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: 2,
-            }}
-          >
-            <CircularProgress color="primary" size={44} thickness={4} />
-            <Typography
-              variant="body2"
-              sx={{ color: "text.secondary", fontWeight: 500 }}
-            >
-              Loading delicious products...
-            </Typography>
+      {!loading && status !== "loading" && <CategoryStrip sectionIds={sections.map(section => section.id)} />}
+      {loading || status === "loading" ? <LoadingState label="Loading products…" />
+        : error ? <div className="p-4"><ErrorState message="The collection could not be loaded." onRetry={() => setAttempt(value => value + 1)} /></div>
+        : products.length === 0 ? <div className="p-4"><EmptyState title="The collection is being prepared" description="Please check back shortly for your favourites." /></div>
+        : sections.map(section => (
+          <Box key={section.id} id={section.id} sx={{ scrollMarginTop: { xs: "145px", md: "174px" } }}>
+            <ProductStrip title={section.title} icon={section.icon} products={section.products} viewAllLink={HOME_SHORTCUTS.find(shortcut => shortcut.id === section.id)?.href ?? "/shop"} />
           </Box>
-        </Box>
-      ) : (
-        <>
-          {allProducts.length > 0 && (
-            <Box
-              id="bestsellers"
-              sx={{ scrollMarginTop: { xs: "130px", md: "150px" } }}
-            >
-              <ProductStrip
-                title="⭐ Best Sellers"
-                products={allProducts.slice(0, 8)}
-                viewAllLink="/shop"
-              />
-            </Box>
-          )}
-
-          {allProducts.length > 0 && (
-            <Box
-              id="new"
-              sx={{ scrollMarginTop: { xs: "130px", md: "150px" } }}
-            >
-              <ProductStrip
-                title="✨ New Arrivals"
-                products={allProducts.slice(-6)}
-                viewAllLink="/shop"
-              />
-            </Box>
-          )}
-
-          {/* <PromoBanner /> */}
-
-          {allProducts.length > 0 && (
-            <Box
-              id="all"
-              sx={{ scrollMarginTop: { xs: "130px", md: "150px" } }}
-            >
-              <ProductStrip
-                title="🛍️ All Products"
-                products={allProducts}
-                viewAllLink="/shop"
-              />
-            </Box>
-          )}
-
-          {laddus.length > 0 && (
-            <Box
-              id="laddu"
-              sx={{ scrollMarginTop: { xs: "130px", md: "150px" } }}
-            >
-              <ProductStrip
-                title="🍯 Our Delicious Laddus"
-                products={laddus}
-                viewAllLink="/shop?category=laddu"
-              />
-            </Box>
-          )}
-
-          {pickles.length > 0 && (
-            <Box
-              id="pickle"
-              sx={{ scrollMarginTop: { xs: "130px", md: "150px" } }}
-            >
-              <ProductStrip
-                title="🌶️ Tangy Homemade Pickles"
-                products={pickles}
-                viewAllLink="/shop?category=pickle"
-              />
-            </Box>
-          )}
-
-          {allProducts.length > 0 && (
-            <Box
-              id="gifts"
-              sx={{ scrollMarginTop: { xs: "130px", md: "150px" } }}
-            >
-              <ProductStrip
-                title="🎁 Gift Boxes"
-                products={allProducts.slice(0, 4)}
-                viewAllLink="/shop"
-              />
-            </Box>
-          )}
-        </>
-      )}
-
+        ))}
       <TrustBadges />
     </Box>
   );
