@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useState, useMemo, useCallback } from "react";
-import type { Product } from "@/types";
+import type { Product } from "@/models";
 import {
   Card,
   CardContent,
@@ -11,21 +11,20 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import { Button } from "@mui/material";
-import { ShoppingCart, Heart, HeartIcon } from "lucide-react";
+import { Button } from "@/components/ui/button-new";
+import { ShoppingCart, Heart } from "lucide-react";
 import { useCart, useWishlist, toast } from "@/hooks";
-import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { InteractiveHoverButton } from "@/components/magicui/interactive-hover-button";
 
 interface ProductCardProps {
   product: Product;
 }
 
 export function ProductCard({ product }: ProductCardProps) {
-  const { addToCart } = useCart();
-  const { wishlist, addToWishlist, removeFromWishlist } = useWishlist();
+  const { addToCart, isInitialised: cartReady } = useCart();
+  const { wishlist, addToWishlist, removeFromWishlist, isInitialised: wishlistReady } = useWishlist();
   const [imgLoaded, setImgLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const canPurchase = Boolean(product.id) && product.available !== false;
 
   // Memoize wishlist check for performance
@@ -55,39 +54,27 @@ export function ProductCard({ product }: ProductCardProps) {
     });
   }, [addToCart, canPurchase, product]);
 
-  // Handler to prevent click bubbling from action buttons
-  const stopPropagation = useCallback(
-    (e: React.MouseEvent) => e.stopPropagation(),
-    [],
-  );
-
   const productImage = (
     <Image
-      src={product.imageUrl}
+      src={imageError ? "/images/logo.png" : product.imageUrl}
       alt={product.name}
       width={400}
       height={300}
-      className={`object-cover w-full h-full transition-transform duration-300 hover:scale-105 ${imgLoaded ? "" : "opacity-0"}`}
+      className={`object-cover w-full h-full ${imgLoaded ? "" : "opacity-0"}`}
       data-ai-hint={product.aiHint}
-      priority={true}
       onLoad={() => setImgLoaded(true)}
+      onError={() => { setImageError(true); setImgLoaded(true); }}
     />
   );
 
   return (
-    <motion.div
-      whileHover={{ scale: 1.03 }}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ type: "spring", stiffness: 300, damping: 20 }}
-      className="h-full cursor-default"
-    >
-      <Card className="overflow-hidden rounded-xl shadow-md transition-all hover:shadow-lg flex flex-col h-full border border-border hover:border-primary/30 cursor-default">
-        <CardHeader className="p-0 relative bg-muted/30">
-          <div className="w-full aspect-[4/3] min-h-[180px] max-h-[240px] flex items-center justify-center overflow-hidden bg-white rounded-t-xl relative">
+    <article className="h-full min-w-0" data-product-card>
+      <Card className="overflow-hidden rounded-xl shadow-sm transition-shadow hover:shadow-md flex flex-col h-full border border-border">
+        <CardHeader className="relative space-y-0 bg-muted/30 p-0">
+          <div className="w-full aspect-[4/3] flex items-center justify-center overflow-hidden bg-white relative">
             {!imgLoaded && (
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-muted animate-pulse z-10">
-                <span className="w-12 h-12 rounded-full bg-gradient-to-tr from-primary/30 to-primary/10 blur-sm" />
+                <span className="h-6 w-6 rounded-full bg-primary/15" />
               </div>
             )}
             {product.id ? (
@@ -102,19 +89,35 @@ export function ProductCard({ product }: ProductCardProps) {
               productImage
             )}
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={handleAddToWishlist}
+            disabled={!product.id || !wishlistReady}
+            aria-label={`${isProductInWishlist ? "Remove from" : "Add to"} Wishlist: ${product.name}`}
+            aria-pressed={isProductInWishlist}
+            className="group absolute right-1 top-1 z-20 h-11 w-11 rounded-full border-0 bg-transparent p-0 shadow-none hover:bg-transparent"
+          >
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-card/95 shadow-sm ring-1 ring-border/60 transition-colors group-hover:bg-card">
+              <Heart className={isProductInWishlist ? "fill-red-500 text-red-500" : "text-foreground"} />
+            </span>
+          </Button>
+          {!canPurchase && <span className="absolute bottom-2 left-2 rounded-md bg-card px-2 py-1 text-xs font-medium">Unavailable</span>}
         </CardHeader>
-        <CardContent className="p-4 flex-grow">
-          <CardTitle className="text-lg font-semibold mb-1">
+        <CardContent className="min-w-0 flex-grow p-3 pb-2 pt-2.5 sm:p-4 sm:pb-3">
+          <CardTitle className="mb-1 min-h-6 text-sm font-semibold leading-5 line-clamp-2 break-words sm:min-h-7 sm:text-base sm:leading-6">
             {product.id ? (
               <Link to={`/product/${encodeURIComponent(product.id)}`}>{product.name}</Link>
             ) : product.name}
           </CardTitle>
           {product.description && (
-            <CardDescription className="text-sm text-muted-foreground mb-2 line-clamp-2">
+            <CardDescription className="hidden text-sm text-muted-foreground mb-2 sm:line-clamp-2">
               {product.description}
             </CardDescription>
           )}
-          <p className="text-lg font-bold text-primary">
+          {product.weight && <p className="mb-1 text-xs text-muted-foreground">{product.weight}</p>}
+          <p className="text-base font-bold tracking-tight text-orange-700 tabular-nums dark:text-orange-400 sm:text-lg">
             ₹
             {(typeof product.price === "string"
               ? parseFloat(product.price)
@@ -122,39 +125,19 @@ export function ProductCard({ product }: ProductCardProps) {
             ).toFixed(2)}
           </p>
         </CardContent>
-        <CardFooter className="p-4 border-t flex items-center justify-between gap-2">
+        <CardFooter className="p-3 pt-0 sm:p-4 sm:pt-0">
           <Button
-            variant="outlined"
-            size="small"
-            onClick={(e) => {
-              stopPropagation(e);
-              handleAddToWishlist();
-            }}
-            aria-label={`${isProductInWishlist ? "Remove from" : "Add to"} Wishlist: ${product.name}`}
-            className="transition-colors duration-200 h-10"
+            type="button"
+            disabled={!canPurchase || !cartReady}
+            aria-label={`Add to cart: ${product.name}`}
+            className="h-11 w-full rounded-lg bg-orange-600 px-2 text-sm font-semibold text-white shadow-none hover:bg-orange-700"
+            onClick={handleAddToCart}
           >
-            {isProductInWishlist ? (
-              <HeartIcon className="h-4 w-4 text-red-500 fill-red-500 transition-all duration-300" />
-            ) : (
-              <Heart className="h-4 w-4 text-muted-foreground transition-all duration-300" />
-            )}
+            {canPurchase && <ShoppingCart className="h-4 w-4" />}
+            <span>{canPurchase ? "Add" : "Unavailable"}</span>
           </Button>
-
-          <InteractiveHoverButton
-            disabled={!canPurchase}
-            className="w-[80%] bg-orange-600 text-white shadow-md hover:opacity-90 transition-opacity flex items-center justify-center gap-2 h-10"
-            onClick={(e) => {
-              stopPropagation(e);
-              handleAddToCart();
-            }}
-          >
-            <div className="flex items-center gap-2">
-              <ShoppingCart className="h-4 w-4" />
-              <span>{canPurchase ? "Add" : "Unavailable"}</span>
-            </div>
-          </InteractiveHoverButton>
         </CardFooter>
       </Card>
-    </motion.div>
+    </article>
   );
 }

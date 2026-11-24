@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { Package } from "lucide-react";
+import { sweetenerLabel } from "@/lib/sweeteners";
 import { BoxContents } from "@/components/box-contents";
 import type { OrderItem } from "@/models";
 
@@ -30,7 +31,7 @@ export function OrderSummary({ items }: { items: OrderItem[] }) {
           </div>
           <div className="flex-1 min-w-0">
             <div className="font-semibold text-base truncate">{item.name}</div>
-            <BoxContents box={item.box} />
+            {item.sweetener && <p className="text-sm text-muted-foreground">{sweetenerLabel(item.sweetener)}</p>}<BoxContents box={item.box} />
             <div className="text-sm text-muted-foreground">
               Qty: {item.quantity}
             </div>
