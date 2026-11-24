@@ -1,5 +1,7 @@
 import { OrderInstructions } from "@/components/order-instructions";
 import Link from "next/link";
+import { saveInvoice } from "@/mobile/invoice";
+import { Capacitor } from "@capacitor/core";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@mui/material";
 import { Check, Download, FileText } from "lucide-react";
@@ -62,17 +64,7 @@ export default function OrderConfirmationPage() {
     setDownloadLoading(true);
     try {
       const response = await generateInvoice(order.id);
-      if (!response.headers.get("content-type")?.includes("application/pdf")) {
-        throw new Error("The server did not return a PDF.");
-      }
-      const url = URL.createObjectURL(await response.blob());
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `invoice-${order.id}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
+      await saveInvoice(response, order.id);
     } catch (error) {
       const detail = error instanceof Error ? ` ${error.message}` : "";
       setInvoiceError(`Could not download the invoice.${detail}`);
@@ -183,7 +175,7 @@ export default function OrderConfirmationPage() {
               disabled={downloadLoading}
               onClick={downloadInvoice}
             >
-              {downloadLoading ? "Downloading invoice…" : "Download invoice"}
+              {downloadLoading ? "Preparing invoice…" : Capacitor.isNativePlatform() ? "Save or share invoice" : "Download invoice"}
             </Button>
           )}
           <StorefrontButton asChild variant="outline" className="rounded-full px-6">

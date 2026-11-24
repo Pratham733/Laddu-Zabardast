@@ -1,5 +1,9 @@
 import { OrderInstructions } from "@/components/order-instructions";
+import { OrderHistoryActions } from "@/components/order-history-actions";
+import { sweetenerLabel } from "@/lib/sweeteners";
 import { BoxContents } from "@/components/box-contents";
+import { Link } from "react-router-dom";
+import { EmptyState, ErrorState, LoadingState } from "@/components/store-feedback";
 import Image from "next/image";
 import { useEffect, useState, useMemo } from "react";
 import { Container, Column, Row, Box } from "@/components/ui/layout";
@@ -39,6 +43,8 @@ import {
 // Helper for status badge color
 const statusBadge = (status: string) => {
   switch (status.toLowerCase()) {
+    case "pending":
+      return <Badge variant="outline">Pending</Badge>;
     case "processing":
       return (
         <Badge
@@ -119,6 +125,8 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<SimplifiedOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const [detailErrors, setDetailErrors] = useState<Record<string, string>>({});
   const [details, setDetails] = useState<Record<string, Order | null>>({});
   const [loadingDetails, setLoadingDetails] = useState<Record<string, boolean>>(
     {},
@@ -133,7 +141,8 @@ export default function OrdersPage() {
       return;
     }
 
-    setError(null); // Reset error before fetch
+    setError(null);
+    setLoading(true);
 
     getUserOrders(user.email)
       .then((data) => {
@@ -145,7 +154,7 @@ export default function OrdersPage() {
         setError("Failed to load orders. Please try again later.");
       })
       .finally(() => setLoading(false));
-  }, [user?.email, token]);
+  }, [user?.email, token, attempt]);
 
   async function handleViewDetails(orderId: string) {
     if (!user) {
@@ -161,13 +170,14 @@ export default function OrdersPage() {
     }
 
     setLoadingDetails((prev) => ({ ...prev, [orderId]: true }));
+    setDetailErrors(current => ({ ...current, [orderId]: "" }));
     try {
       const fullOrder = await getOrderDetails(orderId);
       setDetails((prev) => ({ ...prev, [orderId]: fullOrder || null }));
     } catch (err) {
       // Keep this log for debugging API errors
       console.error(`Error fetching order details for ${orderId}:`, err);
-      setError("Failed to load order details. Please try again.");
+      setDetailErrors(current => ({ ...current, [orderId]: "Failed to load this order's details. Please try again." }));
     } finally {
       setLoadingDetails((prev) => ({ ...prev, [orderId]: false }));
     }
@@ -175,24 +185,20 @@ export default function OrdersPage() {
 
   const groupedOrders = useMemo(() => groupOrdersByMonth(orders), [orders]);
 
-  if (loading) return <Box className="text-center py-20">Loading...</Box>;
+  if (loading) return <LoadingState label="Loading your orders…" />;
 
   if (error)
     return (
-      <Container className="px-4 py-8 text-center text-red-600">
-        {error}
-      </Container>
+      <Container className="px-4 py-8"><ErrorState message={error} onRetry={() => setAttempt(value => value + 1)} /></Container>
     );
 
   const totalOrders = orders.length;
 
   return (
     <Container className="px-2 py-6 md:px-4 md:py-8">
+      <header className="mb-6 flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Your orders</h1><p className="mt-2 text-sm text-muted-foreground">Track deliveries and revisit your favourites.</p></div><Button component={Link} to="/shop" variant="outlined" sx={{ minHeight: 44 }}>Continue shopping</Button></header>
       {totalOrders === 0 ? (
-        <Card className="text-center py-10 mt-8 shadow-sm">
-          <CardTitle>No Orders</CardTitle>
-          <CardDescription>You haven't placed any orders yet.</CardDescription>
-        </Card>
+        <EmptyState title="No orders yet" description="Your orders will appear here after checkout." href="/shop" action="Explore the collection" />
       ) : (
         <Column className="space-y-8">
           {Object.entries(groupedOrders).map(([monthYear, ordersInMonth]) => (
@@ -253,14 +259,19 @@ export default function OrdersPage() {
                         )}
                       </Button>
                     </CardContent>
+                    <OrderHistoryActions orderId={order.id} status={order.status} onCancelled={() => {
+                      setOrders(current => current.map(item => item.id === order.id ? { ...item, status: "cancelled" } : item));
+                      setDetails(current => {
+                        const item = current[order.id];
+                        return item ? { ...current, [order.id]: { ...item, orderStatus: "cancelled", status: "cancelled" } } : current;
+                      });
+                    }} />
+                    {detailErrors[order.id] && <div className="px-4 pb-4"><ErrorState message={detailErrors[order.id]} onRetry={() => void handleViewDetails(order.id)} /></div>}
 
                     {/* Order Details Section - Enhanced Styling and Transition */}
                     <Box
                       id={`order-details-${order.id}`}
-                      className={`overflow-hidden transition-all duration-300 ease-in-out border-t border-border dark:border-zinc-700 ${details[order.id] ? "max-h-[1000px] opacity-100 py-4 px-4 md:px-6" : "max-h-0 opacity-0 py-0 px-4 md:px-6"}`}
-                      style={{
-                        maxHeight: details[order.id] ? "1000px" : "0px",
-                      }} // Ensure max-height for transition
+                      className={`border-t border-border dark:border-zinc-700 ${details[order.id] ? "py-4 px-4 md:px-6" : "hidden"}`}
                     >
                       {details[order.id] && ( // Only render content if details are loaded and visible
                         <Column className="space-y-4 bg-background dark:bg-zinc-800 p-4 rounded-md shadow-inner">
@@ -375,7 +386,7 @@ export default function OrdersPage() {
                                       <p className="font-medium text-sm text-foreground dark:text-zinc-200">
                                         {item.name}
                                       </p>
-                                      <BoxContents box={item.box} />
+                                      {item.sweetener && <p className="text-sm text-muted-foreground">{sweetenerLabel(item.sweetener)}</p>}<BoxContents box={item.box} />
                                       <p className="text-xs text-muted-foreground dark:text-zinc-400">
                                         Quantity: {item.quantity}
                                       </p>
