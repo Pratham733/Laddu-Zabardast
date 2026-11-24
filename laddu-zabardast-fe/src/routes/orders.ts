@@ -1,5 +1,5 @@
 import { apiClient } from './apiClient';
-import type { CartLineInput } from "@/packets/cart";
+import type { CartLineInput, CartResponse } from "@/packets/cart";
 import type { FormSchema } from "@/schema";
 import type { GetOrdersResponse, OrderCreateResponse, OrderDetailsResponse, OrderUpdateResponse } from '@/packets/order';
 
@@ -14,13 +14,30 @@ export async function getOrders(email?: string): Promise<GetOrdersResponse> {
   });
 }
 
-export async function getOrderById(orderId: string): Promise<OrderDetailsResponse> {
+export async function getOrderById(orderId: string, signal?: AbortSignal): Promise<OrderDetailsResponse> {
   if (!orderId || !orderId.trim()) {
     throw new Error('Order ID is required');
   }
-  return apiClient(`/orders/${orderId.trim()}`, {
+  return apiClient(`/orders/${encodeURIComponent(orderId.trim())}`, {
     method: 'GET',
+    signal,
   });
+}
+
+export interface ReorderResult extends CartResponse {
+  added: number;
+  skipped: string[];
+}
+
+export function reorderItems(orderId: string, requestId: string): Promise<ReorderResult> {
+  return apiClient(`/orders/${encodeURIComponent(orderId)}/reorder`, {
+    method: "POST",
+    body: JSON.stringify({ requestId }),
+  });
+}
+
+export function cancelOrder(orderId: string): Promise<OrderUpdateResponse> {
+  return apiClient(`/orders/${encodeURIComponent(orderId)}/cancel`, { method: "POST" });
 }
 
 export async function createOrder(orderData: { shippingDetails: Omit<FormSchema, "instructions">; instructions?: string; items: CartLineInput[]; totalAmount: number; paymentMethod: "cod" | "upi" }): Promise<OrderCreateResponse> {
@@ -66,6 +83,6 @@ export async function generateInvoice(orderId: string): Promise<Response> {
   return apiClient(`/generate-invoice`, {
     method: 'GET',
     params: { orderId: orderId.trim() },
-    responseType: 'response',
+    responseType: 'download',
   });
 }
