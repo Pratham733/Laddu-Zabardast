@@ -2,6 +2,7 @@ package order
 
 import (
 	"errors"
+	"github.com/Pratham733/laddu-zabardast-be/src/email"
 	"strings"
 	"unicode/utf8"
 
@@ -31,7 +32,7 @@ func validateCreateOrderReq(req CreateOrderRequestPacket) error {
 		return errors.New("shipping details (name, email, city) are required")
 	}
 
-	if !isMailbox(strings.TrimSpace(req.ShippingDetails.Email)) {
+	if !email.IsMailbox(strings.TrimSpace(req.ShippingDetails.Email)) {
 		return errors.New("enter a valid checkout email address")
 	}
 	if utf8.RuneCountInString(strings.TrimSpace(req.Instructions)) > 500 {
@@ -39,6 +40,9 @@ func validateCreateOrderReq(req CreateOrderRequestPacket) error {
 	}
 
 	for _, item := range req.Items {
+		if item.Box != nil && item.Sweetener != "" {
+			return errors.New("sweetener is only supported on individual products")
+		}
 		if err := box.ValidateItem(item.ProductID, item.Box); err != nil {
 			return err
 		}

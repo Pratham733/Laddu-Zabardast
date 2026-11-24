@@ -1,6 +1,8 @@
 package order
 
 import (
+	"time"
+
 	utils "github.com/Pratham733/laddu-zabardast-be/src"
 	"github.com/Pratham733/laddu-zabardast-be/src/entities/user"
 	"github.com/gorilla/mux"
@@ -12,7 +14,11 @@ func RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/orders", utils.WithBodyAndResponse(CreateOrder)).Methods("POST", "OPTIONS")
 	r.HandleFunc("/orders", user.AdminOnly(utils.WithBodyAndResponse(PatchOrder))).Methods("PATCH", "OPTIONS")
 	r.HandleFunc("/create-order", utils.WithBodyAndResponse(CreateOrder)).Methods("POST", "OPTIONS")
+	r.HandleFunc("/admin/invoices", user.AdminOnly(listAdminInvoices)).Methods("GET", "OPTIONS")
+	r.HandleFunc("/admin/invoices/export", user.AdminOnlyWithTimeout(exportAdminInvoices, 2*time.Minute)).Methods("POST", "OPTIONS")
 	r.HandleFunc("/generate-invoice", GenerateInvoiceHandler).Methods("GET", "OPTIONS")
+	r.HandleFunc("/orders/{id}/cancel", utils.WithResponse(CancelOrder)).Methods("POST", "OPTIONS")
+	r.HandleFunc("/orders/{id}/reorder", utils.WithBodyAndResponse(ReorderHandler)).Methods("POST", "OPTIONS")
 	r.HandleFunc("/orders/{id}", utils.WithResponse(GetOrder)).Methods("GET", "OPTIONS")
 	r.HandleFunc("/orders/{id}", user.AdminOnly(utils.WithBodyAndResponse(UpdateOrder))).Methods("PUT", "OPTIONS")
 	r.HandleFunc("/orders/{id}", user.AdminOnly(utils.WithResponse(DeleteOrder))).Methods("DELETE", "OPTIONS")

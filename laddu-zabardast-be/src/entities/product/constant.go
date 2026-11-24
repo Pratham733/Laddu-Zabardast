@@ -4,8 +4,6 @@ const (
 	CollectionProducts = "products"
 
 	CategoryAll = "all"
-
-	UploadDir = "public/uploads"
 )
 
 type ProductType string
