@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
-import { SearchX, Loader2 } from "lucide-react";
+import { SearchX, Loader2, ChevronDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@mui/material";
 import { NoResults } from "@/components/no-results";
@@ -61,28 +61,29 @@ const FilterAndSort: React.FC<FilterAndSortProps> = ({
     }
   };
   return (
-    <Box className="bg-background/95 backdrop-blur-sm rounded-lg shadow-lg border border-border/50 p-4 sm:p-6 mb-8 filter-group">
-      <Row className="flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
-        <h2 className="text-xl font-semibold bg-gradient-to-r from-primary to-purple-600 text-transparent bg-clip-text">
+    <details className="group rounded-xl border border-border bg-card p-4 sm:p-5 mb-6 filter-group">
+      <summary className="flex min-h-6 cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+        <h2 className="text-lg font-semibold text-foreground">
           Refine Results
         </h2>
-        <p className="text-sm font-medium px-3 py-1 rounded-full bg-primary/10 text-primary hover-lift">
-          {resultCount} items found
-        </p>
-      </Row>
-      <Box className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <span className="flex items-center gap-2 text-xs text-muted-foreground">
+          {resultCount} items<ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+        </span>
+      </summary>
+      <Box className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
         <Column
           className="space-y-2 group"
           style={{
             transition: "transform 0.2s ease-out",
           }}
         >
-          <label className="text-sm font-medium flex items-center gap-2">
+          <label htmlFor="search-category" className="text-sm font-medium flex items-center gap-2">
             <span className="group-hover:text-primary transition-colors">
               Category
             </span>
           </label>
           <select
+            id="search-category"
             className="w-full rounded-lg p-3 bg-background/50 border border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all hover:bg-background/70"
             onChange={(e) => onCategoryChange(e.target.value || null)}
             onKeyDown={handleKeyDown}
@@ -99,8 +100,9 @@ const FilterAndSort: React.FC<FilterAndSortProps> = ({
         </Column>
 
         <Column className="space-y-2">
-          <label className="text-sm font-medium">Sort By</label>{" "}
+          <label htmlFor="search-sort" className="text-sm font-medium">Sort By</label>{" "}
           <select
+            id="search-sort"
             className="w-full rounded-lg p-3 bg-background/50 border border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all"
             onChange={(e) => onSortChange(e.target.value)}
             defaultValue="name-asc"
@@ -114,9 +116,10 @@ const FilterAndSort: React.FC<FilterAndSortProps> = ({
         </Column>
 
         <Column className="space-y-2">
-          <label className="text-sm font-medium">Min Price</label>{" "}
+          <label htmlFor="search-min-price" className="text-sm font-medium">Min Price</label>{" "}
           <Box className="relative">
             <input
+              id="search-min-price"
               type="number"
               className="w-full rounded-lg p-3 pl-7 bg-background/50 border border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all"
               value={priceRange.min === 0 ? "" : priceRange.min}
@@ -131,9 +134,10 @@ const FilterAndSort: React.FC<FilterAndSortProps> = ({
         </Column>
 
         <Column className="space-y-2">
-          <label className="text-sm font-medium">Max Price</label>{" "}
+          <label htmlFor="search-max-price" className="text-sm font-medium">Max Price</label>{" "}
           <Box className="relative">
             <input
+              id="search-max-price"
               type="number"
               className="w-full rounded-lg p-3 pl-7 bg-background/50 border border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all"
               value={priceRange.max === Infinity ? "" : priceRange.max}
@@ -147,7 +151,7 @@ const FilterAndSort: React.FC<FilterAndSortProps> = ({
           </Box>
         </Column>
       </Box>
-    </Box>
+    </details>
   );
 };
 
@@ -299,12 +303,12 @@ export default function SearchPage() {
 
   return (
     <Container className="px-4 py-8 md:px-6 md:py-12">
-      <Box className="max-w-2xl mx-auto mb-12 text-center">
-        <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-primary to-purple-600 text-transparent bg-clip-text">
+      <Box className="max-w-2xl mx-auto mb-6 md:mb-12 text-center">
+        <h1 className="text-2xl md:text-4xl font-bold mb-3 text-foreground">
           Search Results {query ? <span className="font-normal">for</span> : ""}
         </h1>
         {query && (
-          <p className="text-2xl md:text-3xl font-light text-muted-foreground animate-fade-in">
+          <p className="text-lg md:text-2xl font-light text-muted-foreground break-words">
             "{query}"
           </p>
         )}
@@ -323,12 +327,12 @@ export default function SearchPage() {
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
             <Box className="absolute inset-0 h-12 w-12 animate-ping opacity-20 rounded-full bg-primary" />
           </Box>
-          <p className="text-lg font-medium bg-gradient-to-r from-primary to-purple-600 text-transparent bg-clip-text animate-pulse">
+          <p className="text-base font-medium text-primary animate-pulse">
             Finding the perfect products for you...
           </p>
         </Column>
       ) : sortedProducts.length > 0 ? (
-        <Box className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
+        <Box className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
           {sortedProducts.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}

@@ -56,7 +56,7 @@ export default function PrivacyPolicyPage() {
 
           <h2 className="text-2xl font-semibold">Contact Us</h2>
           <p>
-            If you have any questions about this Privacy Policy, please contact us at ladduzab@gmail.com .
+            For questions, see <a href="#store-contact" className="underline">our contact details</a>.
           </p>
           {/* Add more detailed sections as required by law and your business practices */}
         </CardContent>

@@ -1,3 +1,5 @@
+import { GoogleSignIn } from "@/components/google-sign-in";
+import { useSearchParams } from "react-router-dom";
 import { type ChangeEvent } from "react";
 import { Container, Column, Row, Box } from "@/components/ui/layout";
 import { useAuth, toast } from "@/hooks";
@@ -79,6 +81,7 @@ const getProfileCompletion = (user: AppUser) => {
 };
 
 export default function ProfilePage() {
+  const [params] = useSearchParams();
   const { user, loading: authLoading, token, logout, setUser } = useAuth();
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
@@ -224,7 +227,7 @@ export default function ProfilePage() {
           </Button>
         </Row>
       </Row>
-      <Tabs defaultValue="profile" className="w-full animate-fade-in">
+      <Tabs defaultValue={params.get("tab") === "security" ? "security" : "profile"} className="w-full animate-fade-in">
         <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 md:w-auto mb-8 bg-orange-50/80 border-orange-200 rounded-xl shadow-sm dark:bg-zinc-900 dark:border-zinc-700">
           <TabsTrigger
             value="profile"
@@ -355,7 +358,12 @@ export default function ProfilePage() {
           <AddressManager user={user} token={token} setUser={setUser} />
         </TabsContent>
         <TabsContent value="security">
-          <PasswordManager />
+          <div className="mx-auto mb-4 max-w-md rounded-xl border bg-card p-4">
+            <h2 className="mb-3 font-semibold">Sign-in methods</h2>
+            <GoogleSignIn from="profile" returnTo="/profile?tab=security" connected={user.googleConnected} />
+            {user.passwordLogin === false && <p className="mt-2 text-sm text-muted-foreground">This account signs in with Google.</p>}
+          </div>
+          {user.passwordLogin !== false && <PasswordManager />}
         </TabsContent>
       </Tabs>
     </Container>
@@ -426,47 +434,54 @@ function AddressManager({
     }
   };
   return (
-    <Column className="space-y-4">
-      <h2 className="text-lg font-bold text-orange-700 mb-2">Your Addresses</h2>
+    <Column className="gap-4">
+      <h2 className="text-lg font-bold text-orange-700">Your Addresses</h2>
       {addresses.length === 0 && <p className="text-sm text-muted-foreground">No saved addresses yet.</p>}
-      {addresses.map((addr) => (
-        <Card key={addr.id ?? [addr.street, addr.city, addr.postalCode].join(",")} className="mb-2">
-          <CardContent className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 p-4">
-            <Box>
-              <Box className="font-semibold">
-                {addr.street}, {addr.city}, {addr.state}, {addr.country} -{" "}
-                {addr.postalCode}
-              </Box>
-              {addr.isDefault && <Badge variant="default">Default</Badge>}
-            </Box>
-            <Row className="gap-2">
-              <Button
-                size="small"
-                variant="outlined"
-                disabled={loading || !addr.id}
-                onClick={() => handleEdit(addr)}
-              >
-                Edit
-              </Button>
-              <Button
-                size="small"
-                variant="contained"
-                color="error"
-                disabled={loading || !addr.id}
-                onClick={() => { if (addr.id) void handleDelete(addr.id); }}
-              >
-                Delete
-              </Button>
-            </Row>
-          </CardContent>
-        </Card>
-      ))}
-      <Box className="mt-4">
-        <h3 className="font-semibold mb-2">
+      {addresses.length > 0 && (
+        <ul className="grid gap-3">
+          {addresses.map((addr) => (
+            <li key={addr.id ?? [addr.street, addr.city, addr.postalCode].join(",")}>
+              <Card>
+                <CardContent className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-4">
+                  <Box className="min-w-0 space-y-1">
+                    <Box className="break-words font-semibold">
+                      {addr.street}, {addr.city}, {addr.state}, {addr.country} -{" "}
+                      {addr.postalCode}
+                    </Box>
+                    {addr.isDefault && <Badge variant="default">Default</Badge>}
+                  </Box>
+                  <Row className="shrink-0 flex-wrap items-center gap-2">
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      disabled={loading || !addr.id}
+                      onClick={() => handleEdit(addr)}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      color="error"
+                      disabled={loading || !addr.id}
+                      onClick={() => { if (addr.id) void handleDelete(addr.id); }}
+                    >
+                      Delete
+                    </Button>
+                  </Row>
+                </CardContent>
+              </Card>
+            </li>
+          ))}
+        </ul>
+      )}
+      <Box className="space-y-4 border-t pt-4">
+        <h3 className="font-semibold">
           {!form.id ? "Add New Address" : "Edit Address"}
         </h3>
-        <Box className="grid grid-cols-1 md:grid-cols-2 gap-2">
+        <Box className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <Input
+            className="md:col-span-2"
             name="street"
             placeholder="Street"
             value={form.street}
@@ -497,12 +512,12 @@ function AddressManager({
             onChange={handleChange}
           />
         </Box>
-        <Label className="mt-3 flex items-center gap-2">
+        <Label className="flex items-center gap-2">
           <input type="checkbox" checked={Boolean(form.isDefault)} disabled={loading}
             onChange={(event) => setForm({ ...form, isDefault: event.target.checked })} />
           Default address
         </Label>
-        <Row className="gap-2 mt-2">
+        <Row className="flex-wrap items-center gap-2">
           <Button variant="contained" onClick={handleSave} disabled={loading}>
             {!form.id ? "Add Address" : "Save Changes"}
           </Button>
