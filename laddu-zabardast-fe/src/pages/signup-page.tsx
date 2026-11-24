@@ -1,6 +1,8 @@
 //src/app/signup/page.tsx
 
+import { GoogleSignIn } from "@/components/google-sign-in";
 import { useState, useEffect } from "react";
+import { safeReturnTo } from "@/lib/navigation";
 import { Container, Column, Row, Box } from "@/components/ui/layout";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -26,7 +28,7 @@ import {
 } from "@/components/ui/form";
 import { useAuth, toast } from "@/hooks";
 import { UserPlus, Mail, Lock, LoaderCircle, Eye, EyeOff } from "lucide-react";
-import { InteractiveHoverButton } from "@/components/magicui/interactive-hover-button";
+import { Button as SubmitButton } from "@/components/ui/button-new";
 import { signup } from "@/routes/auth";
 import { getUser } from "@/queries";
 import { Button } from "@mui/material";
@@ -117,15 +119,16 @@ const ImpressiveLamp = () => (
 export default function SignupPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const returnTo = safeReturnTo(searchParams?.get("redirect") || searchParams?.get("callbackUrl"));
   const { user, setUser, setToken } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (user) {
-      router.push("/");
+      router.push(returnTo);
     }
-  }, [user, router]);
+  }, [user, router, returnTo]);
 
   const form = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
@@ -186,7 +189,7 @@ export default function SignupPage() {
         description: "Your account has been created successfully.",
       });
 
-      router.push("/");
+      router.push(returnTo);
     } catch (error: any) {
       toast({
         title: "Signup Failed",
@@ -320,7 +323,7 @@ export default function SignupPage() {
                     </FormItem>
                   )}
                 />
-                <InteractiveHoverButton
+                <SubmitButton variant="outline"
                   type="submit"
                   className="w-full h-8 px-3 py-1 rounded-full text-sm font-semibold flex flex-row items-center justify-center gap-2"
                   disabled={isLoading}
@@ -335,9 +338,10 @@ export default function SignupPage() {
                       {isLoading ? "Signing Up..." : "Sign Up"}
                     </span>
                   </span>
-                </InteractiveHoverButton>
+                </SubmitButton>
               </form>
             </Form>
+            <GoogleSignIn from="signup" returnTo={returnTo} disabled={isLoading} />
 
             <Box className="relative my-4"></Box>
           </CardContent>
@@ -346,7 +350,7 @@ export default function SignupPage() {
             <p className="text-muted-foreground flex items-center justify-center gap-1 flex-wrap">
               Already have an account?
               <Link
-                href={`/login${searchParams?.get("redirect") ? `?redirect=${searchParams.get("redirect")}` : ""}`}
+                href={`/login?redirect=${encodeURIComponent(returnTo)}`}
               >
                 <Button className="h-7 px-3 py-1 rounded-full text-sm font-medium align-middle ml-1">
                   <MailOpen className="mr-2 h-4 w-4" />
