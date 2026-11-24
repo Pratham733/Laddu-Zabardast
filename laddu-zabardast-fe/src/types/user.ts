@@ -20,6 +20,8 @@ export type AppUser = {
   photoURL: string | null;
   role: string | null;
   isAdmin: boolean;
+  googleConnected?: boolean;
+  passwordLogin?: boolean;
   picture: string | null;
   addresses: Address[];
   createdAt?: string;
