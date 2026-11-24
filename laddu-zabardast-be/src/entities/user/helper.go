@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	utils "github.com/Pratham733/laddu-zabardast-be/src"
 	"github.com/Pratham733/laddu-zabardast-be/src/config"
@@ -47,7 +48,7 @@ func IsConfiguredAdminEmail(email string) bool {
 }
 
 func (u User) EffectiveRole() string {
-	if IsConfiguredAdminEmail(u.Email) {
+	if !config.AppConfig.Production && IsConfiguredAdminEmail(u.Email) {
 		return RoleAdmin
 	}
 	return u.Role
@@ -76,18 +77,20 @@ func BuildUserResponse(u User) UserResponsePacket {
 	}
 
 	return UserResponsePacket{
-		ID:        u.ID,
-		UserID:    u.ID,
-		FirstName: u.FirstName,
-		LastName:  u.LastName,
-		Email:     u.Email,
-		Phone:     phone,
-		Role:      role,
-		IsAdmin:   u.IsAdmin(),
-		PhotoURL:  photoURL,
-		Picture:   picture,
-		Addresses: ModelAddressesToPacket(u.Addresses),
-		CreatedAt: u.CreatedAt,
+		GoogleConnected: u.GoogleSubject != "",
+		PasswordLogin:   u.Password != "",
+		ID:              u.ID,
+		UserID:          u.ID,
+		FirstName:       u.FirstName,
+		LastName:        u.LastName,
+		Email:           u.Email,
+		Phone:           phone,
+		Role:            role,
+		IsAdmin:         u.IsAdmin(),
+		PhotoURL:        photoURL,
+		Picture:         picture,
+		Addresses:       ModelAddressesToPacket(u.Addresses),
+		CreatedAt:       u.CreatedAt,
 	}
 }
 
@@ -103,8 +106,12 @@ func AuthenticatedUser(r *http.Request) (User, error) {
 }
 
 func AdminOnly(next http.HandlerFunc) http.HandlerFunc {
+	return AdminOnlyWithTimeout(next, utils.DefaultTimeout)
+}
+
+func AdminOnlyWithTimeout(next http.HandlerFunc, timeout time.Duration) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx, cancel := context.WithTimeout(r.Context(), utils.DefaultTimeout)
+		ctx, cancel := context.WithTimeout(r.Context(), timeout)
 		defer cancel()
 		account, err := AuthenticatedUser(r.WithContext(ctx))
 		if err != nil {

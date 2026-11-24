@@ -85,9 +85,16 @@ func ChangePasswordHandler(w http.ResponseWriter, r *http.Request, req ChangePas
 		return utils.SuccessResponsePacket{}, err
 	}
 
-	_, err = collection.UpdateOne(r.Context(), bson.M{"_id": userId}, bson.M{"$set": bson.M{"password": string(hashedPassword)}})
+	result, err := collection.UpdateOne(r.Context(), bson.M{"_id": userId, "password": u.Password}, bson.M{
+		"$set":   bson.M{"password": string(hashedPassword)},
+		"$unset": bson.M{"passwordReset": ""},
+	})
 	if err != nil {
 		return utils.SuccessResponsePacket{}, err
+	}
+
+	if result.MatchedCount == 0 {
+		return utils.SuccessResponsePacket{}, errors.New("password was changed. Please try again")
 	}
 
 	return utils.SuccessResponsePacket{

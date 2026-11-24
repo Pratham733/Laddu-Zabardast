@@ -81,18 +81,20 @@ type UserPacket struct {
 }
 
 type UserResponsePacket struct {
-	ID        string                  `json:"id"`
-	UserID    string                  `json:"userId"`
-	FirstName string                  `json:"firstName"`
-	LastName  string                  `json:"lastName"`
-	Email     string                  `json:"email"`
-	Phone     *string                 `json:"phone"`
-	Role      *string                 `json:"role"`
-	IsAdmin   bool                    `json:"isAdmin"`
-	PhotoURL  *string                 `json:"photoURL"`
-	Picture   *string                 `json:"picture"`
-	Addresses []AddressResponsePacket `json:"addresses"`
-	CreatedAt string                  `json:"createdAt,omitempty"`
+	GoogleConnected bool                    `json:"googleConnected"`
+	PasswordLogin   bool                    `json:"passwordLogin"`
+	ID              string                  `json:"id"`
+	UserID          string                  `json:"userId"`
+	FirstName       string                  `json:"firstName"`
+	LastName        string                  `json:"lastName"`
+	Email           string                  `json:"email"`
+	Phone           *string                 `json:"phone"`
+	Role            *string                 `json:"role"`
+	IsAdmin         bool                    `json:"isAdmin"`
+	PhotoURL        *string                 `json:"photoURL"`
+	Picture         *string                 `json:"picture"`
+	Addresses       []AddressResponsePacket `json:"addresses"`
+	CreatedAt       string                  `json:"createdAt,omitempty"`
 }
 
 func (u UserResponsePacket) MarshalJSON() ([]byte, error) {

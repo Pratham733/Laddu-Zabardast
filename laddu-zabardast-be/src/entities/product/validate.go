@@ -15,10 +15,10 @@ func validateProductId(id string) error {
 }
 
 func validateCreateProductReq(req CreateProductRequestPacket) error {
-	if strings.TrimSpace(req.Name) == "" || req.Price <= 0 || strings.TrimSpace(req.Category) == "" || strings.TrimSpace(req.ImageUrl) == "" {
+	if strings.TrimSpace(req.Name) == "" || !validPrice(req.Price) || strings.TrimSpace(req.Category) == "" || strings.TrimSpace(req.ImageUrl) == "" {
 		return errors.New("product name, positive price, category, and imageUrl are required")
 	}
-	return nil
+	return validateSweetenerPrices(req.SweetenerPrices)
 }
 
 func validateUpdateProductReq(id string, req UpdateProductRequestPacket) (bson.M, error) {
@@ -43,13 +43,39 @@ func validateUpdateProductReq(id string, req UpdateProductRequestPacket) (bson.M
 		updates["key"] = GenerateProductKey(name)
 	}
 	if req.Price != nil {
-		if *req.Price <= 0 {
-			return nil, errors.New("price must be positive")
+		if !validPrice(*req.Price) {
+			return nil, errors.New("price must be positive with at most two decimal places")
 		}
 		updates["price"] = *req.Price
 	}
 	if req.Available != nil {
 		updates["available"] = *req.Available
+	}
+	if req.BestSeller != nil {
+		updates["bestSeller"] = *req.BestSeller
+	}
+	if req.NewArrival != nil {
+		updates["newArrival"] = *req.NewArrival
+	}
+	if req.SweetenerPrices != nil {
+		if err := validateSweetenerPrices(*req.SweetenerPrices); err != nil {
+			return nil, err
+		}
+		updates["sweetenerPrices"] = *req.SweetenerPrices
+	}
+	if req.FoodDetails != nil {
+		details, err := normalizeFoodDetails(*req.FoodDetails)
+		if err != nil {
+			return nil, err
+		}
+		updates["foodDetails"] = details
+	}
+	if req.VariantDetails != nil {
+		details, err := normalizeVariantDetails(*req.VariantDetails)
+		if err != nil {
+			return nil, err
+		}
+		updates["variantDetails"] = details
 	}
 	if len(updates) == 0 {
 		return nil, errors.New("no fields to update")
