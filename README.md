@@ -61,10 +61,10 @@ Before launching the project, verify the following prerequisites:
 
 ### 1. MongoDB Service Running
 The backend requires an active MongoDB database:
-- **Local MongoDB (Default)**: Ensure MongoDB is running on port `27017`.
+- **Local MongoDB (Default)**: Ensure MongoDB is running on port `27077`.
   - **macOS (Homebrew)**: `brew services start mongodb-community`
   - **Linux (systemd)**: `sudo systemctl start mongod`
-  - **Docker**: `docker run -d -p 27017:27017 --name lz-mongo mongo:latest`
+  - **Docker**: `docker run -d -p 27077:27017 --name lz-mongo mongo:latest`
   - **Test connection**: `mongosh --eval "db.adminCommand('ping')"`
 - When the backend connects successfully, it outputs:
   ```text
@@ -76,7 +76,7 @@ The backend requires an active MongoDB database:
 Ensure no leftover processes are blocking the ports:
 - **`8080`** for Backend API (`lsof -i :8080`)
 - **`7000`** for Frontend Vite Dev Server (`lsof -i :7000`)
-- **`27017`** for MongoDB (`lsof -i :27017`)
+- **`27077`** for MongoDB (`lsof -i :27077`)
 
 *If a port is in use, terminate the process with: `kill -9 <PID>`*
 
@@ -136,9 +136,7 @@ Laddu-Zabardast/
 │   └── launch.json                 # Unified IDE runner & debugger configurations
 ├── laddu-zabardast-be/             # Backend service (Golang)
 │   ├── env/                        # TOML environment configuration files
-│   │   ├── dev.toml                # Cloud / Atlas configuration
-│   │   ├── dev.toml.example        # Example configuration template
-│   │   └── local.toml              # Local MongoDB & CORS configuration
+│   │   └── backend.local.env.example  # Local backend environment template
 │   ├── public/
 │   │   └── uploads/                # Static uploaded product media
 │   ├── src/
@@ -233,7 +231,7 @@ If you prefer using the terminal rather than the IDE runner:
 Ensure you have installed:
 - [Node.js](https://nodejs.org/) (v20 or higher) & `npm`
 - [Go](https://go.dev/dl/) (v1.25+)
-- Local MongoDB running on `localhost:27017` (or MongoDB Atlas URI)
+- Local MongoDB running on `127.0.0.1:27077` (or MongoDB Atlas URI)
 
 ---
 
@@ -244,23 +242,14 @@ Ensure you have installed:
    cd laddu-zabardast-be
    ```
 
-2. **Verify configuration (`env/local.local.json`)**.
-   This file takes precedence over `env/local.json`. Use `CONFIG_PATH` to select another JSON file explicitly.
+2. **Set up the local environment**. Existing installations can use their private `env/backend.local.env`. On a fresh checkout, copy the template from the backend folder:
 
-   ```json
-   {
-     "routes": ["http://localhost:7000"],
-     "master_mongo": {
-       "host": "mongodb://localhost:27017",
-       "database": "laddu_zabardast"
-     },
-     "auth": {
-       "jwt_secret": "REPLACE_WITH_A_RANDOM_SECRET"
-     }
-   }
+   ```bash
+   cp env/backend.local.env.example env/backend.local.env
+   chmod 600 env/backend.local.env
    ```
 
-   The backend uses the configured database. The local default is `laddu_zabardast`, which also holds data from earlier versions. Use a different database name for isolated development or testing.
+   Fill in `JWT_SECRET` using `openssl rand -hex 32` and set `LOCAL_ADMIN_EMAIL` to your local admin account. VS Code loads this file for **Launch Backend**. For **Dev - Atlas**, use `env/backend.dev.env` with the Atlas URI and `APP_ENV=dev`.
 
 3. **Install dependencies & build**:
    ```bash
@@ -270,7 +259,10 @@ Ensure you have installed:
 
 4. **Start the backend server**:
    ```bash
-   go run src/server/main.go
+   set -a
+   source env/backend.local.env
+   set +a
+   go run ./src/server
    ```
    *Expected output:*
    ```text
@@ -372,13 +364,57 @@ All backend API routes are served at `http://localhost:8080`.
 
 ## ⚙ Environment Configuration
 
-### Backend Configuration (`env/local.local.json` or `env/dev.local.json`)
-| Key | Type | Description |
-|:----|:-----|:------------|
-| `routes` | `string[]` | Allowed CORS origins (e.g. `["http://localhost:7000"]`) |
-| `master_mongo.host` | `string` | MongoDB connection URI (`mongodb://localhost:27017` or Atlas URI) |
-| `master_mongo.database` | `string` | Target MongoDB database name (e.g. `lz_local`) |
-| `auth.jwt_secret` | `string` | Secret key used for signing JWT tokens |
+### Production backend configuration
+
+Keep the production settings together in the private local file `laddu-zabardast-be/env/prod.json`. Git ignores this file. Keep it out of any deployment archive and enter the values in the hosting provider's environment or secret manager. The hosted backend loads settings from that environment.
+
+Set these values in the host's environment or secret manager:
+
+| Variable | Value |
+|---|---|
+| `APP_ENV` | `production`, which enables production config validation and secure cookies |
+| `MONGODB_URI` | Private connection string for the production database user |
+| `MONGODB_DATABASE` | Production database name |
+| `JWT_SECRET` | A newly generated signing key of at least 32 bytes |
+| `CORS_ORIGINS` | Comma-separated storefront HTTPS origins without trailing slashes |
+| `PORT` | Port assigned by the host, unless `HTTP_ADDR` is set |
+| `IMAGE_STORAGE` | Set to `r2` on Render. Defaults to `local` for the debugger. |
+| `UPLOAD_DIR` | Optional local upload directory. When using local storage on a host, point this to a persistent volume. |
+
+Keep the storefront and API on the same site for browser login cookies. Production accounts receive admin access through their stored MongoDB role. Set `ORDER_EMAIL_ADMIN` to the fulfillment inbox if SMTP is enabled. Use the Google and SMTP settings below for live delivery and sign-in. Rotate any MongoDB credentials and signing keys previously committed to Git before exposing the API.
+
+### Deploy the backend to Render
+
+Use one [paid Render Go web service](https://render.com/docs/deploy-go-nethttp), MongoDB Atlas, and a Cloudflare R2 Standard bucket. Render's Free web services block outbound SMTP on port 587. The paid service lets the API run the mail queue alongside HTTP requests. [Render Free instance limits](https://render.com/docs/free#other-limitations)
+
+1. Create the production Atlas database and a database user with `readWrite` on that database. Create a new database password and generate the signing key with `openssl rand -hex 32`. In Render, copy the service's CIDRs from **Connect → Outbound** and add them to the [Atlas IP access list](https://www.mongodb.com/docs/atlas/security/ip-access-list/). Render publishes the [steps for finding the CIDRs](https://render.com/docs/outbound-ip-addresses). Revoke any database credentials that were previously committed to Git. Import only the production data you need.
+2. Create an R2 Standard bucket, for example `laddu-zabardast-images`. Create an [R2 S3 API token](https://developers.cloudflare.com/r2/get-started/s3/) with **Object Read & Write** scoped to that bucket. Add `images.example.com` as the bucket's [custom domain](https://developers.cloudflare.com/r2/buckets/public-buckets/). Use the domain for public catalog images only.
+3. In Render select **New → Web Service** and connect the Git repository. Fill in the service settings below. Enter the production variables from the preceding table and the R2, SMTP, and Google settings you plan to enable in Render's **Environment** tab. Keep `HTTP_ADDR` unset so that the app uses Render's `PORT`.
+4. Deploy and check `https://<service>.onrender.com/health` for `200 OK`. Add `api.example.com` under [Custom Domains](https://render.com/docs/custom-domains) and create the DNS record Render provides. Check `/health` again on the new hostname before changing any storefront or mobile configuration.
+5. Set `VITE_BACKEND_URL=https://api.example.com` at frontend build time. Set `CORS_ORIGINS` and `PASSWORD_RESET_WEB_ORIGIN` to the HTTPS storefront origin, such as `https://shop.example.com`. When enabling Google sign-in, set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` from your Google web OAuth client, `GOOGLE_WEB_ORIGIN` to the storefront origin, and `GOOGLE_CALLBACK_URL` to `https://api.example.com/auth/google/callback`. Register that same callback with Google. Configure all four Google variables together. For mobile builds set `MOBILE_BACKEND_URL=https://api.example.com`. The local debug configuration continues to use the local API and MongoDB.
+
+| Render setting | Value |
+|---|---|
+| Language | Go |
+| Root Directory | `laddu-zabardast-be` |
+| Build Command | `GOWORK=off go build -mod=mod -o server ./src/server` |
+| Start Command | `./server` |
+| Health Check Path | `/health` |
+
+| Render image variable | Value |
+|---|---|
+| `IMAGE_STORAGE` | `r2` |
+| `R2_ACCOUNT_ID` | Cloudflare account ID |
+| `R2_BUCKET` | Bucket name |
+| `R2_ACCESS_KEY_ID` | S3 API token access key ID |
+| `R2_SECRET_ACCESS_KEY` | S3 API token secret access key |
+| `R2_PUBLIC_BASE_URL` | `https://images.example.com` |
+
+The admin uploader accepts JPEG, PNG, and WebP up to 10 MB and 24 megapixels. It stores one optimized image capped at 1,600 pixels on its longest side. Local mode saves to disk and R2 mode saves to `products/` in the bucket. MongoDB stores the image URL. If imported products have `/uploads/` URLs, transfer those files to R2 and update their URLs before cutover. For imported orders, check any saved item image URLs as well. Keep the source files until the migrated URLs work.
+
+For Gmail use `ORDER_SMTP_HOST=smtp.gmail.com`, `ORDER_SMTP_PORT=587`, and `ORDER_SMTP_SECURITY=starttls`. Set `ORDER_SMTP_USER` and `ORDER_EMAIL_FROM` to `ladduzab@gmail.com`, `ORDER_SMTP_PASSWORD` to the Gmail app password, and `ORDER_EMAIL_ADMIN` to `spratham388@gmail.com` or the intended fulfillment inbox. Grant the production admin account its stored role using the database command under **Local administrator** below, after the account signs up.
+
+Before launch, test password and Google sign-in, password reset, a COD order and invoice, confirmation emails to the customer and admin, cancellation, admin invoice export, and an uploaded product image after a redeploy. Use test recipients and verify actual inbox delivery. Set up a database backup that covers the invoice sequence and `issuedInvoices` before taking live orders.
 
 ### Frontend Configuration (`laddu-zabardast-fe/.env`)
 | Key | Default | Description |
@@ -388,32 +424,54 @@ All backend API routes are served at `http://localhost:8080`.
 
 ### Order confirmation emails
 
-For the local debugger, create `laddu-zabardast-be/env/order-email.local.json`. This file is ignored by Git. Use a verified sender and the SMTP provider's credentials, then restart the backend debugger.
-
-```json
-{
-  "host": "smtp.example.com",
-  "port": "587",
-  "security": "starttls",
-  "user": "orders@example.com",
-  "password": "SMTP_PROVIDER_PASSWORD",
-  "sender": "orders@example.com"
-}
-```
-
-For deployments, set `ORDER_SMTP_HOST`, `ORDER_SMTP_PORT`, `ORDER_SMTP_SECURITY`, `ORDER_SMTP_USER`, `ORDER_SMTP_PASSWORD`, and `ORDER_EMAIL_FROM`. Environment variables override the local file. Port defaults to 587 for STARTTLS or 465 for implicit TLS. Use `plain` only for a loopback test relay. The local admin email comes from `env/local.credentials.json`. Set `ORDER_EMAIL_ADMIN` to use a separate fulfillment inbox.
+For the local debugger, set `ORDER_SMTP_HOST`, `ORDER_SMTP_PORT`, `ORDER_SMTP_SECURITY`, `ORDER_SMTP_USER`, `ORDER_SMTP_PASSWORD`, and `ORDER_EMAIL_FROM` in `env/backend.local.env`, then restart. Set the same variables in the hosting provider’s secret manager for deployments. Port defaults to 587 for STARTTLS or 465 for implicit TLS. Use `plain` only for a loopback test relay. Local admin notifications default to `LOCAL_ADMIN_EMAIL`. Set `ORDER_EMAIL_ADMIN` to override this or supply the production fulfillment inbox.
 
 The local checkout queues separate messages for the checkout email and admin even before SMTP is configured. After enabling SMTP and restarting, the queue retries pending messages. Orders created by older builds with mail disabled have no notification jobs.
 
+### Password reset email
+
+Open **Login → Forgot password?** and enter the email used for a password account. The email uses the same backend SMTP settings documented above. Reset links are valid for 30 minutes, and each link can be used once. If a customer uses Google exclusively, they can continue to sign in with Google.
+
+For deployments, set `PASSWORD_RESET_WEB_ORIGIN` to the public HTTPS storefront origin (for example, `https://shop.example.com`). The backend uses `GOOGLE_WEB_ORIGIN` if the reset origin is unset, or `http://localhost:7000` for the local debugger. When testing from Android, the link opens in the phone's browser and needs a storefront URL the phone can reach.
+
+### Order cancellation and contact
+
+New orders start as **Pending**. Customers and admins can cancel from **Orders** while the order is pending. When an order is cancelled or marked **Delivered**, the backend queues a status email for the customer and admin. Cancellation leaves the payment record intact. To send these emails, use the SMTP settings above.
+
+The storefront footer shows the support contact. Set `STORE_CONTACT_EMAIL` and `STORE_CONTACT_PHONES` in the backend environment to override it. Use a comma-separated list of phone numbers, ideally including country codes, for example `+918826225551,+919910345551`.
+
+### Invoices
+
+New orders get an invoice number in `YYYYMMDDNNNNNN` format. It uses the date in India and a six-digit serial starting at `000001` each day. The customer confirmation email attaches the same compressed PDF available from **Orders**. Keep MongoDB’s `issuedInvoices` collection in backups. It holds invoice numbers, metadata, and one archived PDF per issued invoice. Previously numbered invoices preserve their number and issue date, and receive a stored copy when first downloaded or exported.
+
+In **Admin → Order History**, select the invoice month, choose the invoices or **Select all**, and download a ZIP. The tab opens to the current month in India. The invoice list and export use separate admin-only routes.
+
+Optional backend settings include `INVOICE_SELLER_NAME`, `INVOICE_SELLER_ADDRESS`, and `INVOICE_BANK_DETAILS` (one line per bank detail). Checkout currently has no GST breakdown, so the PDF uses the **Invoice** title and leaves the tax fields blank.
+
+**Buy again** adds available items to the existing cart at current prices. It reports any item, sweetener, or custom box that can no longer be supplied.
+
+In **Admin → Products**, use **Food details** to enter ingredients, allergen information, shelf life, and storage instructions. Shared fields apply to every sweetener. Use the option selector to override a field for a specific sweetener. Blank fields do not display any claim.
+
 ### Local administrator
 
-The email in `env/local.credentials.json` grants admin access to that existing account on local startup. Sign in with its existing password. Public signup reserves this email. MongoDB accounts with a stored admin role can also manage the store. To grant that role to a different account, first sign up with the separate email, then run this in the configured MongoDB database.
+For local testing, the email set in `LOCAL_ADMIN_EMAIL` can sign up normally and receives admin access through the configured-email check. Use the password you choose during signup for future sign-ins. Changing the configured email changes which account receives this access. MongoDB accounts with a stored admin role can also manage the store. To grant that role to a different account, first sign up with the separate email, then run this in the configured MongoDB database.
 
 ```javascript
 db.users.updateOne({ email: "operator@example.test" }, { $set: { role: "admin" } })
 ```
 
 Reload the storefront and open `/admin`. Existing administrators who previously relied on an email match also need the stored `admin` role.
+
+### Sign in with Google
+
+1. Configure the consent screen in [Google Cloud](https://console.cloud.google.com/auth/overview) and create an OAuth client of type **Web application** for Laddu Zabardast. If the project is in testing mode and Google requires test users, add the account you will use.
+2. Register `http://localhost:8080/auth/google/callback` as an **authorized redirect URI** for local testing.
+3. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in the ignored `laddu-zabardast-be/env/backend.local.env` file. Select **Launch Backend** in the root VS Code workspace.
+4. Open the web app at `http://localhost:7000`. For the debug APK, keep USB connected with `adb reverse tcp:8080 tcp:8080`. Android and iOS open a system-managed Google sign-in sheet. Recent browsers return directly to the app. Older Android browsers may show an **Open Laddu Zabardast** button. For iPhone build and network setup, see the [mobile README](laddu-zabardast-mobile/README.md).
+
+Use **Sign up with Google** or **Sign in with Google** for a new Google account. If your email already has a password account, sign in with the password and choose **Profile → Security → Connect Google**. You can then use either method on the same account. Google buttons appear once the backend is configured.
+
+On the hosted backend, set these four values as environment variables. Use an HTTPS callback and register it with Google, and add the storefront origin to the backend's CORS `routes`. Host the storefront and API on the same site so browsers can retain the login cookie. Rebuild the mobile apps with the public HTTPS API URL. If the backend reports that the email uniqueness index cannot be created, check for existing accounts with duplicate emails before enabling Google.
 
 ---
 
@@ -430,8 +488,8 @@ npm run typecheck  # Validates TypeScript types (tsc --noEmit)
 
 ### Backend (`laddu-zabardast-be`)
 ```bash
-go run src/server/main.go               # Starts Go API server with local config
-APP_ENV=dev go run src/server/main.go   # Starts Go API server with dev config
+(set -a; source env/backend.local.env; go run ./src/server)  # Local MongoDB
+(set -a; source env/backend.dev.env; go run ./src/server)    # Atlas
 go build -o bin/server src/server/main.go  # Compiles binary into bin/server
 go test ./...                           # Runs test suites
 ```
@@ -441,10 +499,10 @@ go test ./...                           # Runs test suites
 ## 🔍 Troubleshooting & Common Issues
 
 ### 1. `error parsing uri: lookup ...: no such host`
-- **Cause**: The MongoDB Atlas hostname in `env/dev.toml` does not resolve or has expired.
-- **Fix**: Run with local MongoDB (default) or update `host` in `env/dev.toml` with an active Atlas cluster URI.
+- **Cause**: The MongoDB Atlas hostname in `env/backend.dev.env` does not resolve or has expired.
+- **Fix**: Run with local MongoDB (default) or update `MONGODB_URI` in `env/backend.dev.env` with an active Atlas cluster URI.
 
-### 2. `failed to connect to `localhost:27017`: connection refused`
+### 2. `failed to connect to `127.0.0.1:27077`: connection refused`
 - **Cause**: Local MongoDB service is not started.
 - **Fix**: Start MongoDB using `brew services start mongodb-community` (macOS) or `sudo systemctl start mongod` (Linux).
 
@@ -460,7 +518,7 @@ go test ./...                           # Runs test suites
 
 ### 4. CORS Errors in Browser Console
 - **Cause**: Frontend origin does not match the allowed origins list in backend configuration.
-- **Fix**: Ensure `routes = ["http://localhost:7000"]` is present in `laddu-zabardast-be/env/local.toml`.
+- **Fix**: Set `CORS_ORIGINS=http://localhost:7000` in `laddu-zabardast-be/env/backend.local.env`.
 
 ---
 

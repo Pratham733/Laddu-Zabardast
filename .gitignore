@@ -9,6 +9,23 @@ backend/bin/
 backend/*.exe
 backend/*.test
 backend/.env
+# Private backend config, local services, and signing assets
+laddu-zabardast-be/env/*
+!laddu-zabardast-be/env/*.example
+laddu-zabardast-be/public/uploads/
+laddu-zabardast-be/**/__debug_bin*
+laddu-zabardast-mobile/**/*.jks
+laddu-zabardast-mobile/**/*.keystore
+laddu-zabardast-mobile/**/*.p12
+laddu-zabardast-mobile/**/keystore.properties
 
 # OS files
 .DS_Store
+
+# Android development and generated mobile output
+laddu-zabardast-mobile/.tools/
+laddu-zabardast-mobile/.gradle/
+laddu-zabardast-mobile/.android/
+laddu-zabardast-mobile/.local/
+laddu-zabardast-mobile/output/
+laddu-zabardast-fe/dist-mobile/

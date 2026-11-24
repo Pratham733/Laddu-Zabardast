@@ -1,0 +1,11 @@
+{
+  "credentials_file": "local.credentials.json",
+  "routes": ["http://localhost:7000"],
+  "master_mongo": {
+    "host": "mongodb://127.0.0.1:27077/",
+    "database": "laddu_zabardast"
+  },
+  "auth": {
+    "jwt_secret": ""
+  }
+}

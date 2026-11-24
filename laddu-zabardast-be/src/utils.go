@@ -38,7 +38,7 @@ func SetTokenCookie(w http.ResponseWriter, token string) {
 		Expires:  time.Now().Add(7 * 24 * time.Hour),
 		HttpOnly: true,
 		Path:     "/",
-		Secure:   false,
+		Secure:   config.AppConfig.Production,
 		SameSite: http.SameSiteLaxMode,
 	})
 }
@@ -89,8 +89,12 @@ type SuccessResponsePacket struct {
 const DefaultTimeout = 5 * time.Second
 
 func WithResponse[Resp any](fn func(w http.ResponseWriter, r *http.Request) (Resp, error)) http.HandlerFunc {
+	return WithResponseTimeout(DefaultTimeout, fn)
+}
+
+func WithResponseTimeout[Resp any](timeout time.Duration, fn func(w http.ResponseWriter, r *http.Request) (Resp, error)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx, cancel := context.WithTimeout(r.Context(), DefaultTimeout)
+		ctx, cancel := context.WithTimeout(r.Context(), timeout)
 		defer cancel()
 		r = r.WithContext(ctx)
 
