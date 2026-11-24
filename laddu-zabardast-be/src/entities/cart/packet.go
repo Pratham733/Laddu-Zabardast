@@ -1,18 +1,24 @@
 package cart
 
-import "github.com/Pratham733/laddu-zabardast-be/src/entities/box"
+import (
+	"github.com/Pratham733/laddu-zabardast-be/src/entities/box"
+	"github.com/Pratham733/laddu-zabardast-be/src/entities/product"
+)
 
 // CartItemPacket represents a cart line item in API request and response bodies.
 type CartItemPacket struct {
-	Box         *box.Selection `json:"box,omitempty"`
-	ID          string         `json:"id"`
-	ProductID   string         `json:"productId,omitempty"`
-	Name        string         `json:"name"`
-	Description string         `json:"description,omitempty"`
-	Price       float64        `json:"price"`
-	ImageUrl    string         `json:"imageUrl,omitempty"`
-	Category    string         `json:"category,omitempty"`
-	Quantity    int            `json:"quantity"`
+	SweetenerPrices      map[product.Sweetener]float64 `json:"sweetenerPrices,omitempty"`
+	SweetenerUnavailable bool                          `json:"sweetenerUnavailable,omitempty"`
+	Sweetener            product.Sweetener             `json:"sweetener,omitempty"`
+	Box                  *box.Selection                `json:"box,omitempty"`
+	ID                   string                        `json:"id"`
+	ProductID            string                        `json:"productId,omitempty"`
+	Name                 string                        `json:"name"`
+	Description          string                        `json:"description,omitempty"`
+	Price                float64                       `json:"price"`
+	ImageUrl             string                        `json:"imageUrl,omitempty"`
+	Category             string                        `json:"category,omitempty"`
+	Quantity             int                           `json:"quantity"`
 }
 
 type CartPayloadPacket struct {
@@ -35,20 +41,24 @@ type UpdateCartResponsePacket struct {
 
 func CartItemModelToPacket(item CartItem) CartItemPacket {
 	return CartItemPacket{
-		ID:          item.ID,
-		ProductID:   item.ProductID,
-		Name:        item.Name,
-		Description: item.Description,
-		Price:       item.Price,
-		Box:         item.Box,
-		ImageUrl:    item.ImageUrl,
-		Category:    item.Category,
-		Quantity:    item.Quantity,
+		Sweetener:            item.Sweetener,
+		SweetenerPrices:      item.SweetenerPrices,
+		SweetenerUnavailable: item.SweetenerUnavailable,
+		ID:                   item.ID,
+		ProductID:            item.ProductID,
+		Name:                 item.Name,
+		Description:          item.Description,
+		Price:                item.Price,
+		Box:                  item.Box,
+		ImageUrl:             item.ImageUrl,
+		Category:             item.Category,
+		Quantity:             item.Quantity,
 	}
 }
 
 func CartItemPacketToModel(p CartItemPacket) CartItem {
 	return CartItem{
+		Sweetener:   p.Sweetener,
 		ID:          p.ID,
 		ProductID:   p.ProductID,
 		Name:        p.Name,
