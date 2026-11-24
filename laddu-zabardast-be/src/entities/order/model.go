@@ -4,16 +4,25 @@ import (
 	"encoding/json"
 
 	"github.com/Pratham733/laddu-zabardast-be/src/entities/box"
+	"github.com/Pratham733/laddu-zabardast-be/src/entities/product"
 )
 
 type OrderItem struct {
-	Box       *box.Selection `bson:"box,omitempty" json:"box,omitempty"`
-	ID        string         `bson:"id,omitempty" json:"id,omitempty"`
-	ProductID string         `bson:"productId,omitempty" json:"productId,omitempty"`
-	Name      string         `bson:"name" json:"name"`
-	Quantity  int            `bson:"quantity" json:"quantity"`
-	Price     float64        `bson:"price" json:"price"`
-	ImageUrl  string         `bson:"imageUrl,omitempty" json:"imageUrl,omitempty"`
+	Sweetener product.Sweetener `bson:"sweetener,omitempty" json:"sweetener,omitempty"`
+	Box       *box.Selection    `bson:"box,omitempty" json:"box,omitempty"`
+	ID        string            `bson:"id,omitempty" json:"id,omitempty"`
+	ProductID string            `bson:"productId,omitempty" json:"productId,omitempty"`
+	Name      string            `bson:"name" json:"name"`
+	Quantity  int               `bson:"quantity" json:"quantity"`
+	Price     float64           `bson:"price" json:"price"`
+	ImageUrl  string            `bson:"imageUrl,omitempty" json:"imageUrl,omitempty"`
+}
+
+func (i OrderItem) displayName() string {
+	if label := i.Sweetener.Label(); label != "" {
+		return i.Name + " (" + label + ")"
+	}
+	return i.Name
 }
 
 type ShippingDetails struct {

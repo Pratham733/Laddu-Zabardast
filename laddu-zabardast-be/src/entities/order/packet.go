@@ -4,16 +4,18 @@ import (
 	"encoding/json"
 
 	"github.com/Pratham733/laddu-zabardast-be/src/entities/box"
+	"github.com/Pratham733/laddu-zabardast-be/src/entities/product"
 )
 
 type OrderItemPacket struct {
-	Box       *box.Selection `json:"box,omitempty"`
-	ID        string         `json:"id,omitempty"`
-	ProductID string         `json:"productId,omitempty"`
-	Name      string         `json:"name"`
-	Quantity  int            `json:"quantity"`
-	Price     float64        `json:"price"`
-	ImageUrl  string         `json:"imageUrl,omitempty"`
+	Sweetener product.Sweetener `json:"sweetener,omitempty"`
+	Box       *box.Selection    `json:"box,omitempty"`
+	ID        string            `json:"id,omitempty"`
+	ProductID string            `json:"productId,omitempty"`
+	Name      string            `json:"name"`
+	Quantity  int               `json:"quantity"`
+	Price     float64           `json:"price"`
+	ImageUrl  string            `json:"imageUrl,omitempty"`
 }
 
 type ShippingDetailsPacket struct {
@@ -120,6 +122,7 @@ type CreateOrderResponsePacket struct {
 
 func OrderItemModelToPacket(item OrderItem) OrderItemPacket {
 	return OrderItemPacket{
+		Sweetener: item.Sweetener,
 		ID:        item.ID,
 		ProductID: item.ProductID,
 		Name:      item.Name,
@@ -132,6 +135,7 @@ func OrderItemModelToPacket(item OrderItem) OrderItemPacket {
 
 func OrderItemPacketToModel(p OrderItemPacket) OrderItem {
 	return OrderItem{
+		Sweetener: p.Sweetener,
 		ID:        p.ID,
 		ProductID: p.ProductID,
 		Name:      p.Name,
