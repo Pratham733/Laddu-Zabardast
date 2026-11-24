@@ -1,9 +1,11 @@
+import type { Sweetener } from "./product";
 import type { LadduBox } from "./box";
 
 export interface OrderItem {
   id?: string; 
   productId?: string;
   box?: LadduBox;
+  sweetener?: Sweetener;
   name: string;
   price: number;
   quantity: number;
