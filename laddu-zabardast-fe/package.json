@@ -7,9 +7,19 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "mobile:android": "node ../laddu-zabardast-mobile/scripts/build-android.mjs",
+    "mobile:ios": "node ../laddu-zabardast-mobile/scripts/build-ios.mjs",
+    "mobile:install": "node ../laddu-zabardast-mobile/scripts/install-android.mjs"
   },
   "dependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.6.2",
+    "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/ios": "8.6.2",
+    "@capacitor/share": "^8.0.3",
+    "@capacitor/splash-screen": "^8.0.2",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@genkit-ai/googleai": "^1.7.0",
@@ -72,6 +82,8 @@
     "zod": "^3.25.36"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.6.2",
     "@types/bcryptjs": "^2.4.6",
     "@types/canvas-confetti": "^1.9.0",
     "@types/caseless": "^0.12.5",
