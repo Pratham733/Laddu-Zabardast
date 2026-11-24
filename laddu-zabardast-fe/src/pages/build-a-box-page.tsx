@@ -85,13 +85,13 @@ export default function BuildABoxPage() {
   };
 
   return (
-    <Container className="max-w-3xl py-8 sm:py-12">
-      <h1 className="text-3xl font-bold tracking-tight">Build your laddu box</h1>
+    <Container className="max-w-3xl px-4 py-5 sm:px-6 sm:py-12">
+      <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Build your laddu box</h1>
       <fieldset className="mt-6" disabled={saving}>
         <legend className="mb-3 text-base font-semibold">Choose a box size</legend>
         <div className="grid grid-cols-2 gap-3">
           {LADDU_BOX_SIZES.map((capacity) => (
-            <label key={capacity} className="flex cursor-pointer items-center gap-3 rounded-lg border bg-card p-4 has-[:checked]:border-primary">
+            <label key={capacity} className="flex min-w-0 cursor-pointer items-center gap-2 rounded-lg border bg-card p-3 text-sm has-[:checked]:border-primary sm:gap-3 sm:p-4 sm:text-base">
               <input
                 type="radio"
                 name="box-size"
@@ -103,7 +103,7 @@ export default function BuildABoxPage() {
                   setSaveError("");
                 }}
               />
-              <Package aria-hidden="true" className="h-5 w-5 text-primary" />
+              <Package aria-hidden="true" className="hidden h-5 w-5 shrink-0 text-primary min-[360px]:block" />
               <span>Box of {capacity}</span>
             </label>
           ))}
@@ -147,21 +147,21 @@ export default function BuildABoxPage() {
           )}
           <ul className="divide-y">
             {matchingLaddus.map((laddu) => (
-              <li key={laddu.id} className="flex items-center gap-3 py-3 sm:gap-4">
+              <li key={laddu.id} className="flex items-center gap-2 py-3 sm:gap-4">
                 {laddu.imageUrl && (
                   <Image src={laddu.imageUrl} alt="" width={52} height={52} className="h-12 w-12 shrink-0 rounded-md object-cover" />
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium">{laddu.name}</p>
+                  <p className="break-words font-medium">{laddu.name}</p>
                   <p className="text-sm text-muted-foreground">₹{laddu.price.toFixed(2)}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <Button type="button" variant="outline" size="icon" aria-label={`Remove one ${laddu.name}`}
+                  <Button type="button" variant="outline" size="icon" className="h-11 w-11" aria-label={`Remove one ${laddu.name}`}
                     disabled={saving || !quantities[laddu.id]} onClick={() => changeQuantity(laddu.id, -1)}>
                     <Minus aria-hidden="true" className="h-4 w-4" />
                   </Button>
                   <span className="min-w-5 text-center tabular-nums">{quantities[laddu.id] ?? 0}</span>
-                  <Button type="button" variant="outline" size="icon" aria-label={`Add one ${laddu.name}`}
+                  <Button type="button" variant="outline" size="icon" className="h-11 w-11" aria-label={`Add one ${laddu.name}`}
                     disabled={saving || count >= size} onClick={() => changeQuantity(laddu.id, 1)}>
                     <Plus aria-hidden="true" className="h-4 w-4" />
                   </Button>
