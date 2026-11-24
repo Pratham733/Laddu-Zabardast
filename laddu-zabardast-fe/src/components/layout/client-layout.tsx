@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { AuthProvider } from "@/context/auth-context";
+import { StorefrontProvider } from "@/context/storefront-context";
 import { CartProvider } from "@/context/cart-context";
 import { WishlistProvider } from "@/context/wishlist-context";
 import { ThemeProvider } from "@/context/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
 import { Navbar } from "./navbar";
+import { StoreContactLinks } from "./store-contact";
 import { BackgroundLaddu } from "@/components/animations/BackgroundLaddu";
 import {
   createTheme,
@@ -109,7 +111,8 @@ function MuiThemeAppWrapper({ children }: { children: React.ReactNode }) {
 export function ClientLayout({ children }: ClientLayoutProps) {
   const { pathname } = useLocation();
   const route = pathname.replace(/\/+$/, "");
-  const isAccountPage = route === "/login" || route === "/signup";
+  const isAccountPage = route === "/login" || route === "/signup" || route === "/google-sign-in" ||
+    route === "/forgot-password" || route === "/reset-password";
   return (
     <ThemeProvider
       attribute="class"
@@ -121,18 +124,23 @@ export function ClientLayout({ children }: ClientLayoutProps) {
         <AuthProvider>
           <CartProvider>
             <WishlistProvider>
-              <div className="relative min-h-screen flex flex-col">
-                <BackgroundLaddu />
-                {!isAccountPage && <Navbar />}
-                <main className="flex-1 container mx-auto px-4 py-8 relative z-10">
-                  {children}
-                </main>
-                <footer className="mt-auto py-4 text-center text-sm text-muted-foreground relative z-10">
-                  © {new Date().getFullYear()} Laddu Zabardast. All rights
-                  reserved.
-                </footer>
-              </div>
-              <Toaster />
+              <StorefrontProvider>
+                <div className={`relative min-h-screen flex flex-col ${isAccountPage ? "" : "bg-background"}`}>
+                  {isAccountPage && <BackgroundLaddu />}
+                  {!isAccountPage && <Navbar />}
+                  <main className={`flex-1 container mx-auto relative z-10 ${isAccountPage ? "px-4 py-8" : "px-0 py-4 sm:px-4 sm:py-8"}`}>
+                    {children}
+                  </main>
+                  <footer id="store-contact" className="relative z-10 mt-auto scroll-mt-20 px-4 py-4 text-center text-sm text-muted-foreground">
+                    {!isAccountPage && <div className="mb-2">
+                      <p className="font-semibold text-foreground">Contact Laddu Zabardast</p>
+                      <StoreContactLinks />
+                    </div>}
+                    <p>© {new Date().getFullYear()} Laddu Zabardast. All rights reserved.</p>
+                  </footer>
+                </div>
+                <Toaster />
+              </StorefrontProvider>
             </WishlistProvider>
           </CartProvider>
         </AuthProvider>

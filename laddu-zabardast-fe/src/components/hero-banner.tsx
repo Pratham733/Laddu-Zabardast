@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/carousel";
 import { getBanners } from "@/routes/banner";
 import type { BannerItem } from "@/models/banner";
+import { StoreIntro } from "@/components/store-intro";
 
 export function HeroCarousel() {
   const [banners, setBanners] = React.useState<BannerItem[]>([]);
@@ -86,7 +87,7 @@ export function HeroCarousel() {
   }
 
   if (banners.length === 0) {
-    return null;
+    return <StoreIntro />;
   }
 
   return (

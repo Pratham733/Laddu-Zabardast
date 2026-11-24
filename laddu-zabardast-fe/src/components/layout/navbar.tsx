@@ -1,3 +1,4 @@
+import { useStorefront } from "@/context/storefront-context";
 //src/components/layout/navbar.tsx
 
 import Link from "next/link";
@@ -31,6 +32,7 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
+  SheetDescription,
   SheetTrigger,
   SheetClose,
 } from "@/components/ui/sheet";
@@ -55,12 +57,12 @@ const POPULAR_SEARCHES = [
 ];
 
 const QUICK_CATEGORIES = [
-  { label: "Laddus", href: "/shop?category=laddu" },
-  { label: "Pickles", href: "/shop?category=pickle" },
-  { label: "Best Sellers", href: "/#bestsellers" },
-  { label: "Gift Boxes", href: "/#gifts" },
-  { label: "Create Your Box", href: "/build-a-box" },
-];
+  { label: "Laddus", shortcut: "laddu", href: "/shop?category=laddu" },
+  { label: "Pickles", shortcut: "pickle", href: "/shop?category=pickle" },
+  { label: "Best Sellers", shortcut: "bestsellers", href: "/shop?collection=bestsellers" },
+  { label: "Gift Boxes", shortcut: "gifts", href: "/shop?category=gift" },
+  { label: "Create Your Box", shortcut: "custom-box", href: "/build-a-box" },
+] as const;
 
 // Animation for hover/tap on interactive elements
 const interactiveVariants = {
@@ -69,6 +71,7 @@ const interactiveVariants = {
 };
 
 export function Navbar() {
+  const { hiddenShortcuts } = useStorefront();
   const { cart } = useCart();
   const { user, token, setToken, logout, isUserAdmin } = useAuth(); // Use auth context with logout
   const router = useRouter(); // Initialize router
@@ -80,6 +83,7 @@ export function Navbar() {
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -128,7 +132,6 @@ export function Navbar() {
 
   // Function to handle search submission (navigating to search page)
   const handleSearchSubmit = (query: string) => {
-    console.log("Submitting search for:", query);
     setIsPopoverOpen(false); // Close popover on submit
     setSearchQuery(""); // Clear input after submit
     if (query.trim()) {
@@ -760,7 +763,7 @@ export function Navbar() {
                               pb: 0.5,
                             }}
                           >
-                            {QUICK_CATEGORIES.map((cat) => (
+                            {QUICK_CATEGORIES.filter(cat => !hiddenShortcuts.includes(cat.shortcut)).map((cat) => (
                               <Box
                                 component="button"
                                 key={cat.label}
@@ -826,13 +829,12 @@ export function Navbar() {
               }}
               className="flex items-center gap-1 sm:gap-2 flex-shrink-0"
             >
-              <motion.div
-                variants={interactiveVariants}
-                whileHover="hover"
-                whileTap="tap"
-              >
-                <ThemeToggle />
-              </motion.div>
+              {user && (
+                <Button type="button" aria-label="Search products" onClick={() => setMobileSearchOpen(true)}
+                  sx={{ display: { xs: "inline-flex", sm: "none" }, color: "white", minWidth: 44, width: 44, height: 44, borderRadius: 2 }}>
+                  <Search className="h-5 w-5" />
+                </Button>
+              )}
 
               {Boolean(
                 !user || pathname === "/login" || pathname === "/signup",
@@ -862,7 +864,7 @@ export function Navbar() {
                   <Button
                     variant="text"
                     size="small"
-                    sx={{ color: "white" }}
+                    sx={{ color: "white", minWidth: 44, width: 44, height: 44, borderRadius: 2 }}
                     className="relative group text-white hover:bg-white/10 hover:text-white"
                     onClick={() => router.push("/cart")}
                   >
@@ -912,11 +914,11 @@ export function Navbar() {
                       <Button
                         variant="text"
                         size="small"
-                        sx={{ color: "white" }}
+                        sx={{ color: "white", minWidth: 44, width: 44, height: 44, borderRadius: 2 }}
                         className="relative group hover:bg-white/10 hover:text-white overflow-hidden"
                       >
                         <div className="absolute inset-0 bg-gradient-to-r from-white/5 to-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-full" />
-                        <Menu className="h-5 w-5 transform group-hover:rotate-180 transition-transform duration-500" />
+                        <Menu className="h-5 w-5" />
                         <div className="absolute inset-0 rounded-full border border-white/20 scale-0 group-hover:scale-100 transition-transform duration-200" />
                         <span className="absolute inset-0 rounded-full bg-white/10 opacity-0 group-hover:animate-ping" />
                         <span className="sr-only">Open menu</span>
@@ -924,68 +926,29 @@ export function Navbar() {
                     </SheetTrigger>
                     <SheetContent
                       side="right"
-                      className="w-full sm:w-[300px] bg-background text-foreground"
+                      className="w-[min(88vw,340px)] overflow-y-auto bg-background text-foreground"
                     >
                       <SheetHeader className="mb-4">
                         <SheetTitle className="text-lg font-semibold text-primary">
                           {user ? "My Account" : "Menu"}
                         </SheetTitle>
+                        <SheetDescription>Shop, manage orders, and make yourself at home.</SheetDescription>
                       </SheetHeader>
-
-                      <div className="px-2 pb-6 sm:hidden">
-                        <form
-                          onSubmit={(e) => {
-                            e.preventDefault();
-                            const formData = new FormData(e.currentTarget);
-                            const mobileQuery = formData.get(
-                              "mobile-search",
-                            ) as string;
-                            const sheetCloseButton = (e.target as HTMLElement)
-                              .closest('div[role="dialog"]')
-                              ?.querySelector('button[aria-label="Close"]');
-                            if (sheetCloseButton instanceof HTMLElement) {
-                              sheetCloseButton.click();
-                            }
-                            handleSearchSubmit(mobileQuery);
-                          }}
-                          className="flex items-center gap-2"
-                        >
-                          <div className="relative flex-1">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                            <Input
-                              type="search"
-                              name="mobile-search"
-                              placeholder="Search products..."
-                              className="pl-9 pr-3 w-full h-11 text-sm rounded-full bg-background"
-                            />
-                          </div>
-                          <Button
-                            type="submit"
-                            variant="contained"
-                            sx={{
-                              backgroundColor: "#ea580c !important",
-                              color: "#ffffff !important",
-                              borderColor: (theme) =>
-                                theme.palette.mode === "dark"
-                                  ? "#000000 !important"
-                                  : "#ffffff !important",
-                              border: "1.5px solid !important",
-                              borderRadius: "9999px !important",
-                              minWidth: 44,
-                              height: 44,
-                              p: 0,
-                              "&:hover": {
-                                backgroundColor: "#c2410c !important",
-                              },
-                            }}
-                          >
-                            <Search className="h-5 w-5" />
-                          </Button>
-                        </form>
-                      </div>
 
                       <nav className="flex flex-col gap-1">
                         {" "}
+                        {[
+                          { href: "/", label: "Home", icon: HomeIcon },
+                          { href: "/shop", label: "Shop", icon: Store },
+                          ...(!hiddenShortcuts.includes("custom-box") ? [{ href: "/build-a-box", label: "Create Your Box", icon: Package }] : []),
+                        ].map(({ href, label, icon: Icon }) => (
+                          <SheetClose asChild key={href}>
+                            <Link href={href} className="flex min-h-11 items-center rounded-lg px-4 py-3 text-sm font-medium hover:bg-accent">
+                              <Icon className="mr-3 h-5 w-5" />{label}
+                            </Link>
+                          </SheetClose>
+                        ))}
+                        <Separator className="my-2" />
                         {user ? (
                           <>
                             <SheetClose asChild>
@@ -1071,6 +1034,10 @@ export function Navbar() {
                           </>
                         )}
                       </nav>
+                      <div className="mt-6 border-t pt-4">
+                        <p className="mb-3 text-sm font-semibold">Appearance</p>
+                        <ThemeToggle />
+                      </div>
                     </SheetContent>
                   </Sheet>
                 </motion.div>
@@ -1079,7 +1046,25 @@ export function Navbar() {
           </div>
         </div>
       </motion.header>
-      <ScrollProgress className="top-16 h-1" />
+      <Sheet open={mobileSearchOpen} onOpenChange={setMobileSearchOpen}>
+        <SheetContent side="top" className="mx-auto max-w-xl rounded-b-2xl bg-background px-4 pb-6 pt-6">
+          <SheetHeader className="mb-4 text-left">
+            <SheetTitle>Search products</SheetTitle>
+            <SheetDescription>Find your favourite laddus, pickles, and gift boxes.</SheetDescription>
+          </SheetHeader>
+          <form role="search" onSubmit={(event) => {
+            event.preventDefault();
+            const query = new FormData(event.currentTarget).get("query");
+            if (typeof query !== "string" || !query.trim()) return;
+            setMobileSearchOpen(false);
+            handleSearchSubmit(query);
+          }} className="flex gap-2">
+            <Input name="query" type="search" autoFocus required aria-label="Search products" placeholder="Search laddus, pickles..." className="h-11 min-w-0 flex-1 rounded-lg" />
+            <Button type="submit" variant="contained" sx={{ borderRadius: 2, minHeight: 44, boxShadow: "none", textTransform: "none" }}>Search</Button>
+          </form>
+        </SheetContent>
+      </Sheet>
+      <ScrollProgress className="top-16 h-0.5 bg-none bg-orange-300" />
     </>
   );
 }

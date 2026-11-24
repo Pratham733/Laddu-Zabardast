@@ -1,5 +1,5 @@
+import { StoreContactLinks } from "./store-contact";
 import Link from "next/link";
-import { Mail } from "lucide-react"; // Import icons
 
 const LinkedinIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
@@ -47,13 +47,7 @@ export function Footer() {
           >
             <InstagramIcon className="h-5 w-5" />
           </Link>
-          <Link
-            href="mailto:spratham388@gmail.com"
-            className="text-primary-foreground/90 hover:text-primary-foreground transition-colors"
-            aria-label="Email"
-          >
-            <Mail className="h-5 w-5" />
-          </Link>
+          <StoreContactLinks />
           <span className="hidden sm:inline text-primary-foreground/70">|</span>{" "}
           {/* Separator */}
           {/* Policy Links - Use text-primary-foreground for hover on gradient */}
